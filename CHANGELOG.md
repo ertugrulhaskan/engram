@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project name and memory count `(N)`.
 - Show a type badge on each memory (`[user]`, `[feedback]`, `[project]`,
   `[reference]`, `[other]`) so its kind is visible at a glance.
+- Color-code type badges (user=blue, feedback=orange, project=green,
+  reference=purple, other=gray) and add typography: colored group headers,
+  indented rows, a `❯` cursor on the selected row, and dimmed descriptions.
+- Toggle grouping between by-project and by-type with `g`.
 
 ### Known gaps
 - `new` / `delete` do not yet update the project's `MEMORY.md` index.

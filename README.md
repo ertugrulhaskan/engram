@@ -61,6 +61,7 @@ engram
 | `n`        | create a new memory (in the current project) and open it |
 | `d`        | delete the selected memory (asks `y`/`n` first) |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
+| `g`        | toggle grouping: by project ⇄ by type   |
 | `q` / `ctrl+c` | quit                                |
 
 The left pane lists every memory found across all your projects, **grouped by
@@ -72,16 +73,17 @@ memory rendered as markdown.
 
 ## Understanding the list
 
-- **Grouping = project.** Memories are grouped under a `▌ project-name (N)` header
-  showing which Claude project they belong to and how many it has. Everything in
-  the list is **project-scoped** — it lives under one project's `memory/` folder.
-- **Badge = kind.** Each memory is tagged with its type, taken from Claude's
-  `metadata.type`:
-  - `[user]` — a fact about you (role, preferences)
-  - `[feedback]` — guidance on how to work
-  - `[project]` — something specific to that codebase
-  - `[reference]` — a pointer to an external resource
-  - `[other]` — no type recorded
+- **Grouping.** Rows are grouped under a colored `▌ Group (N)` header with a
+  count. Press `g` to toggle between grouping **by project** (which Claude
+  project a memory belongs to) and **by type**. The selected row is marked with a
+  `❯` cursor.
+- **Color-coded badge = kind.** Each memory shows a colored badge for its type,
+  taken from Claude's `metadata.type`:
+  - `[user]` (blue) — a fact about you (role, preferences)
+  - `[feedback]` (orange) — guidance on how to work
+  - `[project]` (green) — something specific to that codebase
+  - `[reference]` (purple) — a pointer to an external resource
+  - `[other]` (gray) — no type recorded
 - **No "global / all-projects" scope yet.** A cross-project scope (a memory that
   applies everywhere, or is shared with a team) is planned for **v2** — see
   [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` are a

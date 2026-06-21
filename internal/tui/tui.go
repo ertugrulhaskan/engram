@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -34,6 +35,14 @@ const (
 	modeConfirmDelete
 )
 
+// groupMode is the dimension the list is grouped by.
+type groupMode int
+
+const (
+	groupProject groupMode = iota
+	groupType
+)
+
 // typeCycle is the order the `t` key steps through. "" means "all types".
 var typeCycle = []memory.Type{
 	"",
@@ -45,24 +54,32 @@ var typeCycle = []memory.Type{
 }
 
 var (
-	projectHeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true)
-	helpStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	confirmStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
+	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true)
+	cursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true)
+	selTitle     = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true)
+	normTitle    = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	descText     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	confirmStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 )
 
-// item adapts memory.Memory to the bubbles/list.Item interface.
-type item struct {
-	mem          memory.Memory
-	firstInGroup bool // first item of its project group (for grouping headers)
-	groupCount   int  // size of this project group (set only on the first item)
+// typeColor maps a memory type to a distinct, readable color.
+func typeColor(t memory.Type) lipgloss.Color {
+	switch t {
+	case memory.TypeUser:
+		return lipgloss.Color("75") // blue
+	case memory.TypeFeedback:
+		return lipgloss.Color("214") // orange
+	case memory.TypeProject:
+		return lipgloss.Color("42") // green
+	case memory.TypeReference:
+		return lipgloss.Color("141") // purple
+	default:
+		return lipgloss.Color("244") // gray
+	}
 }
 
-func (i item) Title() string { return typeBadge(i.mem.Type) + " " + i.mem.Title }
-
-func (i item) Description() string { return i.mem.Description }
-
-// typeBadge returns a fixed-width bracketed label for a memory's type, so the
-// kind of each memory is visible at a glance, e.g. "[project]  ".
+// typeBadge returns a fixed-width bracketed label, e.g. "[project]  ".
 func typeBadge(t memory.Type) string {
 	label := string(t)
 	if label == "" || t == memory.TypeUnknown {
@@ -71,6 +88,31 @@ func typeBadge(t memory.Type) string {
 	return fmt.Sprintf("%-11s", "["+label+"]")
 }
 
+func typeLabel(t memory.Type) string {
+	switch t {
+	case memory.TypeUser:
+		return "User"
+	case memory.TypeFeedback:
+		return "Feedback"
+	case memory.TypeProject:
+		return "Project"
+	case memory.TypeReference:
+		return "Reference"
+	default:
+		return "Other"
+	}
+}
+
+// item adapts memory.Memory to the bubbles/list.Item interface.
+type item struct {
+	mem          memory.Memory
+	firstInGroup bool   // first item of its group (gets a header)
+	groupCount   int    // group size (set only on the first item)
+	groupLabel   string // header text for the group
+}
+
+func (i item) Title() string       { return i.mem.Title }
+func (i item) Description() string { return i.mem.Description }
 func (i item) FilterValue() string {
 	return i.mem.Title + " " + i.mem.Description + " " + i.mem.Project.Name
 }
@@ -83,16 +125,18 @@ type Model struct {
 	renderer *glamour.TermRenderer
 	memories []memory.Memory // full set, unfiltered
 	typeIdx  int             // index into typeCycle
+	groupBy  groupMode
 	focus    focus
 	mode     mode
 	status   string
+	width    int
 	ready    bool
 }
 
 // New builds the initial model from a set of memories.
 func New(mems []memory.Memory) Model {
-	l := list.New(buildItems(mems), newGroupDelegate(), 0, 0)
-	l.Title = "engram — memories"
+	l := list.New(buildGroupedItems(mems, groupProject), newGroupDelegate(), 0, 0)
+	l.Title = "engram — memories · by project"
 	l.SetShowHelp(true)
 
 	ti := textinput.New()
@@ -106,6 +150,7 @@ func New(mems []memory.Memory) Model {
 		memories: mems,
 		focus:    focusList,
 		mode:     modeNormal,
+		groupBy:  groupProject,
 	}
 }
 
@@ -114,9 +159,10 @@ func (m Model) Init() tea.Cmd { return nil }
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.width = msg.Width
 		listWidth := msg.Width * 2 / 5
-		if listWidth < 20 {
-			listWidth = 20
+		if listWidth < 24 {
+			listWidth = 24
 		}
 		previewWidth := msg.Width - listWidth - 4 // 4 = both panes' borders
 		if previewWidth < 20 {
@@ -197,7 +243,6 @@ func (m Model) handleNormalKey(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	if msg.String() == "ctrl+c" {
 		return true, m, tea.Quit
 	}
-	// While the list's own text filter is active, let it consume keys.
 	if m.list.FilterState() == list.Filtering {
 		return false, m, nil
 	}
@@ -229,6 +274,14 @@ func (m Model) handleNormalKey(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, m, nil
 	case "t":
 		m.typeIdx = (m.typeIdx + 1) % len(typeCycle)
+		m.applyFilter()
+		return true, m, nil
+	case "g":
+		if m.groupBy == groupProject {
+			m.groupBy = groupType
+		} else {
+			m.groupBy = groupProject
+		}
 		m.applyFilter()
 		return true, m, nil
 	}
@@ -298,6 +351,10 @@ func (m Model) View() string {
 }
 
 func (m Model) footerView() string {
+	w := m.width
+	if w <= 0 {
+		w = 200
+	}
 	switch m.mode {
 	case modeNewInput:
 		return m.input.View()
@@ -306,16 +363,18 @@ func (m Model) footerView() string {
 		if it, ok := m.list.SelectedItem().(item); ok {
 			title = it.mem.Title
 		}
-		return confirmStyle.Render("Delete \"" + title + "\"?  (y/n)")
+		return confirmStyle.Render(truncateStr("Delete \""+title+"\"?  (y/n)", w))
 	default:
+		text := "n new · e edit · d delete · t type · g group · / search · tab focus · q quit"
 		if m.status != "" {
-			return helpStyle.Render(m.status)
+			text = m.status
 		}
-		return helpStyle.Render("n new · e edit · d delete · t type · / search · tab focus · q quit")
+		return helpStyle.Render(truncateStr(text, w))
 	}
 }
 
-// applyFilter rebuilds the list from m.memories using the active type filter.
+// applyFilter re-sorts and rebuilds the list from m.memories using the active
+// type filter and grouping mode.
 func (m *Model) applyFilter() {
 	tf := typeCycle[m.typeIdx]
 	var sub []memory.Memory
@@ -324,11 +383,17 @@ func (m *Model) applyFilter() {
 			sub = append(sub, mm)
 		}
 	}
-	m.list.SetItems(buildItems(sub))
+	sortForGroup(sub, m.groupBy)
+	m.list.SetItems(buildGroupedItems(sub, m.groupBy))
 
-	title := "engram — memories"
+	title := "engram — memories · "
+	if m.groupBy == groupType {
+		title += "by type"
+	} else {
+		title += "by project"
+	}
 	if tf != "" {
-		title += " [type:" + string(tf) + "]"
+		title += " [" + string(tf) + "]"
 	}
 	m.list.Title = title
 	m.updatePreview()
@@ -369,19 +434,44 @@ func (m *Model) updatePreview() {
 	m.viewport.GotoTop()
 }
 
-// buildItems wraps memories as list items, marking the first of each project
-// group (memories are pre-sorted by project, so groups are contiguous).
-func buildItems(mems []memory.Memory) []list.Item {
+// --- grouping helpers ---
+
+func groupKeyOf(mm memory.Memory, by groupMode) string {
+	if by == groupType {
+		return string(mm.Type)
+	}
+	return mm.Project.Name
+}
+
+func groupLabelOf(mm memory.Memory, by groupMode) string {
+	if by == groupType {
+		return typeLabel(mm.Type)
+	}
+	return mm.Project.Name
+}
+
+func sortForGroup(mems []memory.Memory, by groupMode) {
+	sort.SliceStable(mems, func(i, j int) bool {
+		ki, kj := groupKeyOf(mems[i], by), groupKeyOf(mems[j], by)
+		if ki != kj {
+			return ki < kj
+		}
+		return mems[i].Title < mems[j].Title
+	})
+}
+
+// buildGroupedItems wraps memories as list items, marking the first of each
+// group and recording the group size on it (memories must already be sorted by
+// the same grouping key).
+func buildGroupedItems(mems []memory.Memory, by groupMode) []list.Item {
 	items := make([]list.Item, len(mems))
 	for i, mm := range mems {
-		first := i == 0 || mems[i-1].Project.Name != mm.Project.Name
-		items[i] = item{mem: mm, firstInGroup: first}
+		first := i == 0 || groupKeyOf(mems[i-1], by) != groupKeyOf(mm, by)
+		items[i] = item{mem: mm, firstInGroup: first, groupLabel: groupLabelOf(mm, by)}
 	}
-	// Record each project group's size on its first item so the header can
-	// show "(N)".
 	for i := 0; i < len(mems); {
 		j := i
-		for j < len(mems) && mems[j].Project.Name == mems[i].Project.Name {
+		for j < len(mems) && groupKeyOf(mems[j], by) == groupKeyOf(mems[i], by) {
 			j++
 		}
 		if it, ok := items[i].(item); ok {
@@ -401,9 +491,12 @@ func paneStyle(focused bool) lipgloss.Style {
 	return s.BorderForeground(lipgloss.Color("240"))
 }
 
-// groupDelegate renders a project header above the first item of each group.
-// It reserves one extra (otherwise blank) line per item so total item height
-// stays uniform — a requirement of bubbles/list pagination.
+// --- list item delegate ---
+
+// groupDelegate fully renders each row: an optional colored group header, a
+// colored type badge + title with a selection cursor, and a dimmed description.
+// Every item is a uniform 3 lines tall (header line is blank when not the first
+// of a group), which bubbles/list requires for correct pagination.
 type groupDelegate struct {
 	list.DefaultDelegate
 }
@@ -414,19 +507,68 @@ func newGroupDelegate() groupDelegate {
 	return groupDelegate{d}
 }
 
-func (d groupDelegate) Height() int { return d.DefaultDelegate.Height() + 1 }
+func (d groupDelegate) Height() int  { return 3 }
+func (d groupDelegate) Spacing() int { return 0 }
 
 func (d groupDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	it, ok := listItem.(item)
+	if !ok {
+		fmt.Fprint(w, "\n\n")
+		return
+	}
+
+	width := m.Width()
+	if width <= 0 {
+		width = 40
+	}
+
+	// Line 1: group header (or blank, to keep the row height uniform).
 	header := ""
-	if it, ok := listItem.(item); ok && it.firstInGroup {
-		label := "▌ " + it.mem.Project.Name
+	if it.firstInGroup {
+		label := "▌ " + it.groupLabel
 		if it.groupCount > 0 {
 			label += fmt.Sprintf(" (%d)", it.groupCount)
 		}
-		header = projectHeaderStyle.Render(label)
+		header = headerStyle.Render(truncateStr(label, width))
 	}
-	fmt.Fprintln(w, header)
-	d.DefaultDelegate.Render(w, m, index, listItem)
+
+	// Line 2: cursor + colored type badge + title.
+	cursor := "  "
+	titleStyle := normTitle
+	if index == m.Index() {
+		cursor = cursorStyle.Render("❯ ")
+		titleStyle = selTitle
+	}
+	badge := lipgloss.NewStyle().Foreground(typeColor(it.mem.Type)).Bold(true).
+		Render(typeBadge(it.mem.Type))
+	titleBudget := width - 15 // cursor(2) + badge(11) + space(1) + safety(1)
+	if titleBudget < 1 {
+		titleBudget = 1
+	}
+	titleLine := cursor + badge + " " + titleStyle.Render(truncateStr(it.mem.Title, titleBudget))
+
+	// Line 3: indented, dimmed description.
+	descBudget := width - 5
+	if descBudget < 1 {
+		descBudget = 1
+	}
+	descLine := "    " + descText.Render(truncateStr(it.mem.Description, descBudget))
+
+	fmt.Fprintf(w, "%s\n%s\n%s", header, titleLine, descLine)
+}
+
+func truncateStr(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n == 1 {
+		return "…"
+	}
+	return string(r[:n-1]) + "…"
 }
 
 // --- editing ---
