@@ -70,6 +70,23 @@ memory rendered as markdown.
 > Note: `new` and `delete` change the memory files but do **not** yet update the
 > project's `MEMORY.md` index — that sync is a tracked follow-up.
 
+## Understanding the list
+
+- **Grouping = project.** Memories are grouped under a `▌ project-name (N)` header
+  showing which Claude project they belong to and how many it has. Everything in
+  the list is **project-scoped** — it lives under one project's `memory/` folder.
+- **Badge = kind.** Each memory is tagged with its type, taken from Claude's
+  `metadata.type`:
+  - `[user]` — a fact about you (role, preferences)
+  - `[feedback]` — guidance on how to work
+  - `[project]` — something specific to that codebase
+  - `[reference]` — a pointer to an external resource
+  - `[other]` — no type recorded
+- **No "global / all-projects" scope yet.** A cross-project scope (a memory that
+  applies everywhere, or is shared with a team) is planned for **v2** — see
+  [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` are a
+  separate file that engram does not read in v1.
+
 ## How it works
 
 `engram` reads memory files from `~/.claude/projects/*/memory/*.md`. It supports

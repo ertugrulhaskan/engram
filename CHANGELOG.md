@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Delete the selected memory (`d`) with a `y`/`n` confirmation.
 - Cycle a type filter (`t`): all → user → feedback → project → reference →
   unknown.
-- Group the memory list by project, with a colored header per group.
+- Group the memory list by project, with a colored header per group showing the
+  project name and memory count `(N)`.
+- Show a type badge on each memory (`[user]`, `[feedback]`, `[project]`,
+  `[reference]`, `[other]`) so its kind is visible at a glance.
 
 ### Known gaps
 - `new` / `delete` do not yet update the project's `MEMORY.md` index.

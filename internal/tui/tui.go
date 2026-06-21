@@ -54,11 +54,22 @@ var (
 type item struct {
 	mem          memory.Memory
 	firstInGroup bool // first item of its project group (for grouping headers)
+	groupCount   int  // size of this project group (set only on the first item)
 }
 
-func (i item) Title() string { return i.mem.Title }
+func (i item) Title() string { return typeBadge(i.mem.Type) + " " + i.mem.Title }
 
 func (i item) Description() string { return i.mem.Description }
+
+// typeBadge returns a fixed-width bracketed label for a memory's type, so the
+// kind of each memory is visible at a glance, e.g. "[project]  ".
+func typeBadge(t memory.Type) string {
+	label := string(t)
+	if label == "" || t == memory.TypeUnknown {
+		label = "other"
+	}
+	return fmt.Sprintf("%-11s", "["+label+"]")
+}
 
 func (i item) FilterValue() string {
 	return i.mem.Title + " " + i.mem.Description + " " + i.mem.Project.Name
@@ -366,6 +377,19 @@ func buildItems(mems []memory.Memory) []list.Item {
 		first := i == 0 || mems[i-1].Project.Name != mm.Project.Name
 		items[i] = item{mem: mm, firstInGroup: first}
 	}
+	// Record each project group's size on its first item so the header can
+	// show "(N)".
+	for i := 0; i < len(mems); {
+		j := i
+		for j < len(mems) && mems[j].Project.Name == mems[i].Project.Name {
+			j++
+		}
+		if it, ok := items[i].(item); ok {
+			it.groupCount = j - i
+			items[i] = it
+		}
+		i = j
+	}
 	return items
 }
 
@@ -395,7 +419,11 @@ func (d groupDelegate) Height() int { return d.DefaultDelegate.Height() + 1 }
 func (d groupDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	header := ""
 	if it, ok := listItem.(item); ok && it.firstInGroup {
-		header = projectHeaderStyle.Render("▌ " + it.mem.Project.Name)
+		label := "▌ " + it.mem.Project.Name
+		if it.groupCount > 0 {
+			label += fmt.Sprintf(" (%d)", it.groupCount)
+		}
+		header = projectHeaderStyle.Render(label)
 	}
 	fmt.Fprintln(w, header)
 	d.DefaultDelegate.Render(w, m, index, listItem)
