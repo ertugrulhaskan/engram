@@ -11,7 +11,7 @@ import (
 
 // indexLineRe matches a MEMORY.md index line:
 //
-//	- [Title](file.md) — hook
+//   - [Title](file.md) — hook
 //
 // The separator may be an em-dash, en-dash, or hyphen, and is optional.
 var indexLineRe = regexp.MustCompile(`^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*(?:[—–-]+\s*)?(.*)$`)
@@ -31,6 +31,9 @@ func parseFile(path string, index map[string]indexEntry) (Memory, error) {
 		Path: path,
 		Raw:  raw,
 		Type: TypeUnknown,
+	}
+	if info, err := os.Stat(path); err == nil {
+		m.Modified = info.ModTime()
 	}
 
 	fmText, body, hasFM := splitFrontmatter(raw)

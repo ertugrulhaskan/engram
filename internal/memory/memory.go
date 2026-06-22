@@ -2,6 +2,8 @@
 // UI code.
 package memory
 
+import "time"
+
 // Type is the category of a memory, taken from Claude's `metadata.type`.
 type Type string
 
@@ -19,9 +21,10 @@ type Memory struct {
 	Title       string // human-readable title
 	Description string // one-line hook
 	Type        Type
-	Body        string // markdown body, frontmatter stripped
-	Raw         string // full original file contents
-	Path        string // absolute path on disk
+	Body        string    // markdown body, frontmatter stripped
+	Raw         string    // full original file contents
+	Path        string    // absolute path on disk
+	Modified    time.Time // file modification time
 	Project     Project
 }
 
