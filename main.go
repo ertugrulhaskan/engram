@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ertughaskan/engram/internal/memory"
-	"github.com/ertughaskan/engram/internal/tui"
+	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/tui"
 )
 
 func main() {

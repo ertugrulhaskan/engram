@@ -1,4 +1,4 @@
-module github.com/ertughaskan/engram
+module github.com/ertugrulhaskan/engram
 
 go 1.23
 

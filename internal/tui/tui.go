@@ -17,7 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 
-	"github.com/ertughaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 type focus int

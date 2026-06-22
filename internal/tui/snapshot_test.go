@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ertughaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 func mem(title, desc string, t memory.Type, proj, path, date string) memory.Memory {

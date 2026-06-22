@@ -3,7 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ertughaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 // Theme is a full color scheme for the UI. Colors are hex strings so they keep
