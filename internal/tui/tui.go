@@ -4,19 +4,18 @@ package tui
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 
 	"github.com/ertughaskan/engram/internal/memory"
 )
@@ -32,11 +31,11 @@ type mode int
 
 const (
 	modeNormal mode = iota
-	modeNewInput
-	modeConfirmDelete
+	modeFilter
+	modeNew
+	modeConfirm
 )
 
-// groupMode is the dimension the list is sorted/clustered by.
 type groupMode int
 
 const (
@@ -44,12 +43,10 @@ const (
 	groupType
 )
 
-// Layout constants.
 const (
-	metaHeaderHeight = 4  // preview card: title, meta, path, rule
-	listHeaderHeight = 2  // list: column labels + rule
-	typeColW         = 4  // "TYPE" tag column
-	rightColW        = 12 // MODIFIED / PROJECT column
+	badgeWidth  = 11 // width of the widest "[reference]" badge field
+	previewPad  = 2  // left margin between the divider and preview content
+	maxReadCols = 88 // cap the prose line length on wide terminals for readability
 )
 
 // typeCycle is the order the `t` key steps through. "" means "all types".
@@ -62,315 +59,348 @@ var typeCycle = []memory.Type{
 	memory.TypeUnknown,
 }
 
-// Palette. A single cyan accent for engram's chrome (brand, selection, active
-// state) over the terminal's own near-black background — no painted backdrop.
-// The type colors below stay reserved for memory categories.
-var (
-	cAccent = lipgloss.Color("45")  // engram cyan — brand & selection
-	cInk    = lipgloss.Color("16")  // near-black, for text on the accent
-	cBright = lipgloss.Color("231") // brightest text
-	cText   = lipgloss.Color("252") // primary text
-	cDim    = lipgloss.Color("245") // secondary text
-	cFaint  = lipgloss.Color("240") // tertiary text & rules
-	cBarBg  = lipgloss.Color("236") // top/bottom bar background
-	cChip   = lipgloss.Color("245") // keycap chip background
-	cBorder = lipgloss.Color("238") // unfocused pane border
-	cDanger = lipgloss.Color("203") // destructive confirm
+// rowKind distinguishes the three kinds of display rows in the list.
+type rowKind int
+
+const (
+	rowMemory rowKind = iota
+	rowHeader
+	rowSpacer
 )
 
-var (
-	brandStyle   = lipgloss.NewStyle().Foreground(cInk).Background(cAccent).Bold(true).Padding(0, 1)
-	barStyle     = lipgloss.NewStyle().Foreground(cDim).Background(cBarBg)
-	bcStyle      = lipgloss.NewStyle().Foreground(cDim).Background(cBarBg)
-	statStyle    = lipgloss.NewStyle().Foreground(cText).Background(cBarBg).Bold(true).Padding(0, 1)
-	colHeadStyle = lipgloss.NewStyle().Foreground(cDim).Bold(true)
-	ruleStyle    = lipgloss.NewStyle().Foreground(cFaint)
-	normTitle    = lipgloss.NewStyle().Foreground(cText)
-	dimStyle     = lipgloss.NewStyle().Foreground(cDim)
-	selStyle     = lipgloss.NewStyle().Foreground(cInk).Background(cAccent).Bold(true)
-	metaTitle    = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
-	metaInfo     = lipgloss.NewStyle().Foreground(cDim)
-	metaPath     = lipgloss.NewStyle().Foreground(cFaint).Italic(true)
-	keycapStyle  = lipgloss.NewStyle().Foreground(cInk).Background(cChip).Bold(true)
-	keyLabel     = lipgloss.NewStyle().Foreground(cDim).Background(cBarBg)
-	confirmStyle = lipgloss.NewStyle().Foreground(cDanger).Bold(true).Padding(0, 1)
-)
-
-// typeColor maps a memory type to a distinct, readable color.
-func typeColor(t memory.Type) lipgloss.Color {
-	switch t {
-	case memory.TypeUser:
-		return lipgloss.Color("75") // blue
-	case memory.TypeFeedback:
-		return lipgloss.Color("214") // orange
-	case memory.TypeProject:
-		return lipgloss.Color("42") // green
-	case memory.TypeReference:
-		return lipgloss.Color("141") // purple
-	default:
-		return lipgloss.Color("244") // gray
-	}
-}
-
-func typeLabel(t memory.Type) string {
-	switch t {
-	case memory.TypeUser:
-		return "User"
-	case memory.TypeFeedback:
-		return "Feedback"
-	case memory.TypeProject:
-		return "Project"
-	case memory.TypeReference:
-		return "Reference"
-	default:
-		return "Other"
-	}
-}
-
-// typeTag is the fixed-width column code for a memory type.
-func typeTag(t memory.Type) string {
-	switch t {
-	case memory.TypeUser:
-		return "USER"
-	case memory.TypeFeedback:
-		return "FEED"
-	case memory.TypeProject:
-		return "PROJ"
-	case memory.TypeReference:
-		return "REF "
-	default:
-		return "MISC"
-	}
-}
-
-// item adapts memory.Memory to the bubbles/list.Item interface.
-type item struct{ mem memory.Memory }
-
-func (i item) Title() string       { return i.mem.Title }
-func (i item) Description() string { return i.mem.Description }
-func (i item) FilterValue() string {
-	return i.mem.Title + " " + i.mem.Description + " " + i.mem.Project.Name
+type row struct {
+	kind  rowKind
+	mem   memory.Memory
+	label string // header label
+	color string // header color (hex)
+	count int    // header group size
 }
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	list     list.Model
-	viewport viewport.Model
-	input    textinput.Model
-	renderer *glamour.TermRenderer
 	memories []memory.Memory // full set, unfiltered
-	home     string          // cached home dir for path prettifying
-	typeIdx  int             // index into typeCycle
-	groupBy  groupMode
-	focus    focus
-	mode     mode
-	status   string
-	width    int
-	ready    bool
+	rows     []row           // computed display rows (headers + memories + spacers)
+	cursor   int             // index into rows; always points at a rowMemory
+	top      int             // first visible row index (scroll offset)
+
+	viewport     viewport.Model
+	search       textinput.Model
+	input        textinput.Model
+	renderer     *glamour.TermRenderer
+	previewCache map[string]string // rendered body keyed by path; cleared on resize/theme/reload
+
+	themeIdx  int
+	typeIdx   int
+	groupBy   groupMode
+	focus     focus
+	mode      mode
+	status    string
+	statusSeq int // generation, so an old auto-dismiss timer can't clear a newer status
+
+	width, height           int
+	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
+	ready                   bool
 }
 
 // New builds the initial model from a set of memories.
 func New(mems []memory.Memory) Model {
-	sorted := append([]memory.Memory(nil), mems...)
-	sortForGroup(sorted, groupProject)
+	t := themes[0]
 
-	l := list.New(wrapItems(sorted), newRowDelegate(groupProject), 0, 0)
-	// engram draws its own chrome (top bar, footer, search, column header), so
-	// the list's own title/filter/status/pagination are silenced.
-	l.SetShowTitle(false)
-	l.SetShowFilter(false)
-	l.SetShowHelp(false)
-	l.SetShowStatusBar(false)
-	l.SetShowPagination(false)
-	l.FilterInput.PromptStyle = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
-	l.FilterInput.Prompt = "search ❯ "
+	se := textinput.New()
+	se.Prompt = "/ "
+	se.PromptStyle = fgb(t.Accent)
+	se.Cursor.Style = fg(t.Accent)
+	se.CharLimit = 64
 
 	ti := textinput.New()
-	ti.Prompt = "new memory ❯ "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
+	ti.Prompt = "› "
+	ti.PromptStyle = fgb(t.Accent)
+	ti.Cursor.Style = fg(t.Accent)
 	ti.CharLimit = 120
-	ti.Width = 50
 
-	home, _ := os.UserHomeDir()
-
-	return Model{
-		list:     l,
-		input:    ti,
+	m := Model{
 		memories: mems,
-		home:     home,
+		search:   se,
+		input:    ti,
 		focus:    focusList,
 		mode:     modeNormal,
 		groupBy:  groupProject,
 	}
+	m.rebuildRows()
+	return m
 }
 
+func (m Model) theme() Theme { return themes[m.themeIdx] }
+
 func (m Model) Init() tea.Cmd { return nil }
+
+// clearStatusMsg auto-dismisses a transient status after its timer elapses.
+type clearStatusMsg struct{ seq int }
+
+// setStatus shows a transient footer message and returns a command that clears
+// it after a short delay (unless a newer status replaces it first).
+func (m *Model) setStatus(s string) tea.Cmd {
+	m.status = s
+	m.statusSeq++
+	seq := m.statusSeq
+	return tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+		return clearStatusMsg{seq: seq}
+	})
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		listWidth := msg.Width * 2 / 5
-		if listWidth < 24 {
-			listWidth = 24
-		}
-		previewWidth := msg.Width - listWidth - 4 // 4 = both panes' borders
-		if previewWidth < 20 {
-			previewWidth = 20
-		}
-		// height − top bar(1) − footer(1) − pane top/bottom borders(2).
-		contentHeight := msg.Height - 4
-		if contentHeight < 6 {
-			contentHeight = 6
-		}
-		listHeight := contentHeight - listHeaderHeight
-		if listHeight < 1 {
-			listHeight = 1
-		}
-		viewportHeight := contentHeight - metaHeaderHeight
-		if viewportHeight < 1 {
-			viewportHeight = 1
-		}
-
-		m.list.SetSize(listWidth, listHeight)
-		if !m.ready {
-			m.viewport = viewport.New(previewWidth, viewportHeight)
-			m.ready = true
-		} else {
-			m.viewport.Width = previewWidth
-			m.viewport.Height = viewportHeight
-		}
-		if w := msg.Width - 20; w > 10 {
-			m.input.Width = w
-		}
-		if r, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
-			glamour.WithWordWrap(previewWidth-2),
-		); err == nil {
-			m.renderer = r
-		}
-		m.updatePreview()
+		m.resize(msg.Width, msg.Height)
 		return m, nil
 
 	case editorFinishedMsg:
+		if msg.err != nil {
+			return m, m.setStatus("editor error: " + msg.err.Error())
+		}
 		return m, reloadCmd()
 
 	case reloadMsg:
-		idx := m.list.Index()
-		m.memories = msg.mems
-		m.applyFilter()
-		if items := m.list.Items(); idx >= 0 && idx < len(items) {
-			m.list.Select(idx)
+		if msg.err != nil {
+			return m, m.setStatus("reload failed: " + msg.err.Error())
 		}
-		m.updatePreview()
+		m.memories = msg.mems
+		m.previewCache = nil
+		m.rebuildRows()
+		return m, nil
+
+	case clearStatusMsg:
+		if msg.seq == m.statusSeq {
+			m.status = ""
+		}
 		return m, nil
 
 	case tea.KeyMsg:
 		switch m.mode {
-		case modeNewInput:
-			return m.updateNewInput(msg)
-		case modeConfirmDelete:
+		case modeFilter:
+			return m.updateFilter(msg)
+		case modeNew:
+			return m.updateNew(msg)
+		case modeConfirm:
 			return m.updateConfirm(msg)
+		default:
+			return m.updateNormal(msg)
 		}
-		if handled, nm, cmd := m.handleNormalKey(msg); handled {
-			return nm, cmd
-		}
 	}
-
-	// Default routing.
-	if m.mode == modeNewInput {
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
-	}
-	var cmd tea.Cmd
-	if m.focus == focusPreview {
-		m.viewport, cmd = m.viewport.Update(msg)
-		return m, cmd
-	}
-	prevIndex := m.list.Index()
-	m.list, cmd = m.list.Update(msg)
-	if m.list.Index() != prevIndex {
-		m.updatePreview()
-	}
-	return m, cmd
+	return m, nil
 }
 
-// handleNormalKey processes keys in normal mode. It returns handled=false to let
-// the key fall through to the focused pane (list navigation, filtering, etc.).
-func (m Model) handleNormalKey(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
-	if msg.String() == "ctrl+c" {
-		return true, m, tea.Quit
+func (m *Model) resize(w, h int) {
+	m.width, m.height = w, h
+
+	// Split into list | divider(1) | preview so the three always sum to width
+	// (no horizontal overflow even on narrow terminals).
+	m.listW = w * 2 / 5
+	if m.listW < 20 {
+		m.listW = 20
 	}
-	if m.list.FilterState() == list.Filtering {
-		return false, m, nil
+	if m.listW > w-2 { // keep previewW >= 1
+		m.listW = w - 2
+	}
+	if m.listW < 1 {
+		m.listW = 1
+	}
+	m.previewW = w - m.listW - 1
+	if m.previewW < 1 {
+		m.previewW = 1
 	}
 
+	// Chrome is 4 lines (top bar, sub row, bottom rule, bottom bar) and we leave
+	// the terminal's final row unwritten — filling the very last cell makes some
+	// terminals scroll the alt-screen buffer on each repaint, which shows up as
+	// blank scrollback with the UI pinned to the bottom. That single reservation
+	// is the whole scroll fix; no force-clear or frame clamp needed.
+	m.panesH = h - 5
+	if m.panesH < 6 {
+		m.panesH = 6
+	}
+	m.search.Width = m.listW - 4
+	if m.search.Width < 1 {
+		m.search.Width = 1
+	}
+	m.input.Width = m.previewW
+	m.previewCache = nil // width changed — rendered bodies must re-wrap
+
+	vpH := m.panesH - 4 // preview meta header is 4 lines
+	if vpH < 1 {
+		vpH = 1
+	}
+	innerW := m.previewW - previewPad
+	if innerW < 10 {
+		innerW = 10
+	}
+	if !m.ready {
+		m.viewport = viewport.New(innerW, vpH)
+		m.ready = true
+	} else {
+		m.viewport.Width = innerW
+		m.viewport.Height = vpH
+	}
+	m.buildRenderer()
+	m.ensureVisible()
+	m.syncPreview()
+}
+
+func (m *Model) buildRenderer() {
+	if m.previewW <= 0 {
+		return
+	}
+	wrap := m.previewW - previewPad
+	if wrap > maxReadCols {
+		wrap = maxReadCols
+	}
+	if wrap < 1 {
+		wrap = 1
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(m.theme().Glamour),
+		glamour.WithWordWrap(wrap),
+	)
+	if err == nil {
+		m.renderer = r
+	}
+}
+
+// --- normal-mode keys ---
+
+func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any normal-mode key clears a lingering status (e.g. "deleted"), so the
+	// footer reverts to the key hints — the status line is a transient toast.
+	m.status = ""
 	switch msg.String() {
-	case "q":
-		return true, m, tea.Quit
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "1", "2", "3", "4", "5":
+		idx := int(msg.String()[0] - '1')
+		if idx < len(themes) {
+			m.themeIdx = idx
+			m.search.PromptStyle = fgb(m.theme().Accent)
+			m.input.PromptStyle = fgb(m.theme().Accent)
+			m.previewCache = nil // glamour style changed
+			m.rebuildRows()
+			m.buildRenderer()
+			m.syncPreview()
+		}
+		return m, nil
 	case "tab":
 		if m.focus == focusList {
 			m.focus = focusPreview
 		} else {
 			m.focus = focusList
 		}
-		return true, m, nil
-	case "e":
-		if it, ok := m.list.SelectedItem().(item); ok {
-			return true, m, editCmd(it.mem.Path)
+		return m, nil
+	case "up", "k":
+		if m.focus == focusPreview {
+			m.viewport.LineUp(1)
+		} else {
+			m.move(-1)
 		}
-		return true, m, nil
-	case "n":
-		m.mode = modeNewInput
-		m.status = ""
-		m.input.SetValue("")
-		return true, m, m.input.Focus()
-	case "d":
-		if _, ok := m.list.SelectedItem().(item); ok {
-			m.mode = modeConfirmDelete
+		return m, nil
+	case "down", "j":
+		if m.focus == focusPreview {
+			m.viewport.LineDown(1)
+		} else {
+			m.move(1)
 		}
-		return true, m, nil
-	case "t":
-		m.typeIdx = (m.typeIdx + 1) % len(typeCycle)
-		m.applyFilter()
-		return true, m, nil
+		return m, nil
+	case "pgup":
+		if m.focus == focusPreview {
+			m.viewport.HalfViewUp()
+		} else {
+			m.page(-1)
+		}
+		return m, nil
+	case "pgdown":
+		if m.focus == focusPreview {
+			m.viewport.HalfViewDown()
+		} else {
+			m.page(1)
+		}
+		return m, nil
 	case "g":
 		if m.groupBy == groupProject {
 			m.groupBy = groupType
 		} else {
 			m.groupBy = groupProject
 		}
-		m.applyFilter()
-		return true, m, nil
+		m.rebuildRows()
+		return m, nil
+	case "t":
+		m.typeIdx = (m.typeIdx + 1) % len(typeCycle)
+		m.rebuildRows()
+		return m, nil
+	case "/":
+		m.mode = modeFilter
+		m.focus = focusList
+		return m, m.search.Focus()
+	case "esc":
+		if m.search.Value() != "" {
+			m.search.SetValue("")
+			m.rebuildRows()
+		}
+		return m, nil
+	case "e":
+		if mm, ok := m.selected(); ok {
+			return m, editCmd(mm.Path)
+		}
+		return m, nil
+	case "n":
+		m.mode = modeNew
+		m.input.SetValue("")
+		return m, m.input.Focus()
+	case "d":
+		if _, ok := m.selected(); ok {
+			m.mode = modeConfirm
+		}
+		return m, nil
 	}
-	return false, m, nil
+	return m, nil
 }
 
-func (m Model) updateNewInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = modeNormal
+		m.search.SetValue("")
+		m.search.Blur()
+		m.rebuildRows()
+		return m, nil
+	case "enter":
+		m.mode = modeNormal
+		m.search.Blur()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.search, cmd = m.search.Update(msg)
+	m.rebuildRows()
+	return m, cmd
+}
+
+func (m Model) updateNew(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+c":
 		m.mode = modeNormal
 		m.input.Blur()
-		m.status = "cancelled"
-		return m, nil
+		return m, m.setStatus("cancelled")
 	case "enter":
 		title := strings.TrimSpace(m.input.Value())
 		m.mode = modeNormal
 		m.input.Blur()
 		if title == "" {
-			m.status = "cancelled"
-			return m, nil
+			return m, m.setStatus("cancelled")
 		}
-		memDir := m.currentMemDir()
-		if memDir == "" {
-			m.status = "no project to add to"
-			return m, nil
+		dir := m.currentMemDir()
+		if dir == "" {
+			return m, m.setStatus("no project to add to")
 		}
-		path, err := memory.Create(memDir, title)
+		path, err := memory.Create(dir, title)
 		if err != nil {
-			m.status = "create failed: " + err.Error()
-			return m, nil
+			return m, m.setStatus("create failed: " + err.Error())
 		}
 		return m, editCmd(path)
 	}
@@ -383,199 +413,175 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "y", "Y":
 		m.mode = modeNormal
-		if it, ok := m.list.SelectedItem().(item); ok {
-			if err := memory.Delete(it.mem.Path); err != nil {
-				m.status = "delete failed: " + err.Error()
-				return m, nil
+		if mm, ok := m.selected(); ok {
+			if err := memory.Delete(mm.Path); err != nil {
+				return m, m.setStatus("delete failed: " + err.Error())
 			}
-			m.status = "deleted"
-			return m, reloadCmd()
+			return m, tea.Batch(m.setStatus("deleted “"+clip(mm.Title, 40)+"”"), reloadCmd())
 		}
 		return m, nil
 	default:
 		m.mode = modeNormal
-		m.status = "cancelled"
-		return m, nil
+		return m, m.setStatus("cancelled")
 	}
 }
 
-func (m Model) View() string {
-	if !m.ready {
-		return "loading…"
-	}
-	left := paneStyle(m.focus == focusList).Render(
-		lipgloss.JoinVertical(lipgloss.Left, m.listHeaderView(), m.list.View()),
-	)
-	right := paneStyle(m.focus == focusPreview).Render(
-		lipgloss.JoinVertical(lipgloss.Left, m.previewHeaderView(), m.viewport.View()),
-	)
-	panes := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	return lipgloss.JoinVertical(lipgloss.Left, m.headerView(), panes, m.footerView())
-}
+// --- list model ---
 
-// headerView renders the top bar: an accent ENGRAM chip, a breadcrumb of the
-// active scope, and a right-aligned counts chip. Content degrades gracefully on
-// narrow terminals.
-func (m Model) headerView() string {
-	w := m.width
-	if w <= 0 {
-		w = 80
-	}
-	brand := brandStyle.Render("ENGRAM")
-
-	nMem := len(m.memories)
-	seen := map[string]struct{}{}
-	for _, mm := range m.memories {
-		seen[mm.Project.Name] = struct{}{}
-	}
-
-	scope := "BY PROJECT"
-	if m.groupBy == groupType {
-		scope = "BY TYPE"
-	}
-	typeScope := "ALL TYPES"
-	if tf := typeCycle[m.typeIdx]; tf != "" {
-		typeScope = strings.ToUpper(typeLabel(tf))
-	}
-	query := ""
-	if q := strings.TrimSpace(m.list.FilterInput.Value()); q != "" && m.list.FilterState() == list.FilterApplied {
-		query = " · “" + q + "”"
-	}
-
-	bcFull := scope + " · " + typeScope + query
-	bcShort := scope + query
-	statFull := fmt.Sprintf("%d MEMORIES · %d PROJECTS", nMem, len(seen))
-	statShort := fmt.Sprintf("%d MEM", nMem)
-
-	for _, c := range []struct{ bc, st string }{
-		{bcFull, statFull}, {bcFull, statShort}, {bcShort, statShort}, {"", statShort},
-	} {
-		left := lipgloss.JoinHorizontal(lipgloss.Top, brand, bcStyle.Render("  "+c.bc))
-		right := statStyle.Render(c.st)
-		gap := w - lipgloss.Width(left) - lipgloss.Width(right)
-		if gap >= 0 {
-			return lipgloss.JoinHorizontal(lipgloss.Top, left, barStyle.Render(spaces(gap)), right)
-		}
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, brand, barStyle.Render(spaces(max(0, w-lipgloss.Width(brand)))))
-}
-
-// listHeaderView renders the table column header above the scrolling rows.
-func (m Model) listHeaderView() string {
-	w := m.list.Width()
-	if w <= 0 {
-		w = 40
-	}
-	nameW := w - typeColW - rightColW - 2
-	if nameW < 4 {
-		nameW = 4
-	}
-	rightLabel := "MODIFIED"
-	if m.groupBy == groupType {
-		rightLabel = "PROJECT"
-	}
-	head := colHeadStyle.Render(fit("TYPE", typeColW)) + " " +
-		colHeadStyle.Render(fit("NAME", nameW)) + " " +
-		colHeadStyle.Render(fitRight(rightLabel, rightColW))
-	rule := ruleStyle.Render(strings.Repeat("─", w))
-	return lipgloss.JoinVertical(lipgloss.Left, head, rule)
-}
-
-// previewHeaderView is the fixed metadata card above the scrolling preview body.
-func (m Model) previewHeaderView() string {
-	w := m.viewport.Width
-	if w <= 0 {
-		w = 40
-	}
-	it, ok := m.list.SelectedItem().(item)
-	if !ok {
-		return metaInfo.Render("no memory selected") + strings.Repeat("\n", metaHeaderHeight-1)
-	}
-	title := metaTitle.Render(truncateStr(it.mem.Title, w))
-	tag := lipgloss.NewStyle().Foreground(typeColor(it.mem.Type)).Bold(true).Render(typeTag(it.mem.Type))
-	info := tag + "  " + metaInfo.Render(truncateStr(it.mem.Project.Name+"  ·  "+fmtDate(it.mem.Modified), w-6))
-	path := metaPath.Render(truncateLeft(m.prettyPath(it.mem.Path), w))
-	rule := ruleStyle.Render(strings.Repeat("─", w))
-	return lipgloss.JoinVertical(lipgloss.Left, title, info, path, rule)
-}
-
-func (m Model) footerView() string {
-	w := m.width
-	if w <= 0 {
-		w = 200
-	}
-	if m.list.FilterState() == list.Filtering {
-		return barFill(m.list.FilterInput.View(), w)
-	}
-	switch m.mode {
-	case modeNewInput:
-		return barFill(m.input.View(), w)
-	case modeConfirmDelete:
-		title := ""
-		if it, ok := m.list.SelectedItem().(item); ok {
-			title = it.mem.Title
-		}
-		return confirmStyle.Render(truncateStr("delete “"+title+"” ?  y / n", w-2))
-	default:
-		if m.status != "" {
-			return barFill(barStyle.Render(" "+m.status+" "), w)
-		}
-		return m.hintsView(w)
-	}
-}
-
-// hintsView renders the function-key bar, dropping trailing hints to fit.
-func (m Model) hintsView(w int) string {
-	hints := [][2]string{
-		{"↑↓", "NAV"}, {"⇥", "FOCUS"}, {"/", "FIND"}, {"n", "NEW"}, {"e", "EDIT"},
-		{"d", "DEL"}, {"t", "TYPE"}, {"g", "GROUP"}, {"q", "QUIT"},
-	}
-	render := func(hs [][2]string) string {
-		parts := make([]string, 0, len(hs)*2)
-		for _, h := range hs {
-			parts = append(parts,
-				keycapStyle.Render(" "+h[0]+" "),
-				keyLabel.Render(" "+h[1]+"  "),
-			)
-		}
-		return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
-	}
-	out := render(hints)
-	for lipgloss.Width(out) > w && len(hints) > 1 {
-		hints = hints[:len(hints)-1]
-		out = render(hints)
-	}
-	return barFill(out, w)
-}
-
-// barFill pads a rendered bar segment with the bar background out to width w.
-func barFill(seg string, w int) string {
-	gap := w - lipgloss.Width(seg)
-	if gap < 0 {
-		gap = 0
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, seg, barStyle.Render(spaces(gap)))
-}
-
-// applyFilter re-sorts and rebuilds the list from m.memories using the active
-// type filter and grouping mode.
-func (m *Model) applyFilter() {
+// rebuildRows recomputes the display rows from memories using the active type
+// filter, search query, and grouping, then fixes up the cursor and scroll.
+func (m *Model) rebuildRows() {
 	tf := typeCycle[m.typeIdx]
+	q := strings.ToLower(strings.TrimSpace(m.search.Value()))
+
 	var sub []memory.Memory
 	for _, mm := range m.memories {
-		if tf == "" || mm.Type == tf {
-			sub = append(sub, mm)
+		if tf != "" && mm.Type != tf {
+			continue
 		}
+		if q != "" && !strings.Contains(strings.ToLower(mm.Title+" "+mm.Description+" "+mm.Project.Name), q) {
+			continue
+		}
+		sub = append(sub, mm)
 	}
 	sortForGroup(sub, m.groupBy)
-	m.list.SetDelegate(newRowDelegate(m.groupBy))
-	m.list.SetItems(wrapItems(sub))
-	m.updatePreview()
+
+	counts := map[string]int{}
+	for _, mm := range sub {
+		counts[groupKeyOf(mm, m.groupBy)]++
+	}
+
+	var rows []row
+	prevKey := "\x00sentinel"
+	gIdx := -1
+	for _, mm := range sub {
+		key := groupKeyOf(mm, m.groupBy)
+		if key != prevKey {
+			gIdx++
+			if len(rows) > 0 {
+				rows = append(rows, row{kind: rowSpacer})
+			}
+			label, color := mm.Project.Name, m.theme().groupColor(gIdx)
+			if m.groupBy == groupType {
+				label, color = typeLabel(mm.Type), m.theme().typeColor(mm.Type)
+			}
+			rows = append(rows, row{kind: rowHeader, label: label, color: color, count: counts[key]})
+			prevKey = key
+		}
+		rows = append(rows, row{kind: rowMemory, mem: mm})
+	}
+
+	m.rows = rows
+
+	if m.cursor >= len(rows) || m.cursor < 0 || rows[clampIdx(m.cursor, len(rows))].kind != rowMemory {
+		m.cursor = m.firstMemRow()
+	}
+	m.ensureVisible()
+	m.syncPreview()
+}
+
+func (m *Model) firstMemRow() int {
+	for i, r := range m.rows {
+		if r.kind == rowMemory {
+			return i
+		}
+	}
+	return 0
+}
+
+// move steps the cursor by delta, skipping header and spacer rows.
+func (m *Model) move(delta int) {
+	i := m.cursor
+	for {
+		j := i + delta
+		if j < 0 || j >= len(m.rows) {
+			return
+		}
+		i = j
+		if m.rows[i].kind == rowMemory {
+			m.cursor = i
+			m.ensureVisible()
+			m.syncPreview()
+			return
+		}
+	}
+}
+
+// page jumps the cursor about one screen in dir (-1 up, +1 down), snapping to
+// the nearest memory row.
+func (m *Model) page(dir int) {
+	if len(m.rows) == 0 {
+		return
+	}
+	h := m.listRows()
+	if h < 1 {
+		h = 1
+	}
+	target := m.cursor + dir*h
+	if target < 0 {
+		target = 0
+	}
+	if target > len(m.rows)-1 {
+		target = len(m.rows) - 1
+	}
+	j := target
+	for j >= 0 && j < len(m.rows) && m.rows[j].kind != rowMemory { // prefer dir
+		j += dir
+	}
+	if j < 0 || j >= len(m.rows) { // fall back to the opposite direction
+		for j = target; j >= 0 && j < len(m.rows) && m.rows[j].kind != rowMemory; j -= dir {
+		}
+	}
+	if j >= 0 && j < len(m.rows) && m.rows[j].kind == rowMemory {
+		m.cursor = j
+		m.ensureVisible()
+		m.syncPreview()
+	}
+}
+
+// shownCount is the number of memory rows currently displayed (post-filter).
+func (m Model) shownCount() int {
+	n := 0
+	for _, r := range m.rows {
+		if r.kind == rowMemory {
+			n++
+		}
+	}
+	return n
+}
+
+func (m *Model) ensureVisible() {
+	h := m.listRows()
+	if h < 1 {
+		return
+	}
+	if m.cursor < m.top {
+		m.top = m.cursor
+	}
+	if m.cursor >= m.top+h {
+		m.top = m.cursor - h + 1
+	}
+	// Pull the group header above the cursor into view when it fits.
+	if m.cursor > 0 && m.rows[m.cursor-1].kind == rowHeader && m.cursor-1 < m.top {
+		m.top = m.cursor - 1
+	}
+	if m.top < 0 {
+		m.top = 0
+	}
+}
+
+func (m Model) listRows() int { return m.panesH - 1 } // last line is the status
+
+func (m Model) selected() (memory.Memory, bool) {
+	if m.cursor >= 0 && m.cursor < len(m.rows) && m.rows[m.cursor].kind == rowMemory {
+		return m.rows[m.cursor].mem, true
+	}
+	return memory.Memory{}, false
 }
 
 func (m Model) currentMemDir() string {
-	if it, ok := m.list.SelectedItem().(item); ok {
-		return it.mem.Project.MemoryDir
+	if mm, ok := m.selected(); ok {
+		return mm.Project.MemoryDir
 	}
 	if len(m.memories) > 0 {
 		return m.memories[0].Project.MemoryDir
@@ -583,39 +589,366 @@ func (m Model) currentMemDir() string {
 	return ""
 }
 
-// updatePreview renders the selected memory body into the viewport.
-func (m *Model) updatePreview() {
+func (m *Model) syncPreview() {
 	if !m.ready {
 		return
 	}
-	it, ok := m.list.SelectedItem().(item)
+	mm, ok := m.selected()
 	if !ok {
 		m.viewport.SetContent("")
 		return
 	}
-	content := it.mem.Body
-	if content == "" {
-		content = it.mem.Raw
+	if m.previewCache == nil {
+		m.previewCache = map[string]string{}
 	}
+	if cached, ok := m.previewCache[mm.Path]; ok {
+		m.viewport.SetContent(cached)
+		m.viewport.GotoTop()
+		return
+	}
+	// Decide the empty-body fallback before stripping, so a body that is only a
+	// heading renders as empty rather than falling back to the raw frontmatter.
+	body := mm.Body
+	if body == "" {
+		body = mm.Raw
+	}
+	body = stripFirstHeading(body)
+	rendered := body
 	if m.renderer != nil {
-		if out, err := m.renderer.Render(content); err == nil {
-			m.viewport.SetContent(out)
-			m.viewport.GotoTop()
-			return
+		if out, err := m.renderer.Render(body); err == nil {
+			rendered = out
 		}
 	}
-	m.viewport.SetContent(content)
+	// Glamour pads its output with leading/trailing blank lines; trim them so
+	// the viewport only scrolls over real content.
+	rendered = trimBlankLines(rendered)
+	m.previewCache[mm.Path] = rendered
+	m.viewport.SetContent(rendered)
 	m.viewport.GotoTop()
 }
 
-func (m Model) prettyPath(p string) string {
-	if m.home != "" && strings.HasPrefix(p, m.home) {
-		return "~" + p[len(m.home):]
+// trimBlankLines drops leading and trailing all-whitespace lines.
+func trimBlankLines(s string) string {
+	lines := strings.Split(s, "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[0]) == "" {
+		lines = lines[1:]
 	}
-	return p
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return strings.Join(lines, "\n")
 }
 
-// --- grouping / items ---
+// --- view ---
+
+func (m Model) View() string {
+	if !m.ready {
+		return "loading…"
+	}
+	var panes string
+	if m.mode == modeConfirm {
+		panes = m.modalArea(m.confirmModal())
+	} else if m.mode == modeNew {
+		panes = m.modalArea(m.newModal())
+	} else {
+		panes = lipgloss.JoinHorizontal(lipgloss.Top, m.listPane(), m.dividerCol(), m.previewPane())
+	}
+	frame := lipgloss.JoinVertical(lipgloss.Left,
+		m.topBar(), m.subRow(), panes, m.bottomRule(), m.bottomBar())
+	// Vertical fit is handled by reserving the last row in resize. Horizontally,
+	// the bars and glamour's margins can still exceed the width on very narrow
+	// terminals, so clip width only (height is already correct — no MaxHeight).
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(frame)
+}
+
+func (m Model) topBar() string {
+	t := m.theme()
+	brand := t.bar(t.Accent).Bold(true).Render(" engram ")
+
+	seen := map[string]struct{}{}
+	for _, mm := range m.memories {
+		seen[mm.Project.Name] = struct{}{}
+	}
+	info := fmt.Sprintf("%d memories · %d projects", len(m.memories), len(seen))
+	if q := strings.TrimSpace(m.search.Value()); q != "" && m.mode != modeFilter {
+		info += " · “" + q + "”" // echo the active filter so a narrowed list has a visible reason
+	}
+	left := brand + t.bar(t.Dim).Render(" "+info+" ")
+
+	scope := "project"
+	if m.groupBy == groupType {
+		scope = "type"
+	}
+	typeScope := "all"
+	if tf := typeCycle[m.typeIdx]; tf != "" {
+		typeScope = string(tf)
+	}
+	right := t.bar(t.Dim).Render("grouped by ") + t.bar(t.Accent).Bold(true).Render(scope) +
+		t.bar(t.Dim).Render("   type ") + t.bar(t.Accent).Bold(true).Render(typeScope) + t.bar(t.Dim).Render(" ")
+
+	return m.barLine(left, right, t.BarBg)
+}
+
+// subRow is the line under the top bar: a focus underline per pane, or the
+// search input over the list when filtering.
+func (m Model) subRow() string {
+	t := m.theme()
+	var left string
+	if m.mode == modeFilter {
+		left = padTo(m.search.View(), m.listW)
+	} else {
+		c := t.Border
+		if m.focus == focusList {
+			c = t.Accent
+		}
+		left = fg(c).Render(strings.Repeat("─", m.listW))
+	}
+	rc := t.Border
+	if m.focus == focusPreview {
+		rc = t.Accent
+	}
+	right := fg(rc).Render(strings.Repeat("─", m.previewW))
+	return left + fg(t.Border).Render("┬") + right
+}
+
+func (m Model) bottomRule() string {
+	t := m.theme()
+	return fg(t.Border).Render(strings.Repeat("─", m.listW)) +
+		fg(t.Border).Render("┴") +
+		fg(t.Border).Render(strings.Repeat("─", m.previewW))
+}
+
+func (m Model) bottomBar() string {
+	t := m.theme()
+	var left string
+	switch {
+	case m.mode == modeFilter:
+		left = t.bar(t.Dim).Render(" type to filter  ") + t.bar(t.Accent).Render("↵") +
+			t.bar(t.Dim).Render(" apply   ") + t.bar(t.Accent).Render("esc") + t.bar(t.Dim).Render(" clear ")
+	case m.status != "":
+		left = t.bar(t.Fg).Render(" " + m.status + " ")
+	default:
+		left = m.hints(t)
+	}
+	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
+		t.bar(t.Dim).Render(" · 1–5 to switch ")
+	return m.barLine(left, right, t.BarBg)
+}
+
+func (m Model) hints(t Theme) string {
+	pairs := [][2]string{
+		{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"e", "edit"},
+		{"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", "group"}, {"q", "quit"},
+	}
+	render := func(ps [][2]string) string {
+		out := t.bar(t.Dim).Render(" ")
+		for _, p := range ps {
+			out += t.bar(t.Fg).Render(p[0]) + t.bar(t.Dim).Render(" "+p[1]+"  ")
+		}
+		return out
+	}
+	out := render(pairs)
+	avail := m.width - lipgloss.Width(t.bar(t.Dim).Render("theme "+t.Name+" · 1–5 to switch ")) - 1
+	for lipgloss.Width(out) > avail && len(pairs) > 1 {
+		pairs = pairs[:len(pairs)-1]
+		out = render(pairs)
+	}
+	return out
+}
+
+// barLine lays out a bar with a left and right segment over a filled background.
+func (m Model) barLine(left, right, bg string) string {
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 0 {
+		gap = 0
+	}
+	mid := lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(gap))
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+}
+
+func (m Model) dividerCol() string {
+	line := fg(m.theme().Border).Render("│")
+	lines := make([]string, m.panesH)
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) listPane() string {
+	t := m.theme()
+	h := m.listRows()
+	rightCol := m.rightColW() // computed once per render, not per row
+	lines := make([]string, 0, h)
+	for i := m.top; i < m.top+h; i++ {
+		switch {
+		case i < 0 || i >= len(m.rows):
+			lines = append(lines, "")
+		case m.rows[i].kind == rowSpacer:
+			lines = append(lines, "")
+		case m.rows[i].kind == rowHeader:
+			lines = append(lines, m.headerRow(m.rows[i]))
+		default:
+			lines = append(lines, m.memRow(m.rows[i].mem, i == m.cursor, rightCol))
+		}
+	}
+	shown := m.shownCount()
+	if shown == 0 && len(lines) > 0 {
+		lines[0] = fg(t.Dim).Render("  no matches")
+	}
+	body := lipgloss.NewStyle().Width(m.listW).Render(strings.Join(lines, "\n"))
+	status := fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, len(m.memories)))
+	return lipgloss.JoinVertical(lipgloss.Left, body, lipgloss.NewStyle().Width(m.listW).Render(status))
+}
+
+// rightColW sizes the right-aligned project column (only shown when grouped by
+// type), adapting to the longest project name and collapsing to 0 when it would
+// leave too little room for the title.
+func (m Model) rightColW() int {
+	if m.groupBy != groupType {
+		return 0
+	}
+	maxp := 0
+	for _, r := range m.rows {
+		if r.kind == rowMemory {
+			if l := len([]rune(r.mem.Project.Name)); l > maxp {
+				maxp = l
+			}
+		}
+	}
+	w := maxp + 2 // "· name"
+	maxAllowed := m.listW - 2 - badgeWidth - 2 - 12
+	if maxAllowed < 6 {
+		return 0
+	}
+	if w > maxAllowed {
+		w = maxAllowed
+	}
+	if w < 6 {
+		return 0
+	}
+	return w
+}
+
+func (m Model) headerRow(r row) string {
+	t := m.theme()
+	suffix := fmt.Sprintf(" (%d)", r.count)
+	label := clip(r.label, m.listW-2-runewidth.StringWidth(suffix))
+	return fg(r.color).Render("▌ ") + fgb(r.color).Render(label) + fg(t.Dim).Render(suffix)
+}
+
+func (m Model) memRow(mm memory.Memory, selected bool, rightCol int) string {
+	t := m.theme()
+	badge := padRight("["+typeName(mm.Type)+"]", badgeWidth)
+
+	rightText := ""
+	if rightCol > 0 {
+		rightText = "· " + mm.Project.Name
+	}
+	nameW := m.listW - 2 - badgeWidth - 1 - rightCol
+	if rightCol > 0 {
+		nameW--
+	}
+	if nameW < 4 {
+		nameW = 4
+	}
+
+	bg := ""
+	titleColor := t.Fg
+	if selected {
+		bg, titleColor = t.SelBg, t.SelFg
+	}
+	st := func(c string) lipgloss.Style {
+		s := fg(c)
+		if bg != "" {
+			s = s.Background(lipgloss.Color(bg))
+		}
+		return s
+	}
+
+	indent := st(t.Faint).Render("  ")
+	if selected {
+		indent = st(t.Accent).Bold(true).Render("› ")
+	}
+	out := indent + st(t.typeColor(mm.Type)).Render(badge) + st(t.Fg).Render(" ") + st(titleColor).Render(padRight(mm.Title, nameW))
+	if rightCol > 0 {
+		out += st(t.Fg).Render(" ") + st(t.Dim).Render(padLeft(rightText, rightCol))
+	}
+	return out
+}
+
+func (m Model) previewPane() string {
+	t := m.theme()
+	innerW := m.previewW - previewPad
+	mm, ok := m.selected()
+	if !ok {
+		return lipgloss.NewStyle().Width(m.previewW).Height(m.panesH).Render(fg(t.Dim).Render("  no memory selected"))
+	}
+	badgeStr := "[" + typeName(mm.Type) + "]"
+	rest := " " + mm.Project.Name + " · edited " + humanizeSince(mm.Modified)
+	rest = clip(rest, innerW-runewidth.StringWidth(badgeStr))
+	meta := fg(t.typeColor(mm.Type)).Bold(true).Render(badgeStr) + fg(t.Dim).Render(rest)
+	title := m.renderTitle(mm.Title, innerW)
+	block := lipgloss.JoinVertical(lipgloss.Left, meta, "", title, "", m.viewport.View())
+	return lipgloss.NewStyle().PaddingLeft(previewPad).Render(block)
+}
+
+// renderTitle styles the preview title in the accent color, with `code` spans
+// shown as inline chips.
+func (m Model) renderTitle(title string, w int) string {
+	t := m.theme()
+	title = clip(title, w)
+	var b strings.Builder
+	for i, part := range strings.Split(title, "`") {
+		if i%2 == 1 {
+			b.WriteString(fg(t.Fg).Background(lipgloss.Color(t.SelBg)).Render(part))
+		} else {
+			b.WriteString(fgb(t.Accent).Render(part))
+		}
+	}
+	return b.String()
+}
+
+// modalArea centers a modal box within the panes region.
+func (m Model) modalArea(box string) string {
+	return lipgloss.Place(m.width, m.panesH, lipgloss.Center, lipgloss.Center, box)
+}
+
+func (m Model) confirmModal() string {
+	t := m.theme()
+	title := ""
+	if mm, ok := m.selected(); ok {
+		title = mm.Title
+	}
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		fg(t.Fg).Render("Delete this memory?"),
+		fgb(t.Danger).Render(clip(title, 44)),
+		"",
+		fg(t.Dim).Render("press ")+fgb(t.Danger).Render("y")+fg(t.Dim).Render(" to delete  ·  ")+
+			fgb(t.Fg).Render("n")+fg(t.Dim).Render(" to cancel"),
+	)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(t.Danger)).
+		Padding(1, 3).Render(body)
+}
+
+func (m Model) newModal() string {
+	t := m.theme()
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		fgb(t.Accent).Render("New memory"),
+		fg(t.Dim).Render("title for the new memory in this project"),
+		"",
+		m.input.View(),
+		"",
+		fg(t.Dim).Render("press ")+fgb(t.Accent).Render("↵")+fg(t.Dim).Render(" create  ·  ")+
+			fgb(t.Fg).Render("esc")+fg(t.Dim).Render(" cancel"),
+	)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(t.Accent)).
+		Padding(1, 3).Render(body)
+}
+
+// --- grouping helpers ---
 
 func groupKeyOf(mm memory.Memory, by groupMode) string {
 	if by == groupType {
@@ -630,144 +963,155 @@ func sortForGroup(mems []memory.Memory, by groupMode) {
 		if ki != kj {
 			return ki < kj
 		}
+		// Within a project group, cluster by type before falling back to title.
+		if by == groupProject {
+			if ri, rj := typeRank(mems[i].Type), typeRank(mems[j].Type); ri != rj {
+				return ri < rj
+			}
+		}
 		return mems[i].Title < mems[j].Title
 	})
 }
 
-func wrapItems(mems []memory.Memory) []list.Item {
-	items := make([]list.Item, len(mems))
-	for i, mm := range mems {
-		items[i] = item{mem: mm}
+// typeRank is the within-group ordering of memory types: project, feedback,
+// user, reference, then everything else.
+func typeRank(t memory.Type) int {
+	switch t {
+	case memory.TypeProject:
+		return 0
+	case memory.TypeFeedback:
+		return 1
+	case memory.TypeUser:
+		return 2
+	case memory.TypeReference:
+		return 3
+	default:
+		return 4
 	}
-	return items
 }
 
-func paneStyle(focused bool) lipgloss.Style {
-	s := lipgloss.NewStyle().Border(lipgloss.NormalBorder())
-	if focused {
-		return s.BorderForeground(cAccent)
+func typeLabel(t memory.Type) string {
+	switch t {
+	case memory.TypeUser:
+		return "user"
+	case memory.TypeFeedback:
+		return "feedback"
+	case memory.TypeProject:
+		return "project"
+	case memory.TypeReference:
+		return "reference"
+	default:
+		return "other"
 	}
-	return s.BorderForeground(cBorder)
 }
 
-// --- list item delegate ---
-
-// rowDelegate renders each memory as one tabular line: a colored type tag, the
-// name, and a right-aligned column that shows the modified date (when clustered
-// by project) or the project (when clustered by type). The selected row is a
-// solid accent bar. Rows are a uniform single line, as bubbles/list requires.
-type rowDelegate struct {
-	list.DefaultDelegate
-	groupBy groupMode
+// typeName is the badge label for a type.
+func typeName(t memory.Type) string {
+	if t == memory.TypeUnknown || t == "" {
+		return "other"
+	}
+	return string(t)
 }
 
-func newRowDelegate(by groupMode) rowDelegate {
-	d := list.NewDefaultDelegate()
-	d.SetSpacing(0)
-	return rowDelegate{DefaultDelegate: d, groupBy: by}
-}
+// --- text helpers ---
 
-func (d rowDelegate) Height() int  { return 1 }
-func (d rowDelegate) Spacing() int { return 0 }
+func fg(c string) lipgloss.Style  { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
+func fgb(c string) lipgloss.Style { return fg(c).Bold(true) }
 
-func (d rowDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	it, ok := listItem.(item)
-	if !ok {
-		fmt.Fprint(w, "")
-		return
-	}
-	width := m.Width()
-	if width <= 0 {
-		width = 40
-	}
-	nameW := width - typeColW - rightColW - 2
-	if nameW < 4 {
-		nameW = 4
-	}
-
-	tag := typeTag(it.mem.Type)
-	name := fit(it.mem.Title, nameW)
-	rightRaw := fmtDate(it.mem.Modified)
-	if d.groupBy == groupType {
-		rightRaw = it.mem.Project.Name
-	}
-	right := fitRight(rightRaw, rightColW)
-
-	if index == m.Index() {
-		// Selected: one solid accent bar, monochrome on the highlight.
-		fmt.Fprint(w, selStyle.Width(width).Render(tag+" "+name+" "+right))
-		return
-	}
-	tagStyle := lipgloss.NewStyle().Foreground(typeColor(it.mem.Type)).Bold(true)
-	fmt.Fprint(w, tagStyle.Render(tag)+" "+normTitle.Render(name)+" "+dimStyle.Render(right))
-}
-
-// --- formatting helpers ---
-
-// fmtDate renders a modification time as a compact ISO date, or "—" if unset.
-func fmtDate(t time.Time) string {
+func humanizeSince(t time.Time) string {
 	if t.IsZero() {
-		return "—"
+		return "unknown"
 	}
-	return t.Format("2006-01-02")
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	case d < 48*time.Hour:
+		return "yesterday"
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	case d < 28*24*time.Hour:
+		return fmt.Sprintf("%dw ago", int(d.Hours()/(24*7)))
+	default:
+		return t.Format("Jan 2, 2006")
+	}
 }
 
-func truncateStr(s string, n int) string {
-	if n <= 0 {
-		return ""
+// stripFirstHeading removes a leading "# ..." line (and a following blank) so
+// the preview's own title isn't duplicated by the rendered body.
+func stripFirstHeading(body string) string {
+	lines := strings.Split(body, "\n")
+	for i, ln := range lines {
+		s := strings.TrimSpace(ln)
+		if s == "" {
+			continue
+		}
+		if strings.HasPrefix(s, "# ") {
+			rest := lines[i+1:]
+			for len(rest) > 0 && strings.TrimSpace(rest[0]) == "" {
+				rest = rest[1:]
+			}
+			return strings.Join(rest, "\n")
+		}
+		break
 	}
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	if n == 1 {
-		return "…"
-	}
-	return string(r[:n-1]) + "…"
+	return body
 }
 
-func truncateLeft(s string, n int) string {
-	if n <= 0 {
-		return ""
+func clampIdx(i, n int) int {
+	if i < 0 {
+		return 0
 	}
-	r := []rune(s)
-	if len(r) <= n {
-		return s
+	if i >= n {
+		if n == 0 {
+			return 0
+		}
+		return n - 1
 	}
-	if n == 1 {
-		return "…"
-	}
-	return "…" + string(r[len(r)-(n-1):])
+	return i
 }
 
-// fit truncates or right-pads s to exactly w display columns.
-func fit(s string, w int) string {
+// clip truncates s to at most w display columns (measuring wide runes
+// correctly), appending an ellipsis when it had to cut.
+func clip(s string, w int) string {
 	if w <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if len(r) > w {
-		if w == 1 {
-			return "…"
-		}
-		return string(r[:w-1]) + "…"
+	if runewidth.StringWidth(s) <= w {
+		return s
 	}
-	return s + spaces(w-len(r))
+	return runewidth.Truncate(s, w, "…")
 }
 
-// fitRight truncates or left-pads s to exactly w display columns.
-func fitRight(s string, w int) string {
+// padRight clips s to w display columns then right-pads to exactly w.
+func padRight(s string, w int) string {
 	if w <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if len(r) > w {
-		if w == 1 {
-			return "…"
-		}
-		return string(r[:w-1]) + "…"
+	s = clip(s, w)
+	return s + spaces(w-runewidth.StringWidth(s))
+}
+
+// padLeft clips s to w display columns then left-pads to exactly w.
+func padLeft(s string, w int) string {
+	if w <= 0 {
+		return ""
 	}
-	return spaces(w-len(r)) + s
+	s = clip(s, w)
+	return spaces(w-runewidth.StringWidth(s)) + s
+}
+
+// padTo right-pads a possibly-styled string to width w (display columns).
+func padTo(s string, w int) string {
+	gap := w - lipgloss.Width(s)
+	if gap < 0 {
+		return s
+	}
+	return s + spaces(gap)
 }
 
 func spaces(n int) string {
@@ -777,38 +1121,63 @@ func spaces(n int) string {
 	return strings.Repeat(" ", n)
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // --- editing ---
 
 type editorFinishedMsg struct{ err error }
 
 func editCmd(path string) tea.Cmd {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-	c := exec.Command(editor, path)
+	parts := resolveEditor()
+	args := append([]string{}, parts[1:]...)
+	args = append(args, path)
+	c := exec.Command(parts[0], args...)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return editorFinishedMsg{err: err}
 	})
 }
 
+// resolveEditor picks the command (and any args) used to open a memory for
+// editing. It honors $VISUAL and $EDITOR first (the Unix convention), then opens
+// in the host editor when engram is run inside one (e.g. VS Code's integrated
+// terminal — using --wait so the edit completes before the list reloads), then
+// a terminal editor, falling back to vi.
+func resolveEditor() []string {
+	if v := strings.TrimSpace(os.Getenv("VISUAL")); v != "" {
+		return strings.Fields(v)
+	}
+	if v := strings.TrimSpace(os.Getenv("EDITOR")); v != "" {
+		return strings.Fields(v)
+	}
+	if os.Getenv("TERM_PROGRAM") == "vscode" {
+		if c := firstInPath("code", "code-insiders", "cursor", "codium"); c != "" {
+			return []string{c, "--wait"}
+		}
+	}
+	if c := firstInPath("nvim", "vim", "nano", "vi"); c != "" {
+		return []string{c}
+	}
+	return []string{"vi"}
+}
+
+// firstInPath returns the first of names found on $PATH, or "".
+func firstInPath(names ...string) string {
+	for _, n := range names {
+		if p, err := exec.LookPath(n); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // --- reloading after a mutation ---
 
-type reloadMsg struct{ mems []memory.Memory }
+type reloadMsg struct {
+	mems []memory.Memory
+	err  error
+}
 
 func reloadCmd() tea.Cmd {
 	return func() tea.Msg {
 		mems, err := memory.Discover("")
-		if err != nil {
-			return reloadMsg{}
-		}
-		return reloadMsg{mems: mems}
+		return reloadMsg{mems: mems, err: err}
 	}
 }

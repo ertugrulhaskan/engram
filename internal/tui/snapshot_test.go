@@ -60,4 +60,14 @@ func TestRender(t *testing.T) {
 			fmt.Printf("\n========== %dx%d ==========\n%s\n", sz.w, sz.h, out)
 		}
 	}
+
+	// Grouped by type + Tokyo Night theme: exercises the right-aligned project
+	// column and theme switching.
+	var cur tea.Model = New(sampleMemories())
+	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
+	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
+	if testing.Verbose() {
+		fmt.Printf("\n========== grouped by type · Tokyo Night ==========\n%s\n", cur.(Model).View())
+	}
 }
