@@ -12,3 +12,13 @@ vendor/
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code personal settings (verbose/debug, env)
+.claude/settings.local.json
+
+# Secrets / local env — never commit (context7 etc. read keys from the shell env)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
