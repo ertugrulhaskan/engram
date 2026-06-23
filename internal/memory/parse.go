@@ -13,8 +13,10 @@ import (
 //
 //   - [Title](file.md) — hook
 //
-// The separator may be an em-dash, en-dash, or hyphen, and is optional.
-var indexLineRe = regexp.MustCompile(`^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*(?:[—–-]+\s*)?(.*)$`)
+// The separator may be an em-dash, en-dash, or hyphen, and is optional. The
+// title group is greedy so a title containing "]" still round-trips (it
+// backtracks to the final "](file)"), keeping the file identity reliable.
+var indexLineRe = regexp.MustCompile(`^\s*-\s*\[(.+)\]\(([^)]+)\)\s*(?:[—–-]+\s*)?(.*)$`)
 
 // parseFile reads one memory file, supporting both the YAML-frontmatter shape
 // and the plain-markdown shape (where metadata comes from the MEMORY.md index).
@@ -151,7 +153,8 @@ func titleFromName(name string) string {
 		if p == "" {
 			continue
 		}
-		parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		r := []rune(p) // index by rune so a multibyte leading char isn't split
+		parts[i] = strings.ToUpper(string(r[0])) + string(r[1:])
 	}
 	return strings.Join(parts, " ")
 }
