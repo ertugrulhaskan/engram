@@ -127,12 +127,28 @@ type Project struct {
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
 
+### Interface & storage
+
+- **Setup is a one-time CLI subcommand:** `engram init-team <git-url>`. It clones
+  the team repo to `~/.config/engram/team/` (alongside the existing config), and
+  if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
+- **Day-to-day, `promote` and `pull` are in-TUI actions** (keybinds), so engram
+  stays a no-arg TUI for normal use. (init-team is the only subcommand.)
+- **No servers and no engram-level auth.** Access is whatever the git host grants
+  on the repo; push/pull use the user's existing git credentials (SSH / credential
+  helper). engram surfaces a clear error when credentials or the remote are missing.
+
 ### Project identity across machines
 
 A teammate's local project path differs from yours, so **project-specific
 memories are keyed by git remote URL**, not local path. engram reads the remote
-with `git -C <project-dir> remote get-url origin`. Projects with no remote fall
-back to a user-assigned alias.
+with `git -C <project-dir> remote get-url origin`, then **normalizes** it to a
+canonical `host/path` slug — lowercased, with the protocol, any `user@`, a
+trailing `.git`, and a trailing `/` stripped — so `git@github.com:acme/app.git`,
+`https://github.com/acme/app`, and `ssh://git@github.com/acme/app` all map to the
+same `github.com/acme/app`. Monorepos sharing one remote share one bucket in v2
+(sub-keys are a later refinement). Projects with no remote fall back to a
+user-assigned alias.
 
 ### Shared repo layout
 
@@ -149,18 +165,32 @@ Added to files engram manages; Claude Code ignores unknown keys:
 
 ```yaml
 engram:
+  id: 7f3a9c1e-…                    # stable UUID, assigned on first promote
   scope: team                       # personal | team
-  project: bitbucket.org/acme/app   # git remote, or "global"
+  project: github.com/acme/app      # normalized git remote, or "global"
   owner: you@acme.com
 ```
+
+`id` is the **durable identity**: a memory keeps it across slug renames and
+edits, so a renamed promotion *updates* its team copy instead of orphaning it
+and creating a duplicate, and the same memory is matched across machines even if
+a teammate's local filename differs. The slug (`<slug>.md`) is just the
+filename. The id is assigned once, on the first promote.
 
 ### Operations
 
 - **promote** `<one|many>` — copy selected personal memories into the clone, set
-  `engram.scope: team`, commit, push. Multi-select supported.
+  `engram.scope: team`, assign an `engram.id` if absent, commit, push.
+  Multi-select supported. A modal picks the scope, defaulting to the current
+  project, with a "global" option.
 - **pull** — `git pull` the clone, then place team files where Claude reads them
   (matching project, or global) and refresh the relevant `MEMORY.md`.
-- Personal memories never leave the machine unless promoted.
+- **Sync is manual.** Personal memories never leave the machine unless promoted,
+  and engram never auto-pulls. On launch it does a cheap check against the team
+  repo and badges memories that have updates (`[team ↓]`); files are only placed
+  when you run `pull`.
+- **Rejected push** (non-fast-forward) → engram runs `git pull --rebase` and
+  retries once; if that conflicts, it hands off to the user.
 
 ### Sync-status (shown as badges in the list)
 
@@ -174,6 +204,14 @@ Every memory has a state relative to the team repo:
 | `[team ●]`   | edited locally since promoting       | promote (update) |
 | `[team ↓]`   | team has a newer version             | pull             |
 | `[team ⚠]`   | both changed                         | resolve          |
+
+### Collisions & conflicts
+
+- **Pull never overwrites a personal file.** If a personal `slug.md` and an
+  incoming team `slug.md` differ, the memory is marked `[team ⚠]`; identical
+  content is a no-op. (With stable `id`s, matching is by id, not filename.)
+- **Resolving `[team ⚠]`** opens both versions in `$EDITOR` (reusing the existing
+  edit flow); an inline diff view is a later refinement.
 
 ## 8. Module layout
 
