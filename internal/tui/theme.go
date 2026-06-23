@@ -78,6 +78,33 @@ func (t Theme) bar(c string) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Background(lipgloss.Color(t.BarBg))
 }
 
+// Semantic status colors for transient footer messages and the index-drift
+// warning. They're fixed across themes on purpose: they signal severity
+// (danger/cancel), not brand, so the meaning stays constant when the theme
+// changes.
+const (
+	statusDangerBg = "#c0392b" // red
+	statusDangerFg = "#ffffff" // white
+	statusCancelBg = "#50c878" // emerald
+	statusCancelFg = "#3e2723" // dark brown
+)
+
+// dangerStyle renders warnings and destructive confirmations (and the index-out-
+// of-sync badge): white text on red. cancelStyle renders aborted actions: dark
+// brown on emerald.
+func dangerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color(statusDangerFg)).
+		Background(lipgloss.Color(statusDangerBg)).
+		Bold(true)
+}
+
+func cancelStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color(statusCancelFg)).
+		Background(lipgloss.Color(statusCancelBg))
+}
+
 // themes is the switchable set, ordered to match the 1–5 number keys.
 var themes = []Theme{
 	{

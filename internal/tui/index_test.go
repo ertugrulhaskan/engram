@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,6 +37,14 @@ func TestDriftFlagAndRebuild(t *testing.T) {
 	if !m.(Model).driftOut {
 		t.Fatalf("expected driftOut=true (a.md unindexed, gone.md dangling)")
 	}
+	if got := m.(Model); got.driftUnindexed != 1 || got.driftDangling != 1 {
+		t.Fatalf("drift counts: got unindexed=%d dangling=%d, want 1/1", got.driftUnindexed, got.driftDangling)
+	}
+	// The top bar renders the warning badge (the cause wording itself is covered
+	// by TestDriftSummary; the bar clips it on narrow terminals).
+	if out := m.(Model).View(); !strings.Contains(out, "index out of sync") {
+		t.Errorf("top bar missing drift warning:\n%s", out)
+	}
 
 	// R reconciles synchronously inside the handler.
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
@@ -45,5 +54,26 @@ func TestDriftFlagAndRebuild(t *testing.T) {
 	}
 	if len(un) != 0 || len(dang) != 0 {
 		t.Errorf("after R the index still drifts: unindexed=%v dangling=%v", un, dang)
+	}
+}
+
+// driftSummary names the specific cause(s) of drift so the warning is actionable.
+func TestDriftSummary(t *testing.T) {
+	cases := []struct {
+		un, dang int
+		want     string
+	}{
+		{2, 0, "added without a MEMORY.md index line"},
+		{0, 3, "deleted/renamed without updating MEMORY.md"},
+		{1, 1, "added without an index line"},
+	}
+	for _, c := range cases {
+		if got := driftSummary(c.un, c.dang); !strings.Contains(got, c.want) {
+			t.Errorf("driftSummary(%d,%d)=%q, want substring %q", c.un, c.dang, got, c.want)
+		}
+	}
+	// The both-case must mention the dangling cause too.
+	if got := driftSummary(1, 1); !strings.Contains(got, "deleted/renamed") {
+		t.Errorf("driftSummary(1,1)=%q, missing dangling cause", got)
 	}
 }
