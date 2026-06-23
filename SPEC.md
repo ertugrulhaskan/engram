@@ -110,6 +110,7 @@ type Memory struct {
     Body        string   // markdown body (no frontmatter)
     Raw         string   // full original file contents
     Path        string   // absolute path on disk
+    Modified    time.Time // file modification time (drives recency + auto-reload)
     Project     Project
 }
 
@@ -178,15 +179,25 @@ Every memory has a state relative to the team repo:
 
 ```
 engram/
-    main.go                  # entry point: discover → launch TUI
+    main.go                  # entry point: discover memories + plans → launch TUI; --version/--help
     internal/
         memory/              # NO UI here
             memory.go        # types
-            discover.go      # walk projects, decode paths
+            discover.go      # walk projects, decode paths, fs signature
             parse.go         # frontmatter + index parsing, fallbacks
+            index.go         # MEMORY.md index upsert / remove / reconcile
+            edit.go          # create / delete / open-in-$EDITOR
+        plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
+        config/              # load/save theme + editor under the XDG config dir
         tui/                 # NO file logic here
-            tui.go           # Bubble Tea model/update/view
+            tui.go           # Bubble Tea model/update/view; multi-source browser + command palette
+            theme.go         # themes, colors, group coloring
+            overlay.go       # floating dialogs
 ```
+
+> v1 also browses **plan-mode plans** as a second source (read-only, grouped by
+> recency), switchable via the command palette. The sharing design below (v2)
+> concerns memories only.
 
 ## 9. Distribution
 

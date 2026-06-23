@@ -5,7 +5,7 @@ later ones never land.
 
 ---
 
-## v1 — Local browsing *(in progress)*
+## v1 — Local browsing *(complete — release tooling ready, publishing deferred)*
 
 Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 
@@ -16,9 +16,12 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Edit selected memory in `$EDITOR` (`e`) and reload
 - [x] `new` (`n`) and `delete` (`d`) actions
 - [x] Filter by type (`t`)
-- [x] Group/visually separate by project
-- [ ] Sync `MEMORY.md` index on `new`/`delete` (so Claude picks up the changes)
-- [ ] First tagged release: cross-platform binaries + Homebrew tap
+- [x] Group/visually separate by project (toggle by-project ⇄ by-type with `g`)
+- [x] Sync `MEMORY.md` index on `new`/`delete`/`edit`; `R` reconciles a drifted index
+- [x] Browse plan-mode plans too: multi-source switcher + command palette (`ctrl+p`),
+      themed multi-pane UI with live theme switching, config persisted under XDG
+- [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
+      tag-triggered release workflow — *publishing deferred until v2*
 
 ## v2 — Team sharing over git
 

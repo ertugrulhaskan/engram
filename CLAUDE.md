@@ -1,0 +1,40 @@
+# engram — working rules
+
+engram is a single-binary Go TUI for browsing (and, in v2, sharing) Claude Code
+memories. Design source of truth: [SPEC.md](SPEC.md). Phases: [ROADMAP.md](ROADMAP.md).
+Build/test rules: [CONTRIBUTING.md](CONTRIBUTING.md). Read SPEC.md before changing
+behavior.
+
+## Keep the docs in sync — before you commit
+
+When a change alters behavior, structure, or status, update the affected docs in
+the *same* change. Before committing, ask: "did this make any of these wrong?"
+
+- **CHANGELOG.md** — record every user-facing change (Keep a Changelog format).
+- **ROADMAP.md** — tick/move an item when its capability lands or its status changes.
+- **SPEC.md** — update the data model (§6), module layout (§8), or design sections
+  when types, packages, or behavior change.
+- **README.md** — keep the keybinding table, install steps, and feature list matching
+  the actual TUI.
+- **Memories** (the project's `~/.claude/.../memory/` files) — when a project decision
+  changes, update the relevant memory and its `MEMORY.md` line.
+
+This list exists because docs drift silently otherwise — that's how ROADMAP fell
+behind the shipped index-sync and release work.
+
+## Code rules (detail in CONTRIBUTING.md)
+
+- **Layering:** `internal/memory`, `internal/plan`, and `internal/config` contain no
+  UI; `internal/tui` contains no file/IO logic. Don't cross the line.
+- **Never modify a user's memory files** except on an explicit user action
+  (edit/create/delete/promote). Only ever *add* frontmatter keys engram owns; never
+  rewrite Claude's fields.
+- Run `gofmt -w .`, `go vet ./...`, and `go test ./...` before committing.
+- Commit messages: conventional prefixes, present tense ("add x", not "added x").
+
+## Release / publishing
+
+The repo stays **private until v2 (team sharing) ships**. The v0.1.0 release tooling
+is built but **must not publish** — no `git push --tags`, no GitHub Release, no
+visibility change — until the user explicitly says so. Mechanics: SPEC §9 and the
+"Releasing" section of CONTRIBUTING.md.
