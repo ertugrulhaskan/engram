@@ -55,6 +55,22 @@ func (t Theme) groupColor(i int) string {
 	return t.Groups[i%len(t.Groups)]
 }
 
+// groupColorer returns a stateful mapper from a group key to a stable, cycling
+// header color: each new key (in a contiguous run of equal keys) advances to
+// the next color. It's the shared engine behind the grouped memory and plan
+// lists — callers must feed keys with equal keys already adjacent.
+func (t Theme) groupColorer() func(key string) string {
+	idx := -1
+	prev := "\x00sentinel"
+	return func(key string) string {
+		if key != prev {
+			idx++
+			prev = key
+		}
+		return t.groupColor(idx)
+	}
+}
+
 // bar styles bar text: foreground c over the bar background. Used for the top
 // and bottom bars so every segment carries the background (lipgloss resets
 // would otherwise punch holes in a full-width fill).

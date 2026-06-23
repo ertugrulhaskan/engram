@@ -906,15 +906,10 @@ func (m Model) memoryItems() []Item {
 	sortForGroup(sub, m.groupBy)
 
 	items := make([]Item, 0, len(sub))
-	gIdx := -1
-	prevKey := "\x00sentinel"
+	colorFor := t.groupColorer()
 	for _, mm := range sub {
 		key := groupKeyOf(mm, m.groupBy)
-		if key != prevKey {
-			gIdx++
-			prevKey = key
-		}
-		label, color := mm.Project.Name, t.groupColor(gIdx)
+		label, color := mm.Project.Name, colorFor(key)
 		right := ""
 		if byType {
 			label, color = typeLabel(mm.Type), t.typeColor(mm.Type)
@@ -930,17 +925,46 @@ func (m Model) memoryItems() []Item {
 	return items
 }
 
-// planItems maps plans into a flat (ungrouped) Item list, newest first, with the
-// modified date as the right column. Plans have no badge/type/project.
+// planItems maps plans into Items grouped by recency (Today / This week /
+// Older), mirroring how memories group by project: colored group headers with
+// counts and the modified date in the right column. Plans have no
+// badge/type/project. Sorting newest-first here makes the buckets contiguous
+// regardless of the order plans arrive in (the same guarantee memoryItems gets
+// from sortForGroup).
 func (m Model) planItems() []Item {
-	items := make([]Item, 0, len(m.plans))
-	for _, p := range m.plans {
+	t := m.theme()
+	plans := append([]plan.Plan(nil), m.plans...)
+	sort.SliceStable(plans, func(i, j int) bool { return plans[i].Modified.After(plans[j].Modified) })
+
+	items := make([]Item, 0, len(plans))
+	colorFor := t.groupColorer()
+	for _, p := range plans {
+		key, label := recencyBucket(p.Modified)
 		items = append(items, Item{
 			Title: p.Title, Body: p.Body, Raw: p.Body, Path: p.Path, Modified: p.Modified,
+			GroupKey: key, GroupLabel: label, GroupColor: colorFor(key),
 			Right: humanizeSince(p.Modified), Context: "plan", Kind: "plan",
 		})
 	}
 	return items
+}
+
+// recencyBucket buckets a plan by how recently it was modified into three
+// coarse spans: Today (<24h), This week (<7d), and Older. The right-column date
+// (humanizeSince) is finer-grained, so a row can read e.g. "3w ago" under the
+// "Older" header — consistent, just more precise than the bucket.
+func recencyBucket(mod time.Time) (key, label string) {
+	if mod.IsZero() {
+		return "older", "Older"
+	}
+	switch d := time.Since(mod); {
+	case d < 24*time.Hour:
+		return "today", "Today"
+	case d < 7*24*time.Hour:
+		return "week", "This week"
+	default:
+		return "older", "Older"
+	}
 }
 
 func (m *Model) firstMemRow() int {
