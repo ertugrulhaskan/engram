@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>engram — your AI's memory, browsable in the terminal</title>
+<meta name="description" content="engram discovers, reads, and edits every memory Claude Code keeps across your projects — a fast two-pane terminal UI with zero setup and nothing to sign up for. Single Go binary, macOS / Linux." />
+
+<!-- Open Graph / social -->
+<meta property="og:title" content="engram" />
+<meta property="og:description" content="Your AI's memory, browsable in the terminal. engram reads, searches, and edits every memory Claude Code keeps across your projects — single binary, zero setup." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://engram.im" />
+
+<style>
+  :root {
+    /* Classic Dark — the VS Code Dark+ palette engram ships as its default theme
+       (see internal/tui/theme.go "Classic Dark"). */
+    --bg:       #1a1a1a;
+    --surface:  #1e1e1e;
+    --surface2: #252526;
+    --inset:    #1b1b1b;
+    --border:   #3a3a3a;
+    --fg:       #d4d4d4;
+    --dim:      #808080;
+    --accent:   #4fa6ed;  /* brand blue */
+    --blue:     #569cd6;  /* user */
+    --orange:   #ce9178;  /* feedback */
+    --green:    #6a9955;  /* project / prompt */
+    --purple:   #c586c0;  /* reference */
+    --teal:     #4ec9b0;
+    --yellow:   #dcdcaa;
+    --danger:   #e05561;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 480px at 50% -8%, rgba(79,166,237,0.10), transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 13px; color: var(--dim);
+    display: block; margin: 0 0 10px;
+  }
+
+  /* ---- header ---- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 24px; max-width: 1000px; margin: 0 auto;
+  }
+  .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; letter-spacing: -0.5px; color: var(--accent); }
+  .brand .ver { color: var(--dim); font-weight: 400; font-size: 13px; margin-left: 8px; }
+  .nav a { color: var(--dim); margin-left: 22px; font-size: 14px; }
+  .nav a:hover { color: var(--fg); text-decoration: none; }
+  .nav a.gh {
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 13px;
+    color: var(--fg);
+  }
+  .nav a.gh:hover { border-color: var(--accent); }
+
+  /* ---- hero ---- */
+  .hero { text-align: center; padding: 50px 0 24px; }
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 12px;
+    color: var(--green); border: 1px solid var(--border);
+    background: var(--surface); border-radius: 999px; padding: 5px 14px; margin-bottom: 26px;
+  }
+  .pill .blink { color: var(--green); }
+  h1 {
+    font-size: clamp(30px, 6vw, 54px); margin: 0 0 18px; letter-spacing: -1px;
+    font-family: var(--mono); font-weight: 800; line-height: 1.12; color: #fff;
+  }
+  .tagline { font-size: clamp(15px, 2vw, 17px); color: var(--dim); max-width: 600px; margin: 0 auto 28px; }
+
+  /* ---- install command ---- */
+  .cmd {
+    display: inline-flex; align-items: center; gap: 14px;
+    font-family: var(--mono); font-size: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 12px 12px 18px; text-align: left; max-width: 100%;
+  }
+  .cmd .prompt { color: var(--green); user-select: none; }
+  .cmd code { color: var(--fg); overflow-x: auto; }
+  .cmd button {
+    font-family: var(--sans); font-size: 12px; cursor: pointer; flex: none;
+    color: var(--dim); background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 11px; transition: color .15s, border-color .15s;
+  }
+  .cmd button:hover { color: var(--fg); border-color: var(--accent); }
+  .cmd button.copied { color: var(--green); border-color: var(--green); }
+  .subcmd { color: var(--dim); font-family: var(--mono); font-size: 12px; margin: 14px 0 0; }
+  .subcmd code { color: var(--fg); }
+
+  /* ---- terminal mock ---- */
+  .term {
+    margin: 48px auto 0; max-width: 880px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5); overflow: hidden; text-align: left;
+  }
+  .term .chrome {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); padding: 11px 14px; border-bottom: 1px solid var(--border);
+  }
+  .term .chrome .led { width: 12px; height: 12px; border-radius: 50%; }
+  .led.r { background: #e05561; } .led.y { background: #dcdcaa; } .led.g { background: #6a9955; }
+  .term .chrome .title { margin-left: 10px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .term .topbar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    padding: 9px 16px; border-bottom: 1px solid var(--border); background: var(--inset);
+  }
+  .term .topbar b { color: var(--accent); font-weight: 600; }
+  .term .body { display: grid; grid-template-columns: 1.1fr 1fr; font-family: var(--mono); font-size: 13px; }
+  .term .list { padding: 14px 12px; border-right: 1px solid var(--border); }
+  .term .preview { padding: 14px 18px; color: var(--dim); }
+  .grouphdr { color: var(--green); margin: 0 0 8px; }
+  .grouphdr.alt { color: var(--blue); margin-top: 16px; }
+  .row { display: flex; gap: 9px; align-items: baseline; padding: 3px 4px; border-radius: 5px; white-space: nowrap; overflow: hidden; }
+  .row.sel { background: var(--surface2); }
+  .row .chev { color: var(--accent); width: 10px; display: inline-block; }
+  .badge { font-size: 11px; flex: none; }
+  .b-user { color: var(--blue); } .b-feedback { color: var(--orange); }
+  .b-project { color: var(--green); } .b-reference { color: var(--purple); } .b-other { color: var(--dim); }
+  .row .name { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+  .row.sel .name { color: var(--fg); }
+  .preview .meta { color: var(--dim); margin: 0 0 8px; font-size: 12px; }
+  .preview .meta .b-project { color: var(--green); }
+  .preview h4 { color: var(--fg); margin: 0 0 10px; font-family: var(--mono); font-size: 14px; }
+  .preview p { margin: 0 0 12px; color: var(--fg); font-size: 12.5px; line-height: 1.5; }
+  .preview p code, .preview .in { background: var(--surface2); border-radius: 4px; padding: 1px 5px; color: var(--teal); font-size: 12px; }
+  .codeblk {
+    background: var(--inset); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-size: 12px; color: var(--fg); overflow-x: auto; margin: 0;
+  }
+  .codeblk .kw { color: var(--blue); } .codeblk .ty { color: var(--teal); } .codeblk .fn { color: var(--yellow); }
+  .statusbar {
+    font-family: var(--mono); font-size: 11px; color: var(--dim);
+    background: var(--surface2); border-top: 1px solid var(--border); padding: 8px 16px;
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .statusbar .key { color: var(--accent); }
+  .statusbar .theme b { color: var(--accent); font-weight: 600; }
+
+  /* ---- section heading ---- */
+  .sec { padding: 86px 0 0; }
+  .sec h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 8px; color: #fff; font-family: var(--mono); font-weight: 800; letter-spacing: -0.5px; }
+  .sec .lede { color: var(--dim); margin: 0 0 30px; max-width: 640px; font-size: 15px; }
+
+  /* ---- features ---- */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+  .card .ico { font-family: var(--mono); font-size: 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; color: var(--fg); }
+  .card p { margin: 0; color: var(--dim); font-size: 13.5px; }
+  .card code { font-family: var(--mono); color: var(--fg); background: var(--surface2); border-radius: 4px; padding: 0 4px; font-size: 12.5px; }
+
+  /* ---- zero setup ---- */
+  .zero { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 34px; }
+  .zero .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+  .zero p.intro { color: var(--dim); font-size: 14px; margin: 0 0 18px; }
+  .zero p.intro code { font-family: var(--mono); color: var(--fg); }
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 11px; }
+  .checks li { padding-left: 26px; position: relative; color: var(--fg); font-size: 14px; }
+  .checks li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+  .filetree {
+    background: var(--inset); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; font-family: var(--mono); font-size: 13px; color: var(--dim);
+    overflow-x: auto; margin: 0; line-height: 1.7;
+  }
+  .filetree .proj { color: var(--blue); } .filetree .idx { color: var(--green); } .filetree .f { color: var(--fg); }
+
+  /* ---- roadmap ---- */
+  .phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+  .phase .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .phase .v { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+  .phase h3 { margin: 0 0 16px; font-size: 16px; color: var(--fg); }
+  .tag {
+    font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border);
+  }
+  .tag.available { color: var(--green); border-color: var(--green); }
+  .tag.next { color: var(--accent); border-color: var(--accent); }
+  .tag.planned { color: var(--dim); }
+  .plist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .plist li { padding-left: 22px; position: relative; font-size: 13.5px; color: var(--dim); }
+  .phase.done .plist li { color: var(--fg); }
+  .phase.done .plist li::before { content: "✓"; color: var(--green); position: absolute; left: 0; font-weight: 700; }
+  .phase.todo .plist li::before { content: "○"; color: var(--dim); position: absolute; left: 0; }
+  .phase.todo .plist li code { font-family: var(--mono); color: var(--fg); font-size: 12.5px; }
+
+  /* ---- final cta ---- */
+  .finalcta { text-align: center; padding: 100px 0 8px; }
+  .finalcta h2 { font-size: clamp(24px, 5vw, 38px); margin: 0 0 12px; color: #fff; font-family: var(--mono); font-weight: 800; letter-spacing: -0.5px; }
+  .finalcta .sub { color: var(--dim); margin: 0 0 26px; }
+
+  /* ---- footer ---- */
+  footer {
+    border-top: 1px solid var(--border); margin-top: 90px; padding: 26px 0 50px;
+    color: var(--dim); font-size: 14px;
+  }
+  footer .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  footer .brand { font-size: 15px; }
+  footer .links a { color: var(--dim); margin-left: 20px; }
+  footer .links a:hover { color: var(--fg); text-decoration: none; }
+
+  @media (max-width: 820px) {
+    .features, .phases { grid-template-columns: 1fr; }
+    .zero .grid { grid-template-columns: 1fr; }
+    .term .body { grid-template-columns: 1fr; }
+    .term .list { border-right: none; border-bottom: 1px solid var(--border); }
+    .nav a:not(.gh) { display: none; }
+    .statusbar .theme { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">engram<span class="ver">v0.1</span></div>
+  <nav class="nav">
+    <a href="#features">features</a>
+    <a href="#how">how it works</a>
+    <a href="#roadmap">roadmap</a>
+    <a class="gh" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <span class="pill"><span class="blink">●</span> reads the memories Claude Code already writes</span>
+    <h1>Your AI's memory,<br>browsable in the terminal.</h1>
+    <p class="tagline">engram discovers, reads, and edits every memory Claude Code keeps across your projects — a fast two-pane TUI with zero setup and nothing to sign up for.</p>
+
+    <div class="cmd">
+      <span class="prompt">$</span>
+      <code>go install github.com/ertugrulhaskan/engram@latest</code>
+      <button onclick="copyCmd(this)">copy</button>
+    </div>
+    <p class="subcmd">or <code>brew install ertugrulhaskan/tap/engram</code> once released · macOS, Linux, single binary</p>
+
+    <!-- terminal mockup -->
+    <div class="term" aria-hidden="true">
+      <div class="chrome">
+        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+        <span class="title">~/code — engram</span>
+      </div>
+      <div class="topbar">
+        <span>engram · 11 memories · all projects</span>
+        <span>grouped by <b>project</b> &nbsp; type <b>all</b></span>
+      </div>
+      <div class="body">
+        <div class="list">
+          <p class="grouphdr">▌ engram (3)</p>
+          <div class="row sel"><span class="chev">❯</span><span class="badge b-project">[project]</span><span class="name">Bubble Tea model lives…</span></div>
+          <div class="row"><span class="chev"> </span><span class="badge b-feedback">[feedback]</span><span class="name">Prefer concise commits</span></div>
+          <div class="row"><span class="chev"> </span><span class="badge b-project">[project]</span><span class="name">Use lipgloss for styling</span></div>
+          <p class="grouphdr alt">▌ payments-api (3)</p>
+          <div class="row"><span class="chev"> </span><span class="badge b-feedback">[feedback]</span><span class="name">Never log full PANs</span></div>
+          <div class="row"><span class="chev"> </span><span class="badge b-reference">[reference]</span><span class="name">Stripe webhook secret…</span></div>
+        </div>
+        <div class="preview">
+          <p class="meta"><span class="b-project">[project]</span> engram · edited yesterday</p>
+          <h4>Bubble Tea model lives in internal/tui</h4>
+          <p>All UI state is one <span class="in">model</span> struct. It holds <b>no file logic</b> — mutations go through <span class="in">internal/memory</span>.</p>
+          <pre class="codeblk"><span class="kw">type</span> <span class="ty">model</span> <span class="kw">struct</span> {
+    memories []memory.<span class="ty">Memory</span>
+    cursor   <span class="ty">int</span>
+    focus    <span class="ty">focusArea</span>
+}</pre>
+        </div>
+      </div>
+      <div class="statusbar">
+        <span><span class="key">↑↓/jk</span> move &nbsp; <span class="key">/</span> filter &nbsp; <span class="key">e</span> edit &nbsp; <span class="key">n</span> new &nbsp; <span class="key">d</span> delete &nbsp; <span class="key">t</span> type &nbsp; <span class="key">g</span> group &nbsp; <span class="key">q</span> quit</span>
+        <span class="theme">theme <b>Classic Dark</b> · 1-5</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="sec">
+    <span class="eyebrow">// what it does</span>
+    <h2>Every memory, one keystroke away.</h2>
+    <div class="features">
+      <div class="card">
+        <div class="ico" style="color:var(--blue)">◧</div>
+        <h3>Two-pane TUI</h3>
+        <p>A searchable list beside a fully rendered markdown preview. Glamour-styled, fast, keyboard-driven.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--accent)">/</div>
+        <h3>Filter &amp; search</h3>
+        <p>Hit <code>/</code> to fuzzy-filter across titles, projects, and types. Narrow to what matters in a keystroke.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--orange)">✎</div>
+        <h3>Edit in $EDITOR</h3>
+        <p>Press <code>e</code> to open the selected memory in your editor, then reload in place. <code>n</code> to create, <code>d</code> to delete.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--purple)">▦</div>
+        <h3>Group your way</h3>
+        <p>Toggle between by-project and by-type with <code>g</code>. Filter to a single type with <code>t</code>.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--teal)">⌘</div>
+        <h3>Command palette</h3>
+        <p><code>ctrl+p</code> jumps anywhere. Switch sources and browse plan-mode plans alongside memories.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--green)">◑</div>
+        <h3>Live theming</h3>
+        <p>Classic Dark, Tokyo Night, Gruvbox, Nord, Dracula. Switch with <code>1-5</code>; config persists under XDG.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="sec">
+    <span class="eyebrow">// zero setup</span>
+    <h2>It already knows where to look.</h2>
+    <div class="zero">
+      <div class="grid">
+        <div>
+          <p class="intro">engram scans <code>~/.claude/projects/*/memory/</code> and parses both shapes Claude Code writes — YAML frontmatter and plain markdown with a <code>MEMORY.md</code> index. Nothing to configure.</p>
+          <ul class="checks">
+            <li>Discovers memories across every project automatically</li>
+            <li>Parses YAML frontmatter and plain-markdown shapes alike</li>
+            <li>Keeps <code>MEMORY.md</code> in sync on new, edit, and delete</li>
+            <li>Reconciles a drifted index with <code>R</code></li>
+          </ul>
+        </div>
+        <pre class="filetree">~/.claude/projects/
+├── <span class="proj">engram</span>/memory/
+│   ├── <span class="idx">MEMORY.md</span>
+│   ├── <span class="f">bubbletea-model.md</span>
+│   └── <span class="f">lipgloss-styling.md</span>
+├── <span class="proj">payments-api</span>/memory/
+│   └── <span class="f">idempotency.md</span>
+└── <span class="proj">dotfiles</span>/memory/
+    └── <span class="f">editor-is-nvim.md</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="roadmap" class="sec">
+    <span class="eyebrow">// roadmap</span>
+    <h2>Shipping in phases.</h2>
+    <p class="lede">Each phase is independently useful. v1 is here today; team sharing and other assistants are next.</p>
+    <div class="phases">
+      <div class="phase done">
+        <div class="head"><span class="v">v1</span><span class="tag available">available</span></div>
+        <h3>Local browsing</h3>
+        <ul class="plist">
+          <li>Discover &amp; parse all memories</li>
+          <li>Two-pane searchable TUI</li>
+          <li>Edit, new, delete + index sync</li>
+          <li>Themes, command palette, plans</li>
+        </ul>
+      </div>
+      <div class="phase todo">
+        <div class="head"><span class="v">v2</span><span class="tag next">next</span></div>
+        <h3>Team sharing over git</h3>
+        <ul class="plist">
+          <li><code>engram init-team &lt;git-url&gt;</code></li>
+          <li>Promote &amp; pull team memories</li>
+          <li>Personal vs team scope, enforced</li>
+          <li>Sync-status badges &amp; conflicts</li>
+        </ul>
+      </div>
+      <div class="phase todo">
+        <div class="head"><span class="v">v3</span><span class="tag planned">planned</span></div>
+        <h3>Other assistants</h3>
+        <ul class="plist">
+          <li>Pluggable source abstraction</li>
+          <li>Claude.ai memory import/export</li>
+          <li>ChatGPT / Gemini memory</li>
+          <li>Read-only first, editing as feasible</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="finalcta">
+    <h2>Stop grepping your memory files.</h2>
+    <p class="sub">One binary. No servers. No signup.</p>
+    <div class="cmd">
+      <span class="prompt">$</span>
+      <code>go install github.com/ertugrulhaskan/engram@latest</code>
+      <button onclick="copyCmd(this)">copy</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="brand">engram <span style="color:var(--dim);font-weight:400">memory for Claude Code</span></span>
+    <span class="links">
+      <a href="https://github.com/ertugrulhaskan/engram">GitHub</a>
+      <a href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
+      <a href="#roadmap">Roadmap</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  function copyCmd(btn) {
+    var code = btn.parentElement.querySelector('code');
+    navigator.clipboard.writeText(code.innerText).then(function () {
+      btn.textContent = 'copied ✓';
+      btn.classList.add('copied');
+      setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1600);
+    });
+  }
+</script>
+</body>
+</html>

@@ -13,6 +13,10 @@ keeps so it can remember things across sessions.
 
 > **Status:** v1 (local browsing) complete — v0.1.0. See [ROADMAP.md](ROADMAP.md).
 > Design details live in [SPEC.md](SPEC.md).
+>
+> **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html) and
+> will be served at [engram.im](https://engram.im) (Cloudflare Pages; publishing deferred —
+> see [SPEC.md](SPEC.md) §9).
 
 ## Why
 
@@ -81,8 +85,9 @@ memory rendered as markdown. The command palette (`ctrl+p`) switches between
 sources — your memories and your plan-mode plans — and opens the config file.
 
 > `new`, `delete`, and `edit` keep the project's `MEMORY.md` index in sync, so
-> Claude Code picks up the changes. Press `R` to reconcile an index that has
-> drifted from its files.
+> Claude Code picks up the changes. When an index drifts, the warning names the
+> cause — files added without an index line, and/or entries left by a deleted or
+> renamed file — and `R` reconciles it.
 
 ## Understanding the list
 

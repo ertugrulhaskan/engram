@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Landing page for **engram.im** (`www/index.html`) — a single self-contained HTML
+  page in the Classic Dark theme, with no build step or external assets. Intended to
+  be served via Cloudflare Pages from `www/`; publishing is deferred (see SPEC §9).
+- Project `.mcp.json` registering the `context7` and `sequential-thinking` MCP
+  servers so Claude Code (not just VSCode) can use them; the context7 key is read
+  from the `${CONTEXT7_API_KEY}` environment variable, so no secret is committed.
+
+### Changed
+- Transient footer messages are now color-coded by severity: warnings and deletions
+  render as white text on red, and cancellations as dark brown text on emerald.
+- The "index out of sync" warning now names its cause — how many files were added
+  without a `MEMORY.md` index line, and/or how many index entries point to a
+  deleted/renamed file — instead of just flagging that drift exists.
+- Internal: split the ~1.9k-line `internal/tui/tui.go` into focused same-package
+  files (`model`, `update`, `view`, `items`, `palette`, `render`, `style`, `editor`,
+  `status`, `layout`, `navigation`, `reload`); no behavior change.
+
 ## [0.1.0] - 2026-06-22
 
 First tagged release. v1 — local memory browsing — is feature-complete.
