@@ -228,8 +228,20 @@ engram/
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
         config/              # load/save theme + editor under the XDG config dir
         tui/                 # NO file logic here
-            tui.go           # Bubble Tea model/update/view; multi-source browser + command palette
-            theme.go         # themes, colors, group coloring
+            tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
+            model.go         # Model type, New, Init, theme/setTheme, styleInputs
+            update.go        # Update dispatcher + per-mode key handlers
+            view.go          # View, top/bottom bars, drift warning, status styling
+            items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
+            palette.go       # command palette: types, candidates, rendering
+            render.go        # list/preview/row rendering and floating-dialog frames
+            style.go         # color/pad/clip text helpers, type labels, humanize
+            editor.go        # open-in-$EDITOR command plumbing + open-settings-file
+            status.go        # transient footer status: kinds, flash/auto-dismiss
+            layout.go        # resize geometry, glamour renderer build, listRows
+            navigation.go    # cursor move/page, selection, source switch, preview sync
+            reload.go        # fs polling + post-mutation reload commands
+            theme.go         # themes, colors, group coloring, semantic status colors
             overlay.go       # floating dialogs
 ```
 
@@ -242,6 +254,19 @@ engram/
 - `go install` for Go users.
 - Tagged releases build cross-platform binaries (GitHub Releases / equivalent).
 - Homebrew tap from the first release.
+
+### Website
+
+- Domain: **engram.im**. The landing page is a single self-contained HTML file at
+  `www/index.html` (no build step, no external assets), kept in this repo — one source
+  of truth alongside the docs it must stay in sync with.
+- Served via **Cloudflare Pages** (free tier, builds directly from the private repo —
+  no GitHub Pro required): build command empty, output directory `www`, custom domain
+  `engram.im`.
+- **Publishing is deferred.** Gate go-live on the v0.1.0 release being public so the
+  install command and the "available" badge are true. Do not create the Cloudflare
+  project, change DNS, or otherwise publish without explicit sign-off (see the
+  Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 
 ## 10. Open questions / future
 
