@@ -9,8 +9,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/plan"
 )
+
+func samplePlans() []plan.Plan {
+	d := func(s string) time.Time { t, _ := time.Parse("2006-01-02", s); return t }
+	return []plan.Plan{
+		{Title: "Auto-reload on disk changes", Body: "# Plan: Auto-reload\n\nwatch the fs\n", Path: "/Users/me/.claude/plans/auto-reload.md", Modified: d("2026-06-22")},
+		{Title: "Themed redesign", Body: "# Plan: Themed redesign\n\nfive themes\n", Path: "/Users/me/.claude/plans/themed.md", Modified: d("2026-06-19")},
+	}
+}
 
 func mem(title, desc string, t memory.Type, proj, path, date string) memory.Memory {
 	mod, _ := time.Parse("2006-01-02", date)
@@ -43,7 +53,8 @@ func render(m Model, w, h int) string {
 // TestRender is a smoke test for the View pipeline at several sizes. Run with
 // `go test -v` to print the frames and eyeball the layout.
 func TestRender(t *testing.T) {
-	m := New(sampleMemories())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // theme-switch persistence must not touch the real config
+	m := New(sampleMemories(), samplePlans(), config.Config{})
 
 	for _, sz := range []struct{ w, h int }{{100, 30}, {80, 24}, {64, 22}} {
 		out := render(m, sz.w, sz.h)
@@ -63,7 +74,7 @@ func TestRender(t *testing.T) {
 
 	// Grouped by type + Tokyo Night theme: exercises the right-aligned project
 	// column and theme switching.
-	var cur tea.Model = New(sampleMemories())
+	var cur tea.Model = New(sampleMemories(), samplePlans(), config.Config{})
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
