@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-22
+
+First tagged release. v1 — local memory browsing — is feature-complete.
+
 ### Added
 - Discover memories across all `~/.claude/projects/*/memory/` folders.
 - Parse both on-disk memory shapes: YAML frontmatter, and plain markdown whose
@@ -27,9 +31,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reference=purple, other=gray) and add typography: colored group headers,
   indented rows, a `❯` cursor on the selected row, and dimmed descriptions.
 - Toggle grouping between by-project and by-type with `g`.
+- Keep the project's `MEMORY.md` index in sync: `new`/`delete`/`edit` upsert and
+  remove the corresponding index bullets, and `R` reconciles a folder's index
+  against its files (drops dangling bullets, adds missing ones).
+- Discover and browse plan-mode plans alongside memories — a multi-source
+  browser with a command palette (`ctrl+p`) and floating dialogs.
+- Group the plans list by recency (Today / This week / Older) with the same
+  colored headers, counts, and row layout as the memory list.
+- Live theme switching (`1`–`5`) with a themed multi-pane layout.
+- Persist the chosen theme and `$EDITOR` under the XDG config dir
+  (`~/.config/engram/`).
+- Auto-reload the browser when the memory files change on disk, detected via a
+  lightweight filesystem signature.
+- `engram --version` / `--help` report the build version and usage.
 
 ### Known gaps
-- `new` / `delete` do not yet update the project's `MEMORY.md` index.
-- No tagged release or Homebrew tap yet.
+- No public release or Homebrew tap published yet (release tooling is in place;
+  publishing is deferred until v2).
+- Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://example.com/your-repo/compare/main...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ertugrulhaskan/engram/releases/tag/v0.1.0

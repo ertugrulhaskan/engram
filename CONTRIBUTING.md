@@ -62,6 +62,37 @@ files directly. Keep it that way — it's what keeps the project testable.
 4. Open a pull request that explains the what and the why, and note anything you
    couldn't verify.
 
+## Releasing
+
+Releases are automated with [GoReleaser](https://goreleaser.com) — see
+[`.goreleaser.yaml`](.goreleaser.yaml) and
+[`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+To cut a release:
+
+1. Update [`CHANGELOG.md`](CHANGELOG.md): move `[Unreleased]` items into a new
+   dated version section and refresh the compare/tag links.
+2. Tag and push:
+   ```sh
+   git tag v0.2.0
+   git push --tags
+   ```
+3. The `release` workflow runs GoReleaser, which builds cross-platform binaries
+   (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
+   archives + checksums, and pushes an updated formula to the Homebrew tap.
+
+Validate config and do a full local dry-run (no publish) before tagging:
+
+```sh
+goreleaser check
+goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
+```
+
+**One-time setup** (before the first public release): create the
+`ertugrulhaskan/homebrew-tap` repo and add a `HOMEBREW_TAP_TOKEN` Actions secret
+— a PAT with write access to that tap repo (the built-in `GITHUB_TOKEN` can't
+push to a separate repository).
+
 ## Code of conduct
 
 This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By

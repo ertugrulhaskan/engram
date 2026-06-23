@@ -11,7 +11,7 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** v1 in progress (local browsing). See [ROADMAP.md](ROADMAP.md).
+> **Status:** v1 (local browsing) complete — v0.1.0. See [ROADMAP.md](ROADMAP.md).
 > Design details live in [SPEC.md](SPEC.md).
 
 ## Why
@@ -27,17 +27,25 @@ proper UI.
 
 ## Install
 
-> Requires [Go](https://go.dev/dl/) 1.23+ to build from source. Prebuilt
-> binaries and a Homebrew tap are planned for the first tagged release.
+**Homebrew** (macOS, from the v0.1.0 release):
 
 ```sh
-go install github.com/ertughaskan/engram@latest
+brew install ertugrulhaskan/tap/engram
 ```
 
-Or from a clone:
+**Go** (requires [Go](https://go.dev/dl/) 1.23+; works on Linux/Windows too):
 
 ```sh
-git clone <your-repo-url> engram && cd engram
+go install github.com/ertugrulhaskan/engram@latest
+```
+
+**Prebuilt binaries** for macOS / Linux / Windows (amd64 + arm64) are attached to
+each [release](https://github.com/ertugrulhaskan/engram/releases).
+
+Or build from a clone:
+
+```sh
+git clone https://github.com/ertugrulhaskan/engram.git && cd engram
 go mod tidy        # fetches dependencies (needs network, first time only)
 go run .           # run it
 go build -o engram # or build a binary
@@ -53,30 +61,35 @@ engram
 
 | Key        | Action                                  |
 |------------|-----------------------------------------|
-| `↑`/`↓` `j`/`k` | move through the memory list        |
-| `/`        | filter / search memories                |
-| `enter`    | (in filter) apply the filter            |
+| `↑`/`↓` `j`/`k` | move through the list              |
+| `pgup`/`pgdn` | page through the list                |
+| `/`        | filter / search the list                |
 | `tab`      | switch focus between list and preview   |
 | `e`        | edit the selected memory in `$EDITOR`   |
 | `n`        | create a new memory (in the current project) and open it |
-| `d`        | delete the selected memory (asks `y`/`n` first) |
+| `d`        | delete the selected item (asks `y`/`n` first) |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
+| `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
+| `1`–`5`    | switch theme                            |
+| `ctrl+p`   | command palette — browse `/memory`, `/plans`, or open `/settings` |
 | `q` / `ctrl+c` | quit                                |
 
 The left pane lists every memory found across all your projects, **grouped by
 project** with a colored header per group; the right pane shows the selected
-memory rendered as markdown.
+memory rendered as markdown. The command palette (`ctrl+p`) switches between
+sources — your memories and your plan-mode plans — and opens the config file.
 
-> Note: `new` and `delete` change the memory files but do **not** yet update the
-> project's `MEMORY.md` index — that sync is a tracked follow-up.
+> `new`, `delete`, and `edit` keep the project's `MEMORY.md` index in sync, so
+> Claude Code picks up the changes. Press `R` to reconcile an index that has
+> drifted from its files.
 
 ## Understanding the list
 
 - **Grouping.** Rows are grouped under a colored `▌ Group (N)` header with a
-  count. Press `g` to toggle between grouping **by project** (which Claude
-  project a memory belongs to) and **by type**. The selected row is marked with a
-  `❯` cursor.
+  count. For memories, press `g` to toggle between grouping **by project** (which
+  Claude project a memory belongs to) and **by type**. Plans group **by recency**
+  (Today / This week / Older). The selected row is marked with a `❯` cursor.
 - **Color-coded badge = kind.** Each memory shows a colored badge for its type,
   taken from Claude's `metadata.type`:
   - `[user]` (blue) — a fact about you (role, preferences)

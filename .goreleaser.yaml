@@ -1,0 +1,91 @@
+# GoReleaser configuration for engram.
+# Validate:   goreleaser check
+# Dry-run:    goreleaser release --snapshot --clean --skip=publish
+# Release:    push a v* tag (handled by .github/workflows/release.yml)
+version: 2
+
+project_name: engram
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: engram
+    main: .
+    binary: engram
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: engram
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: git
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+homebrew_casks:
+  - name: engram
+    binaries:
+      - engram
+    repository:
+      owner: ertugrulhaskan
+      name: homebrew-tap
+      # PAT with write access to the tap repo (the built-in GITHUB_TOKEN can't
+      # push to a separate repository). Set HOMEBREW_TAP_TOKEN in CI secrets.
+      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+    # Until the tap repo + token are set up, still build/render the cask but skip
+    # the push, so a release isn't left half-published by a failed cask upload.
+    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}false{{ end }}'
+    homepage: "https://engram.im"
+    description: "Terminal UI for browsing, searching, and sharing your Claude Code memories"
+    # The release binaries are unsigned; clear the macOS quarantine flag on install.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/engram"]
+          end
+
+release:
+  draft: false
+  prerelease: auto
