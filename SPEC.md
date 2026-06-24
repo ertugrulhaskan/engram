@@ -50,14 +50,18 @@ Claude Code stores memories per-project:
     <slug>.md          # one memory per file
 ```
 
-`<encoded-project-path>` is the project's absolute path with `/` replaced by `-`
-and a leading `-`, e.g. `/Users/me/code/app` → `-Users-me-code-app`.
+`<encoded-project-path>` is the project's absolute path with a leading `-` and
+both `/` and `.` replaced by `-`, e.g. `/Users/me/code/app` → `-Users-me-code-app`
+and `/Users/me/code/engram.im` → `-Users-me-code-engram-im`.
 
-> ⚠️ **Decoding is lossy.** Path segments can themselves contain `-`
-> (`acme-site`, `work-bigco`), so `-`→`/` is ambiguous. engram
-> decodes by probing the filesystem (slash first, then dash) and falls back to
-> the raw encoded string as a stable key when decoding fails. The raw encoded
-> name is always a valid project identity even when the pretty path isn't.
+> ⚠️ **Decoding is lossy.** A `-` in the encoded name may have been a `/`, a `.`,
+> or a literal `-` (`acme-site`, `work-bigco`, `engram.im`), so the
+> mapping back is ambiguous. engram decodes by walking the filesystem, matching
+> each path component against a real folder on disk (with its dots flattened), so
+> multi-separator names like `app.engram.im` resolve in full. When no real path
+> resolves — e.g. the project was deleted — it falls back to a best-effort
+> slash-joined path (`-Users-ghost-engram-im` → `/Users/ghost/engram/im`). Decoding
+> is never guaranteed, but it always yields a usable project identity.
 
 ## 5. The two on-disk memory shapes
 

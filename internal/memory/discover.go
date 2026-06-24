@@ -126,31 +126,72 @@ func Signature(root string) (string, error) {
 }
 
 // decodeProjectPath turns Claude's encoded project folder name (e.g.
-// "-Users-me-code-app") back into a real path. Decoding is ambiguous because
-// path segments may contain "-", so we probe the filesystem: prefer "/", fall
-// back to "-". When nothing resolves we return a best-effort slash-joined path.
+// "-Users-me-code-app") back into a real path. The encoding is lossy: Claude
+// flattens "/", "." and any literal "-" all to "-", so a single "-" could
+// originally have been any of the three. We recover the real path by walking the
+// filesystem — at each directory we look for a real child whose name (with its
+// own dots flattened to dashes) matches a leading run of the remaining tokens.
+// This reconstructs multi-separator names like "engram.im" or a domain-style
+// "app.engram.im" that a token-at-a-time probe can't. The walk is still
+// best-effort and inherently ambiguous: if the real project folder is gone but a
+// flattened-equivalent sibling exists (e.g. "/Users/me.app" when "/Users/me/app"
+// was deleted) it resolves to the sibling. When nothing resolves we fall back to
+// a best-effort slash-joined path.
 func decodeProjectPath(encoded string) string {
 	if !strings.HasPrefix(encoded, "-") {
 		return encoded
 	}
 	tokens := strings.Split(encoded[1:], "-")
-	path := "/"
-	for i, tok := range tokens {
-		if i == 0 {
-			path += tok
-			continue
-		}
-		if withSlash := filepath.Join(path, tok); pathExists(withSlash) {
-			path = withSlash
-			continue
-		}
-		if withDash := path + "-" + tok; pathExists(withDash) {
-			path = withDash
-			continue
-		}
-		path = filepath.Join(path, tok)
+	if resolved, ok := resolveTokens("/", tokens); ok {
+		return resolved
 	}
-	return path
+	return filepath.Join(append([]string{"/"}, tokens...)...)
+}
+
+// resolveTokens reconstructs a real path under base by consuming every token. A
+// single filesystem child can absorb several tokens at once when its name held a
+// "-" or "." the encoding flattened away. We try the match that consumes the
+// fewest tokens first — treating the next "-" as a "/" — to mirror the historical
+// "slash first" preference, and backtrack when a branch dead-ends.
+func resolveTokens(base string, tokens []string) (string, bool) {
+	if len(tokens) == 0 {
+		return base, true
+	}
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return "", false
+	}
+	type match struct {
+		name string
+		n    int // tokens this child consumes
+	}
+	var matches []match
+	for _, e := range entries {
+		parts := strings.Split(strings.ReplaceAll(e.Name(), ".", "-"), "-")
+		if tokensHavePrefix(tokens, parts) {
+			matches = append(matches, match{e.Name(), len(parts)})
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool { return matches[i].n < matches[j].n })
+	for _, m := range matches {
+		if resolved, ok := resolveTokens(filepath.Join(base, m.name), tokens[m.n:]); ok {
+			return resolved, true
+		}
+	}
+	return "", false
+}
+
+// tokensHavePrefix reports whether prefix matches the leading elements of tokens.
+func tokensHavePrefix(tokens, prefix []string) bool {
+	if len(prefix) > len(tokens) {
+		return false
+	}
+	for i, p := range prefix {
+		if tokens[i] != p {
+			return false
+		}
+	}
+	return true
 }
 
 func pathExists(p string) bool {

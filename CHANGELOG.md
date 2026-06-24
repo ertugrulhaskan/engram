@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   files (`model`, `update`, `view`, `items`, `palette`, `render`, `style`, `editor`,
   `status`, `layout`, `navigation`, `reload`); no behavior change.
 
+### Fixed
+- Project group names that contain dots (e.g. `engram.im`, `acme.dev`, or a
+  domain-style folder like `app.engram.im`) now display in full. Claude flattens
+  `/`, `.`, and `-` all to `-` when encoding a project folder, so decoding rebuilt
+  `engram.im` as `engram/im` — showing the group as just `im`. Decoding now
+  reconstructs the real path by matching folder names on disk, recovering dotted
+  and multi-separator names. Affects both the memory and `/files` sources.
+
 ## [0.1.0] - 2026-06-22
 
 First tagged release. v1 — local memory browsing — is feature-complete.

@@ -40,10 +40,12 @@ func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 	return projectsRoot, realProjDir
 }
 
-// encodeForTest mirrors Claude Code's project-folder encoding: every "/" becomes
-// "-". Since dir exists on disk, decodeProjectPath round-trips it by probing.
+// encodeForTest mirrors Claude Code's project-folder encoding: "/", ".", and any
+// literal "-" all collapse to "-". Since dir exists on disk, decodeProjectPath
+// round-trips it by walking the filesystem.
 func encodeForTest(dir string) string {
-	return strings.ReplaceAll(filepath.ToSlash(dir), "/", "-")
+	s := strings.ReplaceAll(filepath.ToSlash(dir), "/", "-")
+	return strings.ReplaceAll(s, ".", "-")
 }
 
 func TestDiscoverDocs(t *testing.T) {
@@ -82,6 +84,42 @@ func TestDiscoverDocs(t *testing.T) {
 		if d.Kind == DocRules && d.ProjectName == "gone" {
 			t.Errorf("unexpected CLAUDE.md for unresolved project: %+v", d)
 		}
+	}
+}
+
+// TestDecodeProjectPathDots covers folders whose names contain dots and dashes.
+// Claude flattens "/", "." and "-" all to "-", so the decoder must reconstruct
+// the real name from disk; without that, a domain-style "app.engram.im" would
+// decode to "app/engram/im" and display as just "im". encodeForTest flattens
+// dots too, so these cases genuinely exercise the filesystem walk.
+func TestDecodeProjectPathDots(t *testing.T) {
+	home := t.TempDir()
+
+	cases := []string{
+		filepath.Join(home, "code", "engram.im"),           // single dot in the basename
+		filepath.Join(home, "work", "acme.dev"),         // dot in a different segment
+		filepath.Join(home, "x", "a.b.c"),                  // multiple dots in one name
+		filepath.Join(home, "y", "work-acme.io"),       // dot and literal dash together
+		filepath.Join(home, "z", "app.engram.im"),          // multi-label, domain-style name
+		filepath.Join(home, "w", "work-bigco"), // literal dash, no dot
+	}
+	for _, dir := range cases {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		got := decodeProjectPath(encodeForTest(dir))
+		if got != dir {
+			t.Errorf("decodeProjectPath round-trip: got %q, want %q", got, dir)
+		}
+		if base := filepath.Base(got); base != filepath.Base(dir) {
+			t.Errorf("display name: got %q, want %q", base, filepath.Base(dir))
+		}
+	}
+
+	// Regression guard: an unresolved (deleted/renamed) project can't be probed,
+	// so dots aren't recoverable — it falls back to the slash form without panic.
+	if got := decodeProjectPath("-Users-ghost-engram-im"); got != "/Users/ghost/engram/im" {
+		t.Errorf("unresolved fallback: got %q, want %q", got, "/Users/ghost/engram/im")
 	}
 }
 
