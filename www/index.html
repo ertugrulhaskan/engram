@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>engram — your AI's memory, browsable in the terminal</title>
-<meta name="description" content="engram discovers, reads, and edits every memory Claude Code keeps across your projects — a fast two-pane terminal UI with zero setup and nothing to sign up for. Single Go binary, macOS / Linux." />
+<title>engram — your team's AI memory, in the terminal</title>
+<meta name="description" content="engram brings every memory Claude Code keeps — across all your projects — into one fast terminal UI, and shares the team-useful ones over plain git. Single Go binary, no servers, no signup." />
 
 <!-- Open Graph / social -->
 <meta property="og:title" content="engram" />
-<meta property="og:description" content="Your AI's memory, browsable in the terminal. engram reads, searches, and edits every memory Claude Code keeps across your projects — single binary, zero setup." />
+<meta property="og:description" content="Your AI's memory — yours and your team's — in the terminal. Browse, edit, and promote the memories Claude Code keeps; share them over plain git. Single binary, no servers." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://engram.im" />
 
@@ -108,7 +108,7 @@
   .term {
     margin: 48px auto 0; max-width: 880px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.5); overflow: hidden; text-align: left;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5); overflow: hidden; text-align: left; position: relative;
   }
   .term .chrome {
     display: flex; align-items: center; gap: 8px;
@@ -199,7 +199,7 @@
   .phase.done .plist li { color: var(--fg); }
   .phase.done .plist li::before { content: "✓"; color: var(--green); position: absolute; left: 0; font-weight: 700; }
   .phase.todo .plist li::before { content: "○"; color: var(--dim); position: absolute; left: 0; }
-  .phase.todo .plist li code { font-family: var(--mono); color: var(--fg); font-size: 12.5px; }
+  .phase .plist li code { font-family: var(--mono); color: var(--fg); font-size: 12.5px; }
 
   /* ---- final cta ---- */
   .finalcta { text-align: center; padding: 100px 0 8px; }
@@ -216,6 +216,64 @@
   footer .links a { color: var(--dim); margin-left: 20px; }
   footer .links a:hover { color: var(--fg); text-decoration: none; }
 
+  /* ---- why: problem -> solution ---- */
+  .sec .lede code, .flow-cap code, .problem .pain code, .problem .fix code { font-family: var(--mono); color: var(--fg); }
+  .problem { display: grid; gap: 12px; }
+  .prow {
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  }
+  .prow .pain { padding: 18px 20px; color: var(--dim); font-size: 14px; border-right: 1px solid var(--border); }
+  .prow .fix  { padding: 18px 20px; color: var(--fg);  font-size: 14px; background: var(--inset); }
+  .prow .fix b { color: var(--accent); font-weight: 600; }
+  .prow .lbl { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 5px; }
+
+  /* ---- team sharing: flow + badge matrix ---- */
+  .flow { display: flex; align-items: stretch; gap: 0; margin: 4px 0 14px; }
+  .flow .step {
+    flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--fg);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px;
+  }
+  .flow .step .n { display: block; color: var(--dim); font-size: 11px; margin-bottom: 5px; }
+  .flow .step code, .flow .step b { color: var(--accent); font-weight: 600; }
+  .flow .arrow { align-self: center; color: var(--accent); padding: 0 12px; font-size: 18px; flex: none; }
+  .flow-cap { color: var(--dim); font-size: 13px; margin: 0 0 8px; }
+
+  .badgematrix {
+    margin-top: 26px; background: var(--inset); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; font-family: var(--mono); font-size: 13px;
+  }
+  .bmrow {
+    display: grid; grid-template-columns: 110px 1fr auto; gap: 14px; align-items: baseline;
+    padding: 11px 16px; border-top: 1px solid var(--border);
+  }
+  .bmrow:first-child { border-top: none; }
+  .bm-mean { color: var(--dim); }
+  .bm-act { color: var(--accent); white-space: nowrap; }
+  .bm-act.none { color: var(--dim); }
+
+  /* sync-status badges — reuse the existing palette; red is conflict-only */
+  .b-personal { color: var(--dim); }
+  .b-new      { color: var(--accent); }
+  .b-teamok   { color: var(--green); }
+  .b-teamedit { color: var(--yellow); }
+  .b-teamdown { color: var(--blue); }
+  .b-conflict { color: var(--danger); }
+
+  /* promote modal floating inside the sharing mockup */
+  .term .modal {
+    position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%);
+    width: min(430px, 86%); background: var(--surface2); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 14px 16px; box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+    font-family: var(--mono); font-size: 12.5px;
+  }
+  .term .modal h5 { margin: 0 0 10px; color: var(--fg); font-size: 13px; font-weight: 600; }
+  .term .modal .opt { margin: 5px 0; color: var(--dim); }
+  .term .modal .opt.on { color: var(--fg); }
+  .term .modal .opt .rad { color: var(--accent); }
+  .term .modal .hint { margin: 11px 0 0; color: var(--dim); }
+  .term .modal .hint .key { color: var(--accent); }
+
   @media (max-width: 820px) {
     .features, .phases { grid-template-columns: 1fr; }
     .zero .grid { grid-template-columns: 1fr; }
@@ -223,15 +281,22 @@
     .term .list { border-right: none; border-bottom: 1px solid var(--border); }
     .nav a:not(.gh) { display: none; }
     .statusbar .theme { display: none; }
+    .problem .prow { grid-template-columns: 1fr; }
+    .problem .prow .pain { border-right: none; border-bottom: 1px solid var(--border); }
+    .flow { flex-direction: column; }
+    .flow .arrow { transform: rotate(90deg); padding: 7px 0; }
+    .badgematrix .bmrow { grid-template-columns: auto 1fr; }
+    .badgematrix .bmrow .bm-act { grid-column: 1 / -1; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">engram<span class="ver">v0.1</span></div>
+  <div class="brand">engram<span class="ver">v2.0</span></div>
   <nav class="nav">
-    <a href="#features">features</a>
+    <a href="#why">why</a>
+    <a href="#sharing">sharing</a>
     <a href="#how">how it works</a>
     <a href="#roadmap">roadmap</a>
     <a class="gh" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
@@ -241,16 +306,16 @@
 <main class="wrap">
 
   <section class="hero">
-    <span class="pill"><span class="blink">●</span> reads the memories Claude Code already writes</span>
-    <h1>Your AI's memory,<br>browsable in the terminal.</h1>
-    <p class="tagline">engram discovers, reads, and edits every memory Claude Code keeps across your projects — a fast two-pane TUI with zero setup and nothing to sign up for.</p>
+    <span class="pill"><span class="blink">●</span> your team's AI memory, in one place</span>
+    <h1>Your AI's memory —<br>yours, your team's, all in one terminal.</h1>
+    <p class="tagline">Claude Code writes memories to disk — scattered one folder per project. engram brings them into one fast terminal UI: browse, edit, and promote the good ones to your whole team over plain git. No servers, no signup.</p>
 
     <div class="cmd">
       <span class="prompt">$</span>
       <code>go install github.com/ertugrulhaskan/engram@latest</code>
       <button onclick="copyCmd(this)">copy</button>
     </div>
-    <p class="subcmd">or <code>brew install ertugrulhaskan/tap/engram</code> once released · macOS, Linux, single binary</p>
+    <p class="subcmd">or <code>brew install ertugrulhaskan/tap/engram</code> · macOS, Linux, single binary</p>
 
     <!-- terminal mockup -->
     <div class="term" aria-hidden="true">
@@ -290,39 +355,145 @@
     </div>
   </section>
 
+  <section id="why" class="sec">
+    <span class="eyebrow">// why engram</span>
+    <h2>Memories Claude writes, but you can't see.</h2>
+    <p class="lede">Claude Code is quietly building a memory of how you work — one markdown file at a time, buried under <code>~/.claude/projects/&lt;project&gt;/memory/</code>. It works, until you actually want to use it.</p>
+    <div class="problem">
+      <div class="prow">
+        <div class="pain"><span class="lbl">the problem</span>Memories are scattered one folder per project — awkward to read raw in a pager.</div>
+        <div class="fix"><span class="lbl">what engram does</span>One searchable two-pane UI across <b>every</b> project.</div>
+      </div>
+      <div class="prow">
+        <div class="pain"><span class="lbl">the problem</span>The team-useful ones are stuck on one laptop, with no way to share them.</div>
+        <div class="fix"><span class="lbl">what engram does</span>Promote one and your teammates <b>pull it over plain git</b>.</div>
+      </div>
+      <div class="prow">
+        <div class="pain"><span class="lbl">the problem</span>Editing the raw files by hand risks corrupting what Claude reads.</div>
+        <div class="fix"><span class="lbl">what engram does</span>Read-only by default — engram only ever <b>adds</b> its own frontmatter.</div>
+      </div>
+    </div>
+    <p class="lede" style="margin:28px 0 0">Not a replacement for committing a <code>CLAUDE.md</code> to your repo — engram covers the gap that can't: cross-project memories, a personal-vs-team layer, and a real UI. It pairs with Claude Code's own <code>/memory</code> and <code>/memory-check</code> commands, adding the cross-project view and team layer those don't.</p>
+  </section>
+
+  <section class="sec">
+    <span class="eyebrow">// the difference</span>
+    <h2>Three reasons it's worth the install.</h2>
+    <div class="features">
+      <div class="card">
+        <div class="ico" style="color:var(--blue)">◧</div>
+        <h3>Every memory, one place</h3>
+        <p>One two-pane TUI over <b style="color:var(--fg)">all</b> your projects — searchable, grouped, rendered as markdown. No more grepping <code>~/.claude</code> by hand.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--accent)">⤴</div>
+        <h3>Share over plain git</h3>
+        <p>Promote a memory and it rides to your team through a git repo you already control. No servers, no engram account — your git host is the auth.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--green)">✓</div>
+        <h3>Safe by default</h3>
+        <p>Read-only until you act. engram only ever <b style="color:var(--fg)">adds</b> its own frontmatter — it never rewrites what Claude wrote, so files stay readable by Claude Code.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="sharing" class="sec">
+    <span class="eyebrow">// team sharing</span>
+    <h2>Promote a memory. Your team pulls it.</h2>
+    <p class="lede">The shared store is one git repo your whole team reads and writes. engram keeps a managed clone and shells out to git for every sync — no servers, no engram-level auth, nothing new to trust. Personal memories never leave your machine unless you promote them.</p>
+
+    <div class="flow">
+      <div class="step"><span class="n">1 · once</span><code>engram init-team &lt;git-url&gt;</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="n">2 · in the TUI</span>select &amp; <b>promote</b> — commit + push</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="n">3 · teammate</span><b>pull</b> — lands where Claude reads</div>
+    </div>
+    <p class="flow-cap">Setup is one command, once. Day to day, <code>promote</code> and <code>pull</code> are keystrokes inside the TUI — engram stays a no-arg tool.</p>
+
+    <div class="term" aria-hidden="true">
+      <div class="chrome">
+        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+        <span class="title">~/code — engram · team</span>
+      </div>
+      <div class="topbar">
+        <span>engram · 11 memories · <b>6 shared with team</b></span>
+        <span>team <b>acme/memory</b> · synced</span>
+      </div>
+      <div class="body">
+        <div class="list">
+          <p class="grouphdr">▌ payments-api (4)</p>
+          <div class="row"><span class="chev"> </span><span class="badge b-teamok">[team ✓]</span><span class="name">Never log full PANs</span></div>
+          <div class="row sel"><span class="chev">❯</span><span class="badge b-new">[+] new</span><span class="name">Stripe webhook flow</span></div>
+          <div class="row"><span class="chev"> </span><span class="badge b-teamdown">[team ↓]</span><span class="name">Idempotency keys</span></div>
+          <div class="row"><span class="chev"> </span><span class="badge b-teamedit">[team ●]</span><span class="name">Retry / backoff policy</span></div>
+          <p class="grouphdr alt">▌ dotfiles (1)</p>
+          <div class="row"><span class="chev"> </span><span class="badge b-personal">[personal]</span><span class="name">Editor is nvim</span></div>
+        </div>
+        <div class="preview">
+          <p class="meta"><span class="b-new">[+] new</span> payments-api · not yet shared</p>
+          <h4>Stripe webhook flow</h4>
+          <p>Verify the signature before parsing. Treat <span class="in">charge.succeeded</span> as the source of truth — <b>not</b> the redirect.</p>
+          <p style="color:var(--dim);font-size:12px;margin:0">Promote to share this with everyone on <span class="in">github.com/acme/payments-api</span>.</p>
+        </div>
+      </div>
+      <div class="modal">
+        <h5>Promote “Stripe webhook flow” →</h5>
+        <p class="opt on"><span class="rad">◉</span> this project &nbsp;<span style="color:var(--dim)">github.com/acme/payments-api</span></p>
+        <p class="opt"><span class="rad">○</span> global &nbsp;<span style="color:var(--dim)">apply everywhere</span></p>
+        <p class="hint"><span class="key">enter</span> promote · commit + push &nbsp; <span class="key">esc</span> cancel</p>
+      </div>
+      <div class="statusbar">
+        <span><span class="key">space</span> select &nbsp; <span class="key">p</span> promote &nbsp; <span class="key">P</span> pull &nbsp; <span class="key">enter</span> open &nbsp; <span class="key">q</span> quit</span>
+        <span class="theme">team <b>acme/memory</b></span>
+      </div>
+    </div>
+
+    <div class="badgematrix">
+      <div class="bmrow"><span class="b-personal">[personal]</span><span class="bm-mean">local only, intentionally private</span><span class="bm-act none">—</span></div>
+      <div class="bmrow"><span class="b-new">[+] new</span><span class="bm-mean">local, not yet in the team repo</span><span class="bm-act">promote</span></div>
+      <div class="bmrow"><span class="b-teamok">[team ✓]</span><span class="bm-mean">local matches the team copy</span><span class="bm-act none">—</span></div>
+      <div class="bmrow"><span class="b-teamedit">[team ●]</span><span class="bm-mean">edited locally since promoting</span><span class="bm-act">re-promote</span></div>
+      <div class="bmrow"><span class="b-teamdown">[team ↓]</span><span class="bm-mean">team has a newer version</span><span class="bm-act">pull</span></div>
+      <div class="bmrow"><span class="b-conflict">[team ⚠]</span><span class="bm-mean">both changed — opens both in $EDITOR</span><span class="bm-act">resolve</span></div>
+    </div>
+    <p class="lede" style="margin:24px 0 0">Sync is manual and deliberate. engram never auto-pulls and never auto-shares — on launch it does a cheap check and just badges what changed. You decide what crosses the line between personal and team.</p>
+  </section>
+
   <section id="features" class="sec">
-    <span class="eyebrow">// what it does</span>
-    <h2>Every memory, one keystroke away.</h2>
+    <span class="eyebrow">// the day-to-day</span>
+    <h2>Built for living in the terminal.</h2>
     <div class="features">
       <div class="card">
         <div class="ico" style="color:var(--blue)">◧</div>
         <h3>Two-pane TUI</h3>
-        <p>A searchable list beside a fully rendered markdown preview. Glamour-styled, fast, keyboard-driven.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--accent)">/</div>
-        <h3>Filter &amp; search</h3>
-        <p>Hit <code>/</code> to fuzzy-filter across titles, projects, and types. Narrow to what matters in a keystroke.</p>
+        <p>A searchable list beside a fully rendered markdown preview. Hit <code>/</code> to fuzzy-filter across titles, projects, and types — Glamour-styled and keyboard-driven.</p>
       </div>
       <div class="card">
         <div class="ico" style="color:var(--orange)">✎</div>
         <h3>Edit in $EDITOR</h3>
-        <p>Press <code>e</code> to open the selected memory in your editor, then reload in place. <code>n</code> to create, <code>d</code> to delete.</p>
+        <p>Press <code>e</code> to open the selected memory in your editor, then reload in place. <code>n</code> to create, <code>d</code> to delete — the <code>MEMORY.md</code> index stays in sync.</p>
       </div>
       <div class="card">
         <div class="ico" style="color:var(--purple)">▦</div>
         <h3>Group your way</h3>
-        <p>Toggle between by-project and by-type with <code>g</code>. Filter to a single type with <code>t</code>.</p>
+        <p>Toggle between by-project and by-type with <code>g</code>; filter to a single type with <code>t</code>. Color-coded badges for user, feedback, project, reference.</p>
       </div>
       <div class="card">
         <div class="ico" style="color:var(--teal)">⌘</div>
         <h3>Command palette</h3>
-        <p><code>ctrl+p</code> jumps anywhere. Switch sources and browse plan-mode plans alongside memories.</p>
+        <p><code>ctrl+p</code> opens to two guides: type <code>/</code> for <code>/memory</code>, <code>/plans</code>, and <code>/files</code> (your <code>CLAUDE.md</code> + <code>MEMORY.md</code>, read-only), or <code>@</code> for the assistant.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="color:var(--accent)">✦</div>
+        <h3>@Claude repairs drift</h3>
+        <p>Hand malformed frontmatter, broken <code>[[links]]</code>, or files stranded by a renamed project to an interactive Claude Code session, seeded with your memory health. engram reloads when it exits.</p>
       </div>
       <div class="card">
         <div class="ico" style="color:var(--green)">◑</div>
         <h3>Live theming</h3>
-        <p>Classic Dark, Tokyo Night, Gruvbox, Nord, Dracula. Switch with <code>1-5</code>; config persists under XDG.</p>
+        <p>Classic Dark, Tokyo Night, Gruvbox, Nord, Dracula. Switch with <code>1-5</code>; your choice persists under XDG config.</p>
       </div>
     </div>
   </section>
@@ -339,6 +510,7 @@
             <li>Parses YAML frontmatter and plain-markdown shapes alike</li>
             <li>Keeps <code>MEMORY.md</code> in sync on new, edit, and delete</li>
             <li>Reconciles a drifted index with <code>R</code></li>
+            <li>Team memories land where Claude reads them — same folders, same <code>MEMORY.md</code></li>
           </ul>
         </div>
         <pre class="filetree">~/.claude/projects/
@@ -357,7 +529,7 @@
   <section id="roadmap" class="sec">
     <span class="eyebrow">// roadmap</span>
     <h2>Shipping in phases.</h2>
-    <p class="lede">Each phase is independently useful. v1 is here today; team sharing and other assistants are next.</p>
+    <p class="lede">Each phase ships independently. Local browsing and team sharing are here today; other assistants are next.</p>
     <div class="phases">
       <div class="phase done">
         <div class="head"><span class="v">v1</span><span class="tag available">available</span></div>
@@ -369,18 +541,18 @@
           <li>Themes, command palette, plans</li>
         </ul>
       </div>
-      <div class="phase todo">
-        <div class="head"><span class="v">v2</span><span class="tag next">next</span></div>
+      <div class="phase done">
+        <div class="head"><span class="v">v2</span><span class="tag available">available</span></div>
         <h3>Team sharing over git</h3>
         <ul class="plist">
-          <li><code>engram init-team &lt;git-url&gt;</code></li>
-          <li>Promote &amp; pull team memories</li>
+          <li>One-command <code>init-team</code> setup</li>
+          <li>Promote &amp; pull as keystrokes</li>
           <li>Personal vs team scope, enforced</li>
-          <li>Sync-status badges &amp; conflicts</li>
+          <li>Sync badges + conflict resolve</li>
         </ul>
       </div>
       <div class="phase todo">
-        <div class="head"><span class="v">v3</span><span class="tag planned">planned</span></div>
+        <div class="head"><span class="v">v3</span><span class="tag next">next</span></div>
         <h3>Other assistants</h3>
         <ul class="plist">
           <li>Pluggable source abstraction</li>
@@ -394,7 +566,7 @@
 
   <section class="finalcta">
     <h2>Stop grepping your memory files.</h2>
-    <p class="sub">One binary. No servers. No signup.</p>
+    <p class="sub">One binary. No servers. No signup — yours today, your team in one keystroke.</p>
     <div class="cmd">
       <span class="prompt">$</span>
       <code>go install github.com/ertugrulhaskan/engram@latest</code>
@@ -406,7 +578,7 @@
 
 <footer>
   <div class="wrap">
-    <span class="brand">engram <span style="color:var(--dim);font-weight:400">memory for Claude Code</span></span>
+    <span class="brand">engram <span style="color:var(--dim);font-weight:400">memory for Claude Code — personal and team</span></span>
     <span class="links">
       <a href="https://github.com/ertugrulhaskan/engram">GitHub</a>
       <a href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
