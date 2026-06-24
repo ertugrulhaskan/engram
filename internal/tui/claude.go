@@ -28,7 +28,7 @@ var lookClaude = func() string { return firstInPath("claude") }
 const seedListCap = 10
 
 // assistantCmd dispatches to the chosen provider. Only "claude" exists today;
-// the provider seam keeps the door open for other assistants (v3) without
+// the provider seam keeps the door open for other assistants (Phase 3) without
 // touching the palette.
 func (m *Model) assistantCmd(provider string) tea.Cmd {
 	switch provider {

@@ -20,9 +20,6 @@ discussions) and when an individual is representing the project in public spaces
 ## Reporting
 
 If you experience or witness unacceptable behavior, please report it to the
-project maintainer at **[INSERT CONTACT EMAIL]**. All reports will be reviewed
+project maintainer at **ertughaskan@gmail.com**. All reports will be reviewed
 and investigated promptly and fairly, and the reporter's privacy will be
 respected.
-
-> **Maintainers:** replace the contact above with a real address before making
-> the repository public.

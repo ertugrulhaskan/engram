@@ -122,11 +122,11 @@ type Project struct {
     Name      string // friendly (basename of decoded path)
     Dir       string // decoded absolute project dir (best-effort)
     MemoryDir string // .../memory
-    Remote    string // git remote URL — v2, empty in v1
+    Remote    string // git remote URL — Phase 2, empty in Phase 1
 }
 
 // DocFile is a read-only CLAUDE.md / MEMORY.md surfaced in the /files source
-// (v1.5). No frontmatter — Claude manages these, engram never hand-edits them.
+// (Phase 1.5). No frontmatter — Claude manages these, engram never hand-edits them.
 type DocFile struct {
     Path, Title, Body string
     Kind              DocKind // "rules" (CLAUDE.md) | "index" (MEMORY.md)
@@ -136,7 +136,7 @@ type DocFile struct {
 }
 ```
 
-## 7. Sharing design (v2)
+## 7. Sharing design (Phase 2)
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -160,7 +160,7 @@ with `git -C <project-dir> remote get-url origin`, then **normalizes** it to a
 canonical `host/path` slug — lowercased, with the protocol, any `user@`, a
 trailing `.git`, and a trailing `/` stripped — so `git@github.com:acme/app.git`,
 `https://github.com/acme/app`, and `ssh://git@github.com/acme/app` all map to the
-same `github.com/acme/app`. Monorepos sharing one remote share one bucket in v2
+same `github.com/acme/app`. Monorepos sharing one remote share one bucket in Phase 2
 (sub-keys are a later refinement). Projects with no remote fall back to a
 user-assigned alias.
 
@@ -261,11 +261,11 @@ engram/
             overlay.go       # floating dialogs
 ```
 
-> v1 also browses **plan-mode plans** as a second source (read-only, grouped by
-> recency), switchable via the command palette. The sharing design below (v2)
+> Phase 1 also browses **plan-mode plans** as a second source (read-only, grouped by
+> recency), switchable via the command palette. The sharing design below (Phase 2)
 > concerns memories only.
 
-### 8.1 `@Claude` assistant (v1.5)
+### 8.1 `@Claude` assistant (Phase 1.5)
 
 The empty palette is a guide: two `palPrefix` rows — `/` (commands) and `@`
 (assistant) — each with a description. Selecting one seeds its prefix into the
@@ -294,7 +294,7 @@ are genuinely misfiled. `claude` is a new **optional** runtime dependency: absen
 action shows a hint and does nothing. On exit engram reloads (and resets the drift cache)
 so changes appear immediately.
 
-### 8.2 `/files` read-only source (v1.5)
+### 8.2 `/files` read-only source (Phase 1.5)
 
 A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the files Claude
 *manages* rather than the ones you author: the global `~/.claude/CLAUDE.md`, each project's
@@ -329,7 +329,7 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 
 ## 10. Open questions / future
 
-- Conflict resolution UX for `[team ⚠]` (v2): inline diff vs. open both.
+- Conflict resolution UX for `[team ⚠]` (Phase 2): inline diff vs. open both.
 - Promoting whole *types* at once (e.g. "all feedback").
-- v3: ingesting Claude.ai / ChatGPT / Gemini memories — blocked on those
+- Phase 3: ingesting Claude.ai / ChatGPT / Gemini memories — blocked on those
   products exposing programmatic access; likely export/import at first.

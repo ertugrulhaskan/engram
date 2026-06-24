@@ -124,7 +124,7 @@ func (m Model) paletteCommands() []palCommand {
 }
 
 // palProvider is one AI assistant reachable via "@" in the palette. Today only
-// Claude Code exists; the registry keeps adding another (v3) a one-line change.
+// Claude Code exists; the registry keeps adding another (Phase 3) a one-line change.
 type palProvider struct {
 	key   string // matched against the text after "@"
 	label string // primary line, e.g. "@Claude"

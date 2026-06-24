@@ -55,7 +55,7 @@ files directly. Keep it that way — it's what keeps the project testable.
 
 ## Proposing changes
 
-1. Open an issue describing the change (especially for anything in the v2/v3
+1. Open an issue describing the change (especially for anything in Phase 2/3
    scope — check [ROADMAP.md](ROADMAP.md) first).
 2. Fork, branch, and make your change with tests.
 3. Ensure `go test ./...` and `go vet ./...` pass and the tree is `gofmt`-clean.

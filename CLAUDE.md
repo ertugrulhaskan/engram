@@ -1,6 +1,6 @@
 # engram — working rules
 
-engram is a single-binary Go TUI for browsing (and, in v2, sharing) Claude Code
+engram is a single-binary Go TUI for browsing (and, in Phase 2, sharing) Claude Code
 memories. Design source of truth: [SPEC.md](SPEC.md). Phases: [ROADMAP.md](ROADMAP.md).
 Build/test rules: [CONTRIBUTING.md](CONTRIBUTING.md). Read SPEC.md before changing
 behavior.
@@ -34,7 +34,7 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-The repo stays **private until v2 (team sharing) ships**. The v0.1.0 release tooling
+The repo stays **private until Phase 2 (team sharing) ships**. The v0.1.0 release tooling
 is built but **must not publish** — no `git push --tags`, no GitHub Release, no
 visibility change — until the user explicitly says so. Mechanics: SPEC §9 and the
 "Releasing" section of CONTRIBUTING.md.

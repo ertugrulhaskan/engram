@@ -11,7 +11,7 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** v1 (local browsing) complete — v0.1.0. See [ROADMAP.md](ROADMAP.md).
+> **Status:** Phase 1 (local browsing) complete — `v0.1.0`. See [ROADMAP.md](ROADMAP.md).
 > Design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html) and
@@ -31,7 +31,12 @@ proper UI.
 
 ## Install
 
-**Homebrew** (macOS, from the v0.1.0 release):
+> **Heads up — not published yet.** The repo stays private until Phase 2 ships,
+> so the Homebrew tap and prebuilt binaries below aren't available, and
+> `go install` needs repo access. For now, **build from a clone** (last option
+> below). The other commands are how it will install once published.
+
+**Homebrew** (macOS, from the `v0.1.0` release):
 
 ```sh
 brew install ertugrulhaskan/tap/engram
@@ -118,7 +123,7 @@ file; typing `@` launches **`@Claude`**.
   - `[reference]` (purple) — a pointer to an external resource
   - `[other]` (gray) — no type recorded
 - **No "global / all-projects" scope yet.** A cross-project scope (a memory that
-  applies everywhere, or is shared with a team) is planned for **v2** — see
+  applies everywhere, or is shared with a team) is planned for **Phase 2** — see
   [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` show up
   read-only under `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
 
@@ -136,9 +141,10 @@ Files are never modified except when you explicitly edit one. See
 
 ## Roadmap (short version)
 
-- **v1** — browse / search / view / edit local memories *(in progress)*
-- **v2** — team sharing over git: promote / pull, sync-status badges
-- **v3** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
+- **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
+- **Phase 2** — team sharing over git: promote / pull, sync-status badges *(next)*
+- **Phase 3** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing
 

@@ -1,28 +1,28 @@
 # engram — Open Questions
 
-Design questions for v2 (team sharing). Resolved items are reflected in
+Design questions for Phase 2 (team sharing). Resolved items are reflected in
 [SPEC.md](SPEC.md) §7; for sequencing see [ROADMAP.md](ROADMAP.md).
 
-> Started 2026-06-22. Core v2 design locked 2026-06-22 — see **Resolved** below.
+> Started 2026-06-22. Core Phase 2 design locked 2026-06-22 — see **Resolved** below.
 
 ---
 
 ## Still open / deferred
 
-Deliberately punted past the first v2 cut — none block starting v2:
+Deliberately punted past the first Phase 2 cut — none block starting Phase 2:
 
 - **Whole-type promote** (e.g. "promote all feedback at once"). Single +
   multi-select promote ships first. (SPEC §10 future.)
-- **Inline diff for `[team ⚠]`.** v2 opens both versions in `$EDITOR`; an inline
+- **Inline diff for `[team ⚠]`.** Phase 2 opens both versions in `$EDITOR`; an inline
   diff view comes later.
-- **Monorepo sub-keys.** Subprojects sharing one remote share one bucket in v2;
+- **Monorepo sub-keys.** Subprojects sharing one remote share one bucket in Phase 2;
   per-subdir keys are a later refinement.
 - **No-remote alias coordination.** A no-remote project falls back to a
   user-assigned alias, but two teammates must pick the *same* alias for their
-  memories to meet. v2 leaves this to out-of-band agreement; a shared alias map
+  memories to meet. Phase 2 leaves this to out-of-band agreement; a shared alias map
   in the team repo is a possible later fix.
 - **Repo URL onboarding.** Teammates get the team repo URL out-of-band
-  (Slack/README) for v2; an `engram invite` helper is out of scope.
+  (Slack/README) for Phase 2; an `engram invite` helper is out of scope.
 
 ---
 
@@ -58,6 +58,6 @@ Deliberately punted past the first v2 cut — none block starting v2:
 - **Promote scope:** modal at promote time, defaulting to the current project,
   with a "global" option.
 
-**Carryover from v1**
+**Carryover from Phase 1**
 - `new`/`delete`/`edit` already sync `MEMORY.md`, and `R` reconciles a drifted
-  index — shipped in v1. (This was the prerequisite for `pull`'s index refresh.)
+  index — shipped in Phase 1. (This was the prerequisite for `pull`'s index refresh.)

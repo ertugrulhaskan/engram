@@ -33,7 +33,7 @@ type Project struct {
 	Name      string // friendly name (basename of decoded dir)
 	Dir       string // decoded absolute project dir (best-effort)
 	MemoryDir string // .../memory
-	Remote    string // git remote URL — populated in v2, empty in v1
+	Remote    string // git remote URL — populated in Phase 2, empty in Phase 1
 }
 
 // frontmatter is the subset of YAML frontmatter engram understands.

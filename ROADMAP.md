@@ -3,9 +3,13 @@
 Three phases, each independently shippable. Earlier phases stay useful even if
 later ones never land.
 
+> **Phases are milestones, not release versions.** "Phase 1 / 1.5 / 2 / 3" name
+> chunks of work; shipped releases follow [SemVer](https://semver.org), starting
+> at `v0.1.0`. (Phase 1 and Phase 1.5 are released together as `v0.1.0`.)
+
 ---
 
-## v1 — Local browsing *(complete — release tooling ready, publishing deferred)*
+## Phase 1 — Local browsing *(complete — shipped in `v0.1.0`)*
 
 Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 
@@ -21,12 +25,12 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Browse plan-mode plans too: multi-source switcher + command palette (`ctrl+p`),
       themed multi-pane UI with live theme switching, config persisted under XDG
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
-      tag-triggered release workflow — *publishing deferred until v2*
+      tag-triggered release workflow — *publishing deferred until Phase 2*
 
-## v1.5 — Assisted memory maintenance *(in progress)*
+## Phase 1.5 — Assisted memory maintenance *(core shipped in `v0.1.0`; one item left)*
 
 Goal: hand the fiddly memory/plan upkeep to an AI, instead of fixing it by hand.
-Independently shippable and strictly pre-v2 (no sharing, no servers).
+Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
 
 - [x] `@Claude` from the command palette — launch an interactive Claude Code session
       seeded with the selected project's memory/plan health, to repair drift the `R`
@@ -34,9 +38,9 @@ Independently shippable and strictly pre-v2 (no sharing, no servers).
       renamed project folder) and to create/rewrite/merge memories and plans on request
 - [x] `/files` source — browse the global + per-project `CLAUDE.md` and each project's
       `MEMORY.md` read-only; edits are reserved for `@Claude`
-- [ ] Other assistants behind the same `@<provider>` seam (overlaps v3)
+- [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 3)
 
-## v2 — Team sharing over git
+## Phase 2 — Team sharing over git
 
 Goal: share the team-useful memories across people and projects, no servers.
 
@@ -49,7 +53,7 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [ ] Conflict resolution UX for `[team ⚠]`
 - [ ] Global vs project-scoped team memories
 
-## v3 — Other assistants
+## Phase 3 — Other assistants
 
 Goal: one place for memories beyond Claude Code — as each product allows.
 
