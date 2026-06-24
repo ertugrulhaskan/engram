@@ -17,6 +17,36 @@ func typeRunes(m tea.Model, s string) tea.Model {
 	return m
 }
 
+// The empty palette is a guide: two rows ("/" commands, "@" assistant). Pressing
+// Enter on the "/" row seeds "/" and reveals the command list without closing.
+func TestPaletteEmptyGuide(t *testing.T) {
+	var m tea.Model = ready(t)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	rows := m.(Model).palRows
+	if len(rows) != 2 {
+		t.Fatalf("empty palette = %d rows, want 2 (/ and @ guides): %+v", len(rows), rows)
+	}
+	if rows[0].action != palPrefix || rows[0].prefix != "/" {
+		t.Fatalf("first guide row = %+v, want palPrefix '/'", rows[0])
+	}
+	if rows[1].action != palPrefix || rows[1].prefix != "@" {
+		t.Fatalf("second guide row = %+v, want palPrefix '@'", rows[1])
+	}
+
+	// Enter on the "/" guide seeds the prefix and lists the commands in-place.
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := m.(Model)
+	if got.mode != modePalette {
+		t.Fatalf("palette closed after a guide row (mode=%v), want it to stay open", got.mode)
+	}
+	if got.palette.Value() != "/" {
+		t.Fatalf("guide did not seed '/' (value=%q)", got.palette.Value())
+	}
+	if len(got.palRows) != len(got.paletteCommands()) {
+		t.Fatalf("after '/' = %d rows, want %d commands", len(got.palRows), len(got.paletteCommands()))
+	}
+}
+
 // Ctrl+P then "/plans" + Enter switches the active source to plans.
 func TestPaletteSourceSwitch(t *testing.T) {
 	var m tea.Model = ready(t) // memories + sample plans, starts on memories

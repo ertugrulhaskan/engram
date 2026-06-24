@@ -17,6 +17,7 @@ const (
 	palJump                       // switch source and select path
 	palSettings                   // open the settings dialog
 	palAssistant                  // launch an AI assistant session (@Claude …)
+	palPrefix                     // seed a prefix ("/" or "@") into the input to reveal its menu
 )
 
 // palItem is one command-palette candidate, rendered as a two-line row (primary
@@ -32,6 +33,7 @@ type palItem struct {
 	src        srcKind
 	path       string
 	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
+	prefix     string // for palPrefix: text seeded into the input ("/" or "@")
 }
 
 // --- command palette ---
@@ -85,6 +87,15 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case palAssistant:
 			m.mode = modeNormal
 			return m, m.assistantCmd(sel.provider)
+		case palPrefix:
+			// A guide row ("/" or "@") seeds its prefix so the next keystrokes
+			// filter that menu — equivalent to typing the prefix by hand. The
+			// input was blurred above; re-focus so typing continues.
+			m.palette.SetValue(sel.prefix)
+			m.palette.CursorEnd()
+			m.palCursor, m.palTop = 0, 0
+			m.rebuildPalette()
+			return m, m.palette.Focus()
 		}
 		return m, nil
 	}
@@ -136,6 +147,27 @@ func (m *Model) rebuildPalette() {
 	cmdq := strings.ToLower(strings.TrimPrefix(q, "/"))
 	var rows []palItem
 
+	// Empty palette is a guide: two rows pointing at the two entry points ("/"
+	// for commands, "@" for the assistant). Each seeds its prefix on Enter.
+	if q == "" {
+		rows = []palItem{
+			{glyph: "/", glyphColor: t.Accent, label: "commands",
+				sub:   "Browse memories, plans, files & settings",
+				right: "type /", rightColor: t.Dim, action: palPrefix, prefix: "/"},
+			{glyph: "@", glyphColor: t.Accent, label: "assistant",
+				sub:   "Fix & edit memories/plans with Claude Code",
+				right: "type @", rightColor: t.Dim, action: palPrefix, prefix: "@"},
+		}
+		m.palRows = rows
+		if m.palCursor >= len(rows) || m.palCursor < 0 {
+			m.palCursor = 0
+		}
+		if m.palTop > m.palCursor {
+			m.palTop = m.palCursor
+		}
+		return
+	}
+
 	if strings.HasPrefix(q, "@") {
 		pq := strings.ToLower(strings.TrimSpace(q[1:]))
 		for _, p := range m.assistantProviders() {
@@ -159,7 +191,7 @@ func (m *Model) rebuildPalette() {
 	}
 
 	for _, c := range m.paletteCommands() {
-		if q == "" || strings.HasPrefix(c.name, cmdq) {
+		if strings.HasPrefix(c.name, cmdq) {
 			rows = append(rows, c.item)
 		}
 	}

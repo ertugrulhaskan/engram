@@ -76,15 +76,16 @@ engram
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
 | `1`–`5`    | switch theme                            |
-| `ctrl+p`   | command palette — browse `/memory`, `/plans`, `/files`, `/settings`, or type `@` for `@Claude` |
+| `ctrl+p`   | command palette — opens to two guides: type `/` for `/memory`, `/plans`, `/files`, `/settings`, or `@` for `@Claude` |
 | `q` / `ctrl+c` | quit                                |
 
 The left pane lists every memory found across all your projects, **grouped by
 project** with a colored header per group; the right pane shows the selected
-memory rendered as markdown. The command palette (`ctrl+p`) switches between
-sources — your memories, your plan-mode plans, and **`/files`** (the read-only
-`CLAUDE.md` / `MEMORY.md` files Claude manages) — opens the config file, and
-(type `@`) launches **`@Claude`**.
+memory rendered as markdown. The command palette (`ctrl+p`) opens to two guide
+rows — **`/`** for commands and **`@`** for the assistant. Typing `/` switches
+between sources — your memories, your plan-mode plans, and **`/files`** (the
+read-only `CLAUDE.md` / `MEMORY.md` files Claude manages) — or opens the config
+file; typing `@` launches **`@Claude`**.
 
 > **`/files`** lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
 > (when its directory resolves on disk), and each project's `MEMORY.md` index. These

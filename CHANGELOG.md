@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the `${CONTEXT7_API_KEY}` environment variable, so no secret is committed.
 
 ### Changed
+- The command palette (`ctrl+p`) now opens to two guide rows — **`/`** (commands)
+  and **`@`** (assistant) — each with a short description, instead of immediately
+  listing every command. Typing `/` reveals `/memory`, `/plans`, `/files`,
+  `/settings`; typing `@` reveals `@Claude`. Selecting a guide row seeds its prefix,
+  so it works as a shortcut for typing it.
 - Transient footer messages are now color-coded by severity: warnings and deletions
   render as white text on red, and cancellations as dark brown text on emerald.
 - The "index out of sync" warning now names its cause — how many files were added

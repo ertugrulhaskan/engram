@@ -267,6 +267,11 @@ engram/
 
 ### 8.1 `@Claude` assistant (v1.5)
 
+The empty palette is a guide: two `palPrefix` rows — `/` (commands) and `@`
+(assistant) — each with a description. Selecting one seeds its prefix into the
+input (equivalent to typing it), so `/` lists the source/settings commands and
+`@` lists the assistant providers below.
+
 The palette's `@` prefix offers AI providers (today only `@Claude`; the
 `palProvider` registry and `palItem.provider` field keep room for others). Selecting
 `@Claude` launches an **interactive** Claude Code session via the same

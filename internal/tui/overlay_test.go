@@ -65,11 +65,11 @@ func TestPaletteFloatsOverPanes(t *testing.T) {
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	out := m.(Model).View()
 
-	if !strings.Contains(out, "Search memories") {
+	if !strings.Contains(out, "Type / for commands") {
 		t.Error("palette search header not rendered")
 	}
-	if !strings.Contains(out, "Browse your Claude memories") {
-		t.Error("palette command rows not rendered")
+	if !strings.Contains(out, "Browse memories, plans, files") {
+		t.Error("palette guide rows not rendered")
 	}
 	// The box is top-anchored and centered, so it covers the right of the early
 	// list rows; their left edge must still show through (proving a float, not a

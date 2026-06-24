@@ -76,7 +76,7 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 
 	pal := textinput.New()
 	pal.Prompt = "" // the box header renders the "engram:" label
-	pal.Placeholder = "Search memories, plans, settings…"
+	pal.Placeholder = "Type / for commands, @ for Claude…"
 	pal.CharLimit = 64
 
 	ti := textinput.New()
