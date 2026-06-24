@@ -61,12 +61,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)
 	}
-	if len(mems) == 0 && len(plans) == 0 {
-		fmt.Println("No Claude memories or plans found under ~/.claude/")
+	docs, err := memory.DiscoverDocs("")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
+		os.Exit(1)
+	}
+	if len(mems) == 0 && len(plans) == 0 && len(docs) == 0 {
+		fmt.Println("No Claude memories, plans, or docs found under ~/.claude/")
 		return
 	}
 
-	p := tea.NewProgram(tui.New(mems, plans, config.Load()), tea.WithAltScreen())
+	p := tea.NewProgram(tui.New(mems, plans, docs, config.Load()), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)

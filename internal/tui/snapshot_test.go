@@ -45,6 +45,14 @@ func sampleMemories() []memory.Memory {
 	}
 }
 
+func sampleDocs() []memory.DocFile {
+	memDir := "/Users/me/.claude/projects/-Users-me-code-engram/memory"
+	return []memory.DocFile{
+		{Path: "/Users/me/.claude/CLAUDE.md", Title: "CLAUDE.md", Body: "# global rules\n", Kind: memory.DocRules, Scope: "global"},
+		{Path: memDir + "/MEMORY.md", Title: "MEMORY.md", Body: "# index\n", Kind: memory.DocIndex, Scope: "engram", ProjectName: "engram", MemoryDir: memDir},
+	}
+}
+
 func render(m Model, w, h int) string {
 	um, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	return um.(Model).View()
@@ -54,7 +62,7 @@ func render(m Model, w, h int) string {
 // `go test -v` to print the frames and eyeball the layout.
 func TestRender(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // theme-switch persistence must not touch the real config
-	m := New(sampleMemories(), samplePlans(), config.Config{})
+	m := New(sampleMemories(), samplePlans(), nil, config.Config{})
 
 	for _, sz := range []struct{ w, h int }{{100, 30}, {80, 24}, {64, 22}} {
 		out := render(m, sz.w, sz.h)
@@ -74,7 +82,7 @@ func TestRender(t *testing.T) {
 
 	// Grouped by type + Tokyo Night theme: exercises the right-aligned project
 	// column and theme switching.
-	var cur tea.Model = New(sampleMemories(), samplePlans(), config.Config{})
+	var cur tea.Model = New(sampleMemories(), samplePlans(), nil, config.Config{})
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})

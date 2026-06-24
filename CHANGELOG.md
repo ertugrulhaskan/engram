@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`/files` source** — a third, read-only browser (palette: `/files`) for the files
+  Claude *manages* rather than the ones you hand-write: the global `~/.claude/CLAUDE.md`,
+  each project's `CLAUDE.md` (when its directory resolves on disk), and each project's
+  `MEMORY.md` index. They're view-only — `e`/`d` surface a hint to edit via `@Claude`
+  instead — and changes made externally (or by `@Claude`) are picked up by the poll.
+- **`@Claude`** in the command palette — type `@` in the palette (`ctrl+p`) to launch
+  an interactive [Claude Code](https://claude.com/claude-code) session, seeded with the
+  selected project's memory/plan health (index drift, locations, and — when a project
+  folder was renamed — the orphaned-memory situation). It repairs what the `R` reconcile
+  can't (malformed frontmatter, broken `[[links]]`, stranded memories) and can create,
+  rewrite, merge, or reorganize memories/plans on request. engram suspends during the
+  session (the same handoff as `$EDITOR`) and reloads on exit. Requires the `claude` CLI
+  on `PATH`; when it's missing the action shows a one-line hint instead of failing.
 - Landing page for **engram.im** (`www/index.html`) — a single self-contained HTML
   page in the Classic Dark theme, with no build step or external assets. Intended to
   be served via Cloudflare Pages from `www/`; publishing is deferred (see SPEC §9).

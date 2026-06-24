@@ -10,17 +10,17 @@ import (
 )
 
 func TestConfigAppliesTheme(t *testing.T) {
-	if got := New(sampleMemories(), nil, config.Config{Theme: "Nord"}).theme().Name; got != "Nord" {
+	if got := New(sampleMemories(), nil, nil, config.Config{Theme: "Nord"}).theme().Name; got != "Nord" {
 		t.Errorf("theme = %q, want Nord", got)
 	}
 	// Unknown theme name falls back to the default.
-	if got := New(nil, nil, config.Config{Theme: "Nope"}).theme().Name; got != themes[0].Name {
+	if got := New(nil, nil, nil, config.Config{Theme: "Nope"}).theme().Name; got != themes[0].Name {
 		t.Errorf("unknown theme = %q, want default %q", got, themes[0].Name)
 	}
 }
 
 func TestConfigEditorOverride(t *testing.T) {
-	m := New(nil, nil, config.Config{Editor: "code --wait"})
+	m := New(nil, nil, nil, config.Config{Editor: "code --wait"})
 	if got := m.resolveEditor(); len(got) != 2 || got[0] != "code" || got[1] != "--wait" {
 		t.Errorf("resolveEditor = %v, want [code --wait]", got)
 	}
@@ -40,7 +40,7 @@ func openSettings(t *testing.T, m tea.Model) (tea.Model, tea.Cmd) {
 // returning to normal mode.
 func TestPaletteSettingsOpensConfigFile(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	m, cmd := openSettings(t, New(sampleMemories(), nil, config.Config{Theme: "Nord"}))
+	m, cmd := openSettings(t, New(sampleMemories(), nil, nil, config.Config{Theme: "Nord"}))
 	if got := m.(Model).mode; got != modeNormal {
 		t.Fatalf("/settings should return to normal mode, got %v", got)
 	}
@@ -60,7 +60,7 @@ func TestPaletteSettingsOpensConfigFile(t *testing.T) {
 // new theme + editor (rather than treating it as a memory).
 func TestSettingsFileReloadApplies(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	var m tea.Model = New(sampleMemories(), nil, config.Config{})
+	var m tea.Model = New(sampleMemories(), nil, nil, config.Config{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	p, _ := config.Path()
 	if err := config.Save(config.Config{Theme: "Nord", Editor: "code --wait"}); err != nil {
@@ -78,7 +78,7 @@ func TestSettingsFileReloadApplies(t *testing.T) {
 
 func TestThemeSwitchPersists(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	var m tea.Model = New(sampleMemories(), nil, config.Config{})
+	var m tea.Model = New(sampleMemories(), nil, nil, config.Config{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("3")}) // Nord
 	if got := m.(Model).theme().Name; got != "Nord" {

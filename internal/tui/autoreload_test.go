@@ -12,7 +12,7 @@ import (
 
 func ready(t *testing.T) Model {
 	t.Helper()
-	m, _ := New(sampleMemories(), samplePlans(), config.Config{}).Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m, _ := New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{}).Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	return m.(Model)
 }
 

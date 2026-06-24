@@ -62,7 +62,7 @@ func TestPlanDeleteAndGating(t *testing.T) {
 	}
 	plans := []plan.Plan{{Title: "X", Body: "# Plan: X\n\nbody\n", Path: pp}}
 
-	var m tea.Model = New(nil, plans, config.Config{})
+	var m tea.Model = New(nil, plans, nil, config.Config{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = typeRunes(m, "/plans")

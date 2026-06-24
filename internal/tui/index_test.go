@@ -32,7 +32,7 @@ func TestDriftFlagAndRebuild(t *testing.T) {
 		Project: memory.Project{Name: "p", MemoryDir: dir},
 	}}
 
-	var m tea.Model = New(mems, nil, config.Config{})
+	var m tea.Model = New(mems, nil, nil, config.Config{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	if !m.(Model).driftOut {
 		t.Fatalf("expected driftOut=true (a.md unindexed, gone.md dangling)")

@@ -120,6 +120,16 @@ type Project struct {
     MemoryDir string // .../memory
     Remote    string // git remote URL — v2, empty in v1
 }
+
+// DocFile is a read-only CLAUDE.md / MEMORY.md surfaced in the /files source
+// (v1.5). No frontmatter — Claude manages these, engram never hand-edits them.
+type DocFile struct {
+    Path, Title, Body string
+    Kind              DocKind // "rules" (CLAUDE.md) | "index" (MEMORY.md)
+    Scope             string  // "global" or the project name
+    ProjectName, ProjectDir, MemoryDir string
+    Modified          time.Time
+}
 ```
 
 ## 7. Sharing design (v2)
@@ -224,6 +234,7 @@ engram/
             discover.go      # walk projects, decode paths, fs signature
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile
+            docs.go          # read-only CLAUDE.md/MEMORY.md discovery + signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
         config/              # load/save theme + editor under the XDG config dir
@@ -237,6 +248,7 @@ engram/
             render.go        # list/preview/row rendering and floating-dialog frames
             style.go         # color/pad/clip text helpers, type labels, humanize
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
+            claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection
             status.go        # transient footer status: kinds, flash/auto-dismiss
             layout.go        # resize geometry, glamour renderer build, listRows
             navigation.go    # cursor move/page, selection, source switch, preview sync
@@ -248,6 +260,44 @@ engram/
 > v1 also browses **plan-mode plans** as a second source (read-only, grouped by
 > recency), switchable via the command palette. The sharing design below (v2)
 > concerns memories only.
+
+### 8.1 `@Claude` assistant (v1.5)
+
+The palette's `@` prefix offers AI providers (today only `@Claude`; the
+`palProvider` registry and `palItem.provider` field keep room for others). Selecting
+`@Claude` launches an **interactive** Claude Code session via the same
+`tea.ExecProcess` suspend/resume handoff `editor.go` uses for `$EDITOR` — no `-p`
+(headless), no engram-side diff UI; Claude Code's own permission prompts gate edits.
+
+The launch is seeded so the session starts with context, not blind: `buildSeedPrompt`
+injects the current source, the project/memory dirs, a live `memory.IndexDrift`
+snapshot, and a soft scope ("memory/plan files only; ask before editing"). The cwd is
+the selected memory's **project dir** when it resolves and exists (so Claude reads the
+right `CLAUDE.md` and recalls the right memories); the memory dir lives under `~/.claude`,
+outside the project, so it's granted with `--add-dir` for edit access. When the project
+dir can't be resolved on disk — a **renamed/moved folder**, or a key that can't be reversed
+to a real path (a `.` in the folder name flattens to `-` ambiguously) — engram launches in
+the **`~/.claude/projects`** root instead: inside `.claude`, narrow relative to `$HOME`, and
+broad enough that relocating memories across project keys needs no extra trust prompt
+(`--add-dir` is then redundant and omitted). Because that fallback can be a false positive,
+the seed prompt's wording is non-committal — it asks Claude to relocate files only if they
+are genuinely misfiled. `claude` is a new **optional** runtime dependency: absent, the
+action shows a hint and does nothing. On exit engram reloads (and resets the drift cache)
+so changes appear immediately.
+
+### 8.2 `/files` read-only source (v1.5)
+
+A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the files Claude
+*manages* rather than the ones you author: the global `~/.claude/CLAUDE.md`, each project's
+`CLAUDE.md` (only when its decoded dir resolves on disk — the same lossy-key limitation as
+§8.1), and each project's `MEMORY.md`. `memory.DiscoverDocs`/`DocsSignature` walk these (the
+signature folds into `combinedSig`, so external/`@Claude` edits — including to `CLAUDE.md`,
+which lives outside the memory tree — trigger the poll reload). They are **view-only**: the
+`e` and `d` keys return a hint to edit via `@Claude` rather than launching the editor or the
+delete-confirm modal, so the index and instruction files aren't hand-corrupted. Selecting a
+doc still carries its `ProjectDir`/`MemoryDir`, so launching `@Claude` from `/files` opens in
+the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / index-sync;
+"read-only" only governs direct hand-editing.
 
 ## 9. Distribution
 

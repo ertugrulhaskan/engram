@@ -40,7 +40,7 @@ func TestPlanItemsGrouping(t *testing.T) {
 		{Title: "midweek", Body: "# midweek\n", Path: "/p/b.md", Modified: now.Add(-3 * 24 * time.Hour)},
 		{Title: "ancient", Body: "# ancient\n", Path: "/p/c.md", Modified: now.Add(-30 * 24 * time.Hour)},
 	}
-	m := New(nil, plans, config.Config{})
+	m := New(nil, plans, nil, config.Config{})
 	items := m.planItems()
 	if len(items) != 3 {
 		t.Fatalf("got %d items, want 3", len(items))

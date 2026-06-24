@@ -41,6 +41,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, reloadCmd()
 
+	case assistantFinishedMsg:
+		// The assistant may have edited many memory/plan files (and the index),
+		// so don't touch a single path — just reload. Reset the drift cache so
+		// the "out of sync" badge recomputes (mirrors the R-key handler).
+		m.driftDir = ""
+		if msg.err != nil {
+			return m, tea.Batch(m.setDanger("claude exited: "+msg.err.Error()), reloadCmd())
+		}
+		return m, tea.Batch(m.setStatus("reloaded after @Claude"), reloadCmd())
+
 	case reloadMsg:
 		if msg.err != nil {
 			return m, m.setDanger("reload failed: " + msg.err.Error())
@@ -54,6 +64,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.memories = msg.mems
 		m.plans = msg.plans
+		m.docs = msg.docs
 		m.fsSig = msg.sig
 		m.previewCache = nil
 		m.driftDir = "" // index may have changed — recompute on next syncPreview
@@ -177,6 +188,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "e":
+		if m.srcKind == srcFiles { // CLAUDE.md / MEMORY.md are read-only here
+			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
+		}
 		if m.srcKind != srcMemories { // plans are view + delete only
 			return m, nil
 		}
@@ -185,6 +199,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "n":
+		if m.srcKind == srcFiles { // read-only: no creating CLAUDE.md / MEMORY.md here
+			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
+		}
 		if m.srcKind != srcMemories {
 			return m, nil
 		}
@@ -195,6 +212,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.input.Focus()
 	case "d":
+		if m.srcKind == srcFiles { // read-only: never delete a CLAUDE.md / MEMORY.md
+			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
+		}
 		if _, ok := m.selected(); ok {
 			m.mode = modeConfirm
 		}

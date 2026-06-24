@@ -24,7 +24,8 @@ type pollResultMsg struct {
 func combinedSig() (string, error) {
 	ms, err := memory.Signature("")
 	ps, _ := plan.Signature("")
-	return ms + "|" + ps, err
+	ds, _ := memory.DocsSignature("") // CLAUDE.md edits aren't under the memory tree
+	return ms + "|" + ps + "|" + ds, err
 }
 
 // pollCmd schedules the next filesystem scan. The closure runs in the command
@@ -42,6 +43,7 @@ func pollCmd() tea.Cmd {
 type reloadMsg struct {
 	mems  []memory.Memory
 	plans []plan.Plan
+	docs  []memory.DocFile
 	sig   string
 	err   error
 }
@@ -56,9 +58,10 @@ func reloadCmd() tea.Cmd {
 		if err != nil {
 			return reloadMsg{err: err} // keep the current state rather than blanking plans
 		}
+		docs, _ := memory.DiscoverDocs("") // best-effort; don't fail the reload over docs
 		// Capture the signature alongside the data so the reload updates the
 		// poll baseline atomically (no reload -> sig-changed -> reload loop).
 		sig, _ := combinedSig()
-		return reloadMsg{mems: mems, plans: plans, sig: sig}
+		return reloadMsg{mems: mems, plans: plans, docs: docs, sig: sig}
 	}
 }

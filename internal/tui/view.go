@@ -81,6 +81,9 @@ func (m Model) topBar() string {
 	if m.srcKind == srcPlans {
 		info = fmt.Sprintf("%d plans", len(m.plans))
 		right = t.bar(t.Dim).Render("source ") + t.bar(t.Accent).Bold(true).Render("plans") + t.bar(t.Dim).Render(" ")
+	} else if m.srcKind == srcFiles {
+		info = fmt.Sprintf("%d files · read-only", len(m.docs))
+		right = t.bar(t.Dim).Render("source ") + t.bar(t.Accent).Bold(true).Render("files") + t.bar(t.Dim).Render(" ")
 	} else {
 		seen := map[string]struct{}{}
 		for _, mm := range m.memories {
@@ -142,7 +145,7 @@ func (m Model) bottomBar() string {
 	var left string
 	switch {
 	case m.mode == modePalette:
-		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memory · plans · settings") +
+		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memory · plans · files · settings · @claude") +
 			t.bar(t.Dim).Render(" · type to jump · ") + t.bar(t.Accent).Render("↑↓") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("↵") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("esc") + t.bar(t.Dim).Render(" close ")
@@ -191,6 +194,10 @@ func (m Model) hints(t Theme) string {
 	if m.srcKind == srcPlans {
 		pairs = [][2]string{
 			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"d", "delete"},
+		}
+	} else if m.srcKind == srcFiles {
+		pairs = [][2]string{
+			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"@", "edit via Claude"},
 		}
 	} else {
 		pairs = [][2]string{

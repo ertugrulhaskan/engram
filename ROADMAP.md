@@ -23,6 +23,19 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
       tag-triggered release workflow — *publishing deferred until v2*
 
+## v1.5 — Assisted memory maintenance *(in progress)*
+
+Goal: hand the fiddly memory/plan upkeep to an AI, instead of fixing it by hand.
+Independently shippable and strictly pre-v2 (no sharing, no servers).
+
+- [x] `@Claude` from the command palette — launch an interactive Claude Code session
+      seeded with the selected project's memory/plan health, to repair drift the `R`
+      reconcile can't (malformed frontmatter, broken `[[links]]`, memories stranded by a
+      renamed project folder) and to create/rewrite/merge memories and plans on request
+- [x] `/files` source — browse the global + per-project `CLAUDE.md` and each project's
+      `MEMORY.md` read-only; edits are reserved for `@Claude`
+- [ ] Other assistants behind the same `@<provider>` seam (overlaps v3)
+
 ## v2 — Team sharing over git
 
 Goal: share the team-useful memories across people and projects, no servers.

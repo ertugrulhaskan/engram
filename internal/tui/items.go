@@ -44,6 +44,7 @@ type Item struct {
 	Right      string // right-aligned column text (project when grouped by type, or date)
 	Context    string // preview meta context (project name, or "plan")
 	MemDir     string // memory dir for new/index/drift; "" for plans
+	ProjectDir string // decoded project dir, for launching an assistant in context; "" for plans
 	Kind       string // "memory" | "plan" — palette tag + feature gating
 }
 
@@ -117,10 +118,38 @@ func (m *Model) rebuildRows() {
 
 // activeItems returns the Items for the source currently being browsed.
 func (m Model) activeItems() []Item {
-	if m.srcKind == srcPlans {
+	switch m.srcKind {
+	case srcPlans:
 		return m.planItems()
+	case srcFiles:
+		return m.docItems()
+	default:
+		return m.memoryItems()
 	}
-	return m.memoryItems()
+}
+
+// docItems maps the read-only Claude docs (CLAUDE.md / MEMORY.md) into Items,
+// grouped by scope (global first, then per project) — the source is already
+// sorted that way so the groups stay contiguous. These rows are view-only; the
+// `e`/`d` handlers point the user at @Claude instead.
+func (m Model) docItems() []Item {
+	t := m.theme()
+	items := make([]Item, 0, len(m.docs))
+	colorFor := t.groupColorer()
+	for _, d := range m.docs {
+		badge, bcolor := "rules", t.TFeedback
+		if d.Kind == memory.DocIndex {
+			badge, bcolor = "index", t.TReference
+		}
+		items = append(items, Item{
+			Title: d.Title, Body: d.Body, Raw: d.Body, Path: d.Path, Modified: d.Modified,
+			Badge: badge, BadgeColor: bcolor,
+			GroupKey: d.Scope, GroupLabel: d.Scope, GroupColor: colorFor(d.Scope),
+			Right: humanizeSince(d.Modified), Context: d.Scope,
+			MemDir: d.MemoryDir, ProjectDir: d.ProjectDir, Kind: string(d.Kind),
+		})
+	}
+	return items
 }
 
 // memoryItems maps memories into Items, applying the active type filter and
@@ -152,7 +181,7 @@ func (m Model) memoryItems() []Item {
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
 			GroupKey: key, GroupLabel: label, GroupColor: color,
-			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, Kind: "memory",
+			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})
 	}
 	return items

@@ -76,18 +76,32 @@ engram
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
 | `1`–`5`    | switch theme                            |
-| `ctrl+p`   | command palette — browse `/memory`, `/plans`, or open `/settings` |
+| `ctrl+p`   | command palette — browse `/memory`, `/plans`, `/files`, `/settings`, or type `@` for `@Claude` |
 | `q` / `ctrl+c` | quit                                |
 
 The left pane lists every memory found across all your projects, **grouped by
 project** with a colored header per group; the right pane shows the selected
 memory rendered as markdown. The command palette (`ctrl+p`) switches between
-sources — your memories and your plan-mode plans — and opens the config file.
+sources — your memories, your plan-mode plans, and **`/files`** (the read-only
+`CLAUDE.md` / `MEMORY.md` files Claude manages) — opens the config file, and
+(type `@`) launches **`@Claude`**.
+
+> **`/files`** lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
+> (when its directory resolves on disk), and each project's `MEMORY.md` index. These
+> are **view-only** — `e`/`d` point you at `@Claude` instead of editing them directly,
+> so the index and your instructions don't get hand-corrupted.
 
 > `new`, `delete`, and `edit` keep the project's `MEMORY.md` index in sync, so
 > Claude Code picks up the changes. When an index drifts, the warning names the
 > cause — files added without an index line, and/or entries left by a deleted or
 > renamed file — and `R` reconciles it.
+
+> **`@Claude`** (palette → type `@`) hands off to an interactive
+> [Claude Code](https://claude.com/claude-code) session, seeded with the selected
+> project's memory/plan health, to fix what `R` can't (malformed frontmatter, broken
+> `[[links]]`, memories stranded by a renamed project folder) and to create, rewrite,
+> or merge memories on request. engram reloads when the session exits. Requires the
+> `claude` CLI on `PATH`; without it the palette action shows a one-line hint.
 
 ## Understanding the list
 
@@ -104,8 +118,8 @@ sources — your memories and your plan-mode plans — and opens the config file
   - `[other]` (gray) — no type recorded
 - **No "global / all-projects" scope yet.** A cross-project scope (a memory that
   applies everywhere, or is shared with a team) is planned for **v2** — see
-  [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` are a
-  separate file that engram does not read in v1.
+  [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` show up
+  read-only under `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
 
 ## How it works
 

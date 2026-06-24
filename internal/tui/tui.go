@@ -29,6 +29,7 @@ type srcKind int
 const (
 	srcMemories srcKind = iota
 	srcPlans
+	srcFiles // read-only CLAUDE.md / MEMORY.md
 )
 
 type groupMode int

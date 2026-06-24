@@ -13,9 +13,10 @@ import (
 type palAction int
 
 const (
-	palSwitch   palAction = iota // switch source (src)
-	palJump                      // switch source and select path
-	palSettings                  // open the settings dialog
+	palSwitch    palAction = iota // switch source (src)
+	palJump                       // switch source and select path
+	palSettings                   // open the settings dialog
+	palAssistant                  // launch an AI assistant session (@Claude …)
 )
 
 // palItem is one command-palette candidate, rendered as a two-line row (primary
@@ -30,6 +31,7 @@ type palItem struct {
 	action     palAction
 	src        srcKind
 	path       string
+	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
 }
 
 // --- command palette ---
@@ -80,6 +82,9 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selectByPath(sel.path)
 		case palSettings:
 			return m, m.openSettingsFile()
+		case palAssistant:
+			m.mode = modeNormal
+			return m, m.assistantCmd(sel.provider)
 		}
 		return m, nil
 	}
@@ -102,18 +107,56 @@ func (m Model) paletteCommands() []palCommand {
 	return []palCommand{
 		{"memory", palItem{glyph: "◆", glyphColor: t.TProject, label: "memory", sub: "Browse your Claude memories", right: "/memory", action: palSwitch, src: srcMemories}},
 		{"plans", palItem{glyph: "▣", glyphColor: t.TReference, label: "plans", sub: "Browse your plan-mode plans", right: "/plans", action: palSwitch, src: srcPlans}},
+		{"files", palItem{glyph: "▤", glyphColor: t.TUser, label: "files", sub: "CLAUDE.md & MEMORY.md (read-only; edit via @Claude)", right: "/files", action: palSwitch, src: srcFiles}},
 		{"settings", palItem{glyph: "◈", glyphColor: t.TFeedback, label: "settings", sub: "Open the config file (theme, editor)", right: "/settings", action: palSettings}},
 	}
 }
 
-// rebuildPalette recomputes candidates. Commands (memory/plans/settings) match a
-// bare or /slashed prefix; the remaining text fuzzy-jumps across item titles in
-// both sources, so a query can surface a command and matching items together.
+// palProvider is one AI assistant reachable via "@" in the palette. Today only
+// Claude Code exists; the registry keeps adding another (v3) a one-line change.
+type palProvider struct {
+	key   string // matched against the text after "@"
+	label string // primary line, e.g. "@Claude"
+	sub   string // secondary muted line
+}
+
+func (m Model) assistantProviders() []palProvider {
+	return []palProvider{
+		{key: "claude", label: "@Claude", sub: "Fix & edit memories/plans with Claude Code"},
+	}
+}
+
+// rebuildPalette recomputes candidates. A leading "@" is assistant-only (mirrors
+// how a leading "/" is command-only); otherwise commands (memory/plans/settings)
+// match a bare or /slashed prefix and the remaining text fuzzy-jumps across item
+// titles in both sources, so a query can surface a command and matches together.
 func (m *Model) rebuildPalette() {
 	t := m.theme()
 	q := strings.TrimSpace(m.palette.Value())
 	cmdq := strings.ToLower(strings.TrimPrefix(q, "/"))
 	var rows []palItem
+
+	if strings.HasPrefix(q, "@") {
+		pq := strings.ToLower(strings.TrimSpace(q[1:]))
+		for _, p := range m.assistantProviders() {
+			if pq == "" || strings.HasPrefix(p.key, pq) {
+				rows = append(rows, palItem{
+					glyph: "✦", glyphColor: t.Accent,
+					label: p.label, sub: p.sub,
+					right: "assistant", rightColor: t.Accent,
+					action: palAssistant, provider: p.key,
+				})
+			}
+		}
+		m.palRows = rows
+		if m.palCursor >= len(rows) || m.palCursor < 0 {
+			m.palCursor = 0
+		}
+		if m.palTop > m.palCursor {
+			m.palTop = m.palCursor
+		}
+		return
+	}
 
 	for _, c := range m.paletteCommands() {
 		if q == "" || strings.HasPrefix(c.name, cmdq) {

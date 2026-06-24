@@ -16,10 +16,11 @@ import (
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	memories []memory.Memory // full memory set, unfiltered
-	plans    []plan.Plan     // full plan set
-	srcKind  srcKind         // which source is being browsed
-	cursors  [2]int          // remembered cursor (row index) per source
+	memories []memory.Memory  // full memory set, unfiltered
+	plans    []plan.Plan      // full plan set
+	docs     []memory.DocFile // read-only CLAUDE.md / MEMORY.md files
+	srcKind  srcKind          // which source is being browsed
+	cursors  [3]int           // remembered cursor (row index) per source
 
 	rows   []row // computed display rows (headers + items + spacers)
 	cursor int   // index into rows; always points at a rowMemory
@@ -55,9 +56,9 @@ type Model struct {
 	ready                   bool
 }
 
-// New builds the initial model from the discovered memories and plans, applying
-// persisted settings (theme, editor override).
-func New(mems []memory.Memory, plans []plan.Plan, cfg config.Config) Model {
+// New builds the initial model from the discovered memories, plans, and
+// read-only docs, applying persisted settings (theme, editor override).
+func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg config.Config) Model {
 	themeIdx := 0
 	for i, th := range themes {
 		if th.Name == cfg.Theme {
@@ -86,6 +87,7 @@ func New(mems []memory.Memory, plans []plan.Plan, cfg config.Config) Model {
 	m := Model{
 		memories:       mems,
 		plans:          plans,
+		docs:           docs,
 		themeIdx:       themeIdx,
 		editorOverride: strings.TrimSpace(cfg.Editor),
 		search:         se,

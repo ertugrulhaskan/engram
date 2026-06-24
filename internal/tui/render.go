@@ -30,8 +30,11 @@ func (m Model) listPane() string {
 		lines[0] = fg(t.Dim).Render("  no matches")
 	}
 	total := len(m.memories)
-	if m.srcKind == srcPlans {
+	switch m.srcKind {
+	case srcPlans:
 		total = len(m.plans)
+	case srcFiles:
+		total = len(m.docs)
 	}
 	body := lipgloss.NewStyle().Width(m.listW).Render(strings.Join(lines, "\n"))
 	status := fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, total))
