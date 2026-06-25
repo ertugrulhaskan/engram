@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Nothing yet — **Phase 2 (team sharing over git)** is the next phase; see
 [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 
+## [0.1.2] - 2026-06-25
+
+A keybinding help overlay and a refreshed dialog style.
+
+### Added
+- **`?` — keybinding help overlay.** A floating cheat-sheet listing every key,
+  grouped for readability, with an about footer (`version · engram.im · MIT`).
+  Any key closes it; `?` is also shown in the bottom hint bar.
+
+### Changed
+- Restyle the floating dialogs (command palette, help, new-memory, delete
+  confirm) as a flat rounded outline — smooth corners on the terminal
+  background instead of a filled panel — with the selected/target row bleeding
+  edge-to-edge to the border. The command-palette input now fills the dialog
+  width.
+
+### Fixed
+- Dialog inputs no longer overflow the frame border: the command-palette and
+  new-memory fields each reserved one cell too few for the text cursor.
+
 ## [0.1.1] - 2026-06-25
 
 Memory-list polish.
@@ -117,6 +137,7 @@ tag is local; publishing the release artifacts is deferred until Phase 2 (see
   Phase 2.
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/ertugrulhaskan/engram/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ertugrulhaskan/engram/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ertugrulhaskan/engram/releases/tag/v0.1.0

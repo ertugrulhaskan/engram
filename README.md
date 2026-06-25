@@ -82,6 +82,7 @@ engram
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
 | `1`–`5`    | switch theme                            |
 | `ctrl+p`   | command palette — opens to two guides: type `/` for `/memory`, `/plans`, `/files`, `/settings`, or `@` for `@Claude` |
+| `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
 
 The left pane lists every memory found across all your projects, **grouped by

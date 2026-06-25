@@ -87,7 +87,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Transient FS error — ignore so the footer doesn't churn.
 		case m.fsSig == "":
 			m.fsSig = msg.sig // first poll: adopt the baseline, don't reload
-		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette:
+		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
 			return m, tea.Batch(reloadCmd(), pollCmd())
@@ -104,6 +104,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateConfirm(msg)
 		case modePalette:
 			return m.updatePalette(msg)
+		case modeHelp:
+			return m.updateHelp(msg)
 		default:
 			return m.updateNormal(msg)
 		}
@@ -207,7 +209,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.mode = modeNew
 		m.input.SetValue("")
-		if w := m.boxWidth() - 4; w > 8 {
+		// boxWidth minus: 2 indent + 2 prompt ("› ") + 1 cursor cell, so the input
+		// line fills the dialog without overflowing the border.
+		if w := m.boxWidth() - 5; w > 8 {
 			m.input.Width = w
 		}
 		return m, m.input.Focus()
@@ -224,6 +228,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.palette.SetValue("")
 		m.rebuildPalette()
 		return m, m.palette.Focus()
+	case "?":
+		m.mode = modeHelp
+		return m, nil
 	case "R":
 		// Rebuild the current project's MEMORY.md index: drop dangling bullets,
 		// add unindexed files, preserve order. Fixes drift from external moves.
@@ -289,6 +296,16 @@ func (m Model) updateNew(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+// updateHelp dismisses the help overlay on any key (it's a transient cheat-sheet),
+// except ctrl+c which still quits the app.
+func (m Model) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
+	m.mode = modeNormal
+	return m, nil
 }
 
 func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

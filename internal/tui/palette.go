@@ -317,8 +317,11 @@ func (m Model) paletteBox() string {
 	panel := m.panelBg()
 	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 
-	header := padBG(pst(t.Accent).Bold(true).Render("engram")+pst(t.Dim).Render(":  ")+m.palette.View(), cw, panel)
+	// Pad the header with the input's own background (SelBg) so the field reads as
+	// a full-width box reaching the border, independent of the input's exact width.
+	header := padBG(pst(t.Accent).Bold(true).Render("engram")+pst(t.Dim).Render(":  ")+m.palette.View(), cw, t.SelBg)
 	lines := []string{header, m.ruleLine(cw)}
+	bleed := map[int]string{} // selected row bleeds to the border (see frameLines)
 
 	if len(m.palRows) == 0 {
 		lines = append(lines, padBG(pst(t.Dim).Render("  no matches"), cw, panel))
@@ -332,7 +335,12 @@ func (m Model) paletteBox() string {
 		if idx == m.palCursor {
 			selBg = t.Accent
 		}
-		lines = append(lines, m.palRow(m.palRows[idx], cw, panel, selBg)...)
+		row := m.palRow(m.palRows[idx], cw, panel, selBg)
+		if selBg != "" {
+			bleed[len(lines)] = selBg   // label line
+			bleed[len(lines)+1] = selBg // subtitle line
+		}
+		lines = append(lines, row...)
 	}
-	return m.dialogFrame(strings.Join(lines, "\n"), t.Accent)
+	return m.frameLines(lines, cw, t.Accent, bleed)
 }

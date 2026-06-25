@@ -249,7 +249,8 @@ engram/
             view.go          # View, top/bottom bars, drift warning, status styling
             items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
             palette.go       # command palette: types, candidates, rendering
-            render.go        # list/preview/row rendering and floating-dialog frames
+            render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)
+            help.go          # ? help overlay: keybinding cheat-sheet + about footer
             style.go         # color/pad/clip text helpers, type labels, humanize
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection

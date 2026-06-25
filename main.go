@@ -71,7 +71,7 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(tui.New(mems, plans, docs, config.Load()), tea.WithAltScreen())
+	p := tea.NewProgram(tui.New(mems, plans, docs, config.Load()).WithVersion(appVersion()), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)

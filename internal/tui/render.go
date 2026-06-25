@@ -197,9 +197,16 @@ func (m Model) boxWidth() int {
 	return w
 }
 
-// panelBg is the opaque background shared by the floating dialogs — a shade
-// lighter than the terminal so the box clearly reads as a raised surface.
-func (m Model) panelBg() string { return m.theme().SelBg }
+// panelBg is the fill behind the floating dialogs. It's empty ("") on purpose:
+// the dialogs render as a rounded accent border over the terminal's own
+// background, with no filled panel — the only way a terminal can show smooth
+// rounded corners, since a filled cell squares the corner off (a terminal cell
+// is one glyph + one fg + one bg, with no sub-cell clipping like CSS). lipgloss
+// treats an empty color as "unset", so every shared fill helper (padBG,
+// ruleLine, the per-modal background styles) goes transparent automatically.
+// Selection and danger highlights pass their own color as selBg and are
+// unaffected.
+func (m Model) panelBg() string { return "" }
 
 // padBG right-pads a (possibly styled) string to width w, filling the gap with
 // the given background so every cell of a dialog row is opaque.
@@ -211,14 +218,28 @@ func padBG(s string, w int, bg string) string {
 	return s + lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(gap))
 }
 
-// dialogFrame wraps opaque content in a rounded border whose cells share the
-// panel background, so the whole box is a solid surface over the panes.
-func (m Model) dialogFrame(content, border string) string {
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(border)).
-		BorderBackground(lipgloss.Color(m.panelBg())).
-		Render(content)
+// frameLines wraps cw-wide content lines in a rounded accent border drawn by
+// hand (not lipgloss's auto-border) so individual rows can bleed. The corners
+// carry no background, so they render smoothly on the terminal's own background
+// (a filled cell would square them off). A line index present in bleed has its
+// two side cells painted with that background instead of the "│" glyph, so a
+// full-width selection/danger highlight runs edge to edge — flush with the
+// border, no dark gap — while every other row gets the thin accent border.
+func (m Model) frameLines(lines []string, cw int, border string, bleed map[int]string) string {
+	a := fg(border)
+	out := make([]string, 0, len(lines)+2)
+	out = append(out, a.Render("╭"+strings.Repeat("─", cw)+"╮"))
+	for i, ln := range lines {
+		if bg, ok := bleed[i]; ok {
+			edge := lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(" ")
+			out = append(out, edge+ln+edge)
+		} else {
+			bar := a.Render("│")
+			out = append(out, bar+ln+bar)
+		}
+	}
+	out = append(out, a.Render("╰"+strings.Repeat("─", cw)+"╯"))
+	return strings.Join(out, "\n")
 }
 
 // ruleLine is a horizontal rule that carries the panel background.
@@ -245,11 +266,12 @@ func (m Model) confirmModal() string {
 	lines := []string{
 		padBG(pst(t.Danger).Bold(true).Render(" Delete "+kind+"?"), cw, panel),
 		m.ruleLine(cw),
-		row[0], row[1],
-		padBG("", cw, panel),
-		padBG(hint, cw, panel),
 	}
-	return m.dialogFrame(strings.Join(lines, "\n"), t.Danger)
+	// Derive the bleed indices from where the target rows land (not hardcoded), so
+	// they stay correct if the header/rule lines change — mirrors paletteBox.
+	bleed := map[int]string{len(lines): t.Danger, len(lines) + 1: t.Danger}
+	lines = append(lines, row[0], row[1], padBG("", cw, panel), padBG(hint, cw, panel))
+	return m.frameLines(lines, cw, t.Danger, bleed)
 }
 
 // newModal is the new-memory title prompt, in the same opaque dialog style.
@@ -261,12 +283,12 @@ func (m Model) newModal() string {
 	lines := []string{
 		padBG(pst(t.Accent).Bold(true).Render(" New memory"), cw, panel),
 		m.ruleLine(cw),
-		padBG(pst(t.Dim).Render("  title for the new memory in this project"), cw, panel),
+		padBG(pst(t.Dim).Render(clip("  title for the new memory in this project", cw)), cw, panel),
 		padBG("", cw, panel),
 		padBG("  "+m.input.View(), cw, panel),
 		padBG("", cw, panel),
 		padBG(pst(t.Dim).Render("  press ")+pst(t.Accent).Bold(true).Render("↵")+pst(t.Dim).Render(" create     ")+
 			pst(t.Fg).Bold(true).Render("esc")+pst(t.Dim).Render(" cancel"), cw, panel),
 	}
-	return m.dialogFrame(strings.Join(lines, "\n"), t.Accent)
+	return m.frameLines(lines, cw, t.Accent, nil)
 }

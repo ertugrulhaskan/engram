@@ -54,6 +54,16 @@ type Model struct {
 	width, height           int
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
 	ready                   bool
+
+	version string // release version for the help/about footer; "" → "dev"
+}
+
+// WithVersion sets the version string shown in the `?` help overlay's about
+// footer. It's optional (the TUI runs fine without it), so it's a chainable
+// setter rather than a New() parameter — keeps the many New() call sites simple.
+func (m Model) WithVersion(v string) Model {
+	m.version = v
+	return m
 }
 
 // New builds the initial model from the discovered memories, plans, and

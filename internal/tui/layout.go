@@ -38,6 +38,13 @@ func (m *Model) resize(w, h int) {
 	if m.search.Width < 1 {
 		m.search.Width = 1
 	}
+	// Palette input fills the dialog: box inner width minus the "engram:  " prefix
+	// (9) and the cursor cell textinput.View adds (1), with 1 cell of slack so the
+	// header can never overflow the frame.
+	m.palette.Width = m.boxWidth() - 11
+	if m.palette.Width < 1 {
+		m.palette.Width = 1
+	}
 	m.input.Width = m.previewW
 	m.previewCache = nil // width changed — rendered bodies must re-wrap
 

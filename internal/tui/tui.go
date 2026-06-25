@@ -21,6 +21,7 @@ const (
 	modeNew
 	modeConfirm
 	modePalette
+	modeHelp
 )
 
 // srcKind selects which collection is being browsed.

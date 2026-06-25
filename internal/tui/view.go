@@ -28,6 +28,8 @@ func (m Model) View() string {
 		box = m.newModal()
 	case modePalette:
 		box, top = m.paletteBox(), true
+	case modeHelp:
+		box = m.helpModal()
 	}
 	if box != "" {
 		frame = m.overlay(frame, box, top)
@@ -209,6 +211,7 @@ func (m Model) hints(t Theme) string {
 		}
 	}
 	pairs = append(pairs, [2]string{"^P", "palette"})
+	pairs = append(pairs, [2]string{"?", "help"})
 	pairs = append(pairs, [2]string{"q", "quit"})
 	render := func(ps [][2]string) string {
 		out := t.bar(t.Dim).Render(" ")
