@@ -44,8 +44,8 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
 
 Goal: share the team-useful memories across people and projects, no servers.
 
-- [ ] `engram init-team <git-url>` — set up the managed clone of the team repo
-- [ ] Project identity via git remote URL (alias fallback)
+- [x] `engram init-team <git-url>` — set up the managed clone of the team repo
+- [ ] Project identity via git remote URL (alias fallback) — *`NormalizeRemote` built; no consumer/alias yet*
 - [ ] `promote` (single and multi-select) → commit + push
 - [ ] `pull` → place team memories where Claude reads them + refresh `MEMORY.md`
 - [ ] Personal vs team scope, enforced (personal never auto-syncs)

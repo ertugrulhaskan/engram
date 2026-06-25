@@ -12,6 +12,7 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/team"
 	"github.com/ertugrulhaskan/engram/internal/tui"
 )
 
@@ -43,7 +44,23 @@ func main() {
 			fmt.Println("engram " + appVersion())
 			return
 		case "help", "--help", "-h":
-			fmt.Println("engram — TUI for browsing your Claude Code memories; run with no args.")
+			fmt.Println("engram — TUI for browsing your Claude Code memories.\n\n" +
+				"Usage:\n" +
+				"  engram                       launch the TUI (no args)\n" +
+				"  engram init-team <git-url>   clone & scaffold the shared team store\n" +
+				"  engram version               print the version")
+			return
+		case "init-team":
+			if len(os.Args) < 3 {
+				fmt.Fprintln(os.Stderr, "usage: engram init-team <git-url>")
+				os.Exit(2)
+			}
+			if err := team.InitTeam(os.Args[2]); err != nil {
+				fmt.Fprintln(os.Stderr, "engram: "+err.Error())
+				os.Exit(1)
+			}
+			dir, _ := team.Dir()
+			fmt.Println("engram: team store ready at " + dir)
 			return
 		default:
 			fmt.Fprintln(os.Stderr, "engram: unknown argument: "+os.Args[1])

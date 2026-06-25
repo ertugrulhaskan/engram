@@ -10,8 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet — **Phase 2 (team sharing over git)** is the next phase; see
-[ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
+**Phase 2 (team sharing over git) — first slice.** See [ROADMAP.md](ROADMAP.md)
+and [SPEC.md](SPEC.md) §7.
+
+### Added
+- **`engram init-team <git-url>`** — one-time setup subcommand that clones the
+  shared team repo to `~/.config/engram/team/` and, when the repo is empty,
+  scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes.
+  A failed push is non-fatal (the local commit is kept, with a retry hint), and
+  git's own output — auth prompts, progress, errors — is shown directly.
+- Internal `internal/team` package (no UI): `NormalizeRemote`, which canonicalizes
+  a git remote URL to a `host/path` key (used by `promote`/`pull` in a later
+  slice), plus a shared `config.Dir()` base-path helper.
 
 ## [0.1.2] - 2026-06-25
 

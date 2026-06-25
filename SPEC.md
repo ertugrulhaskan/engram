@@ -231,7 +231,7 @@ Every memory has a state relative to the team repo:
 
 ```
 engram/
-    main.go                  # entry point: discover memories + plans → launch TUI; --version/--help
+    main.go                  # entry point: discover memories + plans → launch TUI; --version/--help; init-team subcommand
     internal/
         memory/              # NO UI here
             memory.go        # types
@@ -241,7 +241,11 @@ engram/
             docs.go          # read-only CLAUDE.md/MEMORY.md discovery + signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
-        config/              # load/save theme + editor under the XDG config dir
+        config/              # load/save theme + editor under the XDG config dir; Dir() base-path helper
+        team/                # NO UI here — shared team store over git (Phase 2)
+            team.go          # package doc + Dir() (the managed clone path, <config>/team)
+            remote.go        # NormalizeRemote: git remote URL → canonical host/path key
+            init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs

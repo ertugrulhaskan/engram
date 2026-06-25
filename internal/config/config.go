@@ -16,9 +16,10 @@ type Config struct {
 	Editor string `json:"editor,omitempty"` // optional editor command override, e.g. "code --wait"
 }
 
-// Path returns the config file location: $XDG_CONFIG_HOME/engram/config.json,
-// falling back to ~/.config/engram/config.json.
-func Path() (string, error) {
+// Dir returns engram's config directory: $XDG_CONFIG_HOME/engram, falling back
+// to ~/.config/engram. Other packages (e.g. internal/team) build their managed
+// paths under this directory.
+func Dir() (string, error) {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		home, err := os.UserHomeDir()
@@ -27,7 +28,17 @@ func Path() (string, error) {
 		}
 		base = filepath.Join(home, ".config")
 	}
-	return filepath.Join(base, "engram", "config.json"), nil
+	return filepath.Join(base, "engram"), nil
+}
+
+// Path returns the config file location: $XDG_CONFIG_HOME/engram/config.json,
+// falling back to ~/.config/engram/config.json.
+func Path() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.json"), nil
 }
 
 // Load reads the config, returning a zero Config when it is absent or unreadable.

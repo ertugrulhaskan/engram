@@ -110,6 +110,21 @@ file; typing `@` launches **`@Claude`**.
 > or merge memories on request. engram reloads when the session exits. Requires the
 > `claude` CLI on `PATH`; without it the palette action shows a one-line hint.
 
+## Team sharing setup (Phase 2 — in progress)
+
+Sharing adds exactly **one** subcommand; normal use stays a no-arg TUI. To set up
+the shared team store (a git repo your team reads and writes):
+
+```sh
+engram init-team <git-url>
+```
+
+This clones the team repo to `~/.config/engram/team/` and, if the repo is empty,
+scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
+starter layout (a failed push is non-fatal — the local commit is kept, with a
+retry hint). The in-TUI `promote` / `pull` actions and sync-status badges that
+build on this store are still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
+
 ## Understanding the list
 
 - **Grouping.** Rows are grouped under a colored `▌ Group (N)` header with a
