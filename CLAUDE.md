@@ -5,6 +5,23 @@ memories. Design source of truth: [SPEC.md](SPEC.md). Phases: [ROADMAP.md](ROADM
 Build/test rules: [CONTRIBUTING.md](CONTRIBUTING.md). Read SPEC.md before changing
 behavior.
 
+## Before you commit — review gate
+
+Before every commit, run these in order and **share findings + highlight the important
+points after each step** (don't fold them into one silent summary):
+
+1. **Review the code** with `context7` (verify Bubble Tea / lipgloss / glamour and any
+   other library APIs against current docs — don't trust memory) and `sequential-thinking`
+   (reason through correctness, edge cases, and the `internal/*` layering rules below).
+2. **`/code-review`** on the working diff; address what it finds.
+3. **`/security-review`** over the pending branch changes.
+4. **Sync the docs** — see "Keep the docs in sync" below (CHANGELOG, ROADMAP, SPEC,
+   README, this file, memories, plans).
+
+This is in addition to the `gofmt -w . && go vet ./... && go test ./...` gate in "Code
+rules". It's followed guidance, not a hook — the review skills are interactive and can't
+run unattended, so the discipline lives here.
+
 ## Keep the docs in sync — before you commit
 
 When a change alters behavior, structure, or status, update the affected docs in
