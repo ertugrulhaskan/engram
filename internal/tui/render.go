@@ -11,7 +11,8 @@ import (
 func (m Model) listPane() string {
 	t := m.theme()
 	h := m.listRows()
-	rightCol := m.rightColW() // computed once per render, not per row
+	badgeW := m.badgeColW()         // widest badge in view; computed once per render
+	rightCol := m.rightColW(badgeW) // computed once per render, not per row
 	lines := make([]string, 0, h)
 	for i := m.top; i < m.top+h; i++ {
 		switch {
@@ -22,7 +23,7 @@ func (m Model) listPane() string {
 		case m.rows[i].kind == rowHeader:
 			lines = append(lines, m.headerRow(m.rows[i]))
 		default:
-			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, rightCol))
+			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, rightCol))
 		}
 	}
 	shown := m.shownCount()
@@ -41,10 +42,29 @@ func (m Model) listPane() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, lipgloss.NewStyle().Width(m.listW).Render(status))
 }
 
+// badgeColW sizes the badge bracket field from the widest badge in the current
+// (filtered) list, so short badges (e.g. "[user]") don't leave a wide gap before the
+// title. Capped at badgeWidth (the widest possible "[reference]"); 0 when no row has a badge.
+func (m Model) badgeColW() int {
+	w := 0
+	for _, r := range m.rows {
+		if r.kind == rowMemory && r.item.Badge != "" {
+			if l := runewidth.StringWidth("[" + r.item.Badge + "]"); l > w {
+				w = l
+			}
+		}
+	}
+	if w > badgeWidth {
+		w = badgeWidth
+	}
+	return w
+}
+
 // rightColW sizes the right-aligned column from the widest Item.Right in view
 // (project name when grouped by type, or the date for plans), collapsing to 0
-// when nothing needs it or it would starve the title.
-func (m Model) rightColW() int {
+// when nothing needs it or it would starve the title. badgeW is the in-view badge
+// column width so the budget reflects the actual (not worst-case) badge column.
+func (m Model) rightColW(badgeW int) int {
 	maxr := 0
 	for _, r := range m.rows {
 		if r.kind == rowMemory {
@@ -56,7 +76,7 @@ func (m Model) rightColW() int {
 	if maxr == 0 {
 		return 0
 	}
-	maxAllowed := m.listW - 2 - badgeWidth - 2 - 12
+	maxAllowed := m.listW - 2 - badgeW - 2 - 12
 	if maxAllowed < 6 {
 		return 0
 	}
@@ -76,12 +96,12 @@ func (m Model) headerRow(r row) string {
 	return fg(r.color).Render("▌ ") + fgb(r.color).Render(label) + fg(t.Dim).Render(suffix)
 }
 
-func (m Model) memRow(it Item, selected bool, rightCol int) string {
+func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
 	t := m.theme()
 
 	badgeCol := 0
 	if it.Badge != "" {
-		badgeCol = badgeWidth + 1 // padded badge + trailing space
+		badgeCol = badgeW + 1 // padded badge + trailing space
 	}
 	nameW := m.listW - 2 - badgeCol - rightCol
 	if rightCol > 0 {
@@ -110,9 +130,13 @@ func (m Model) memRow(it Item, selected bool, rightCol int) string {
 	}
 	out := indent
 	if it.Badge != "" {
-		out += st(it.BadgeColor).Render(padRight("["+it.Badge+"]", badgeWidth)) + st(t.Fg).Render(" ")
+		out += st(it.BadgeColor).Render(padRight("["+it.Badge+"]", badgeW)) + st(t.Fg).Render(" ")
 	}
-	out += st(titleColor).Render(padRight(it.Title, nameW))
+	titleStyle := st(titleColor)
+	if selected {
+		titleStyle = titleStyle.Bold(true) // bold pops the selected row; SelBg is subtle in some themes
+	}
+	out += titleStyle.Render(padRight(it.Title, nameW))
 	if rightCol > 0 {
 		out += st(t.Fg).Render(" ") + st(t.Dim).Render(padLeft(it.Right, rightCol))
 	}

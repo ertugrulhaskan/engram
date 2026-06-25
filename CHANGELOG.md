@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Nothing yet — **Phase 2 (team sharing over git)** is the next phase; see
 [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 
+## [0.1.1] - 2026-06-25
+
+Memory-list polish.
+
+### Changed
+- Bold the selected row's title so the highlighted row stands out clearly, even
+  on themes whose selection background sits close to the base background.
+- Size the type-badge column to the widest badge currently listed (still capped
+  at `[reference]`) instead of a fixed width, so short badges like `[user]` no
+  longer leave a wide gap before the title in type-filtered and `/files` views.
+
 ## [0.1.0] - 2026-06-24
 
 First release. Local memory **and** plan browsing (Phase 1), plus assisted
@@ -106,5 +117,6 @@ tag is local; publishing the release artifacts is deferred until Phase 2 (see
   Phase 2.
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ertugrulhaskan/engram/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ertugrulhaskan/engram/releases/tag/v0.1.0
