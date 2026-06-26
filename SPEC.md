@@ -249,6 +249,7 @@ engram/
             identity.go      # ProjectKey: resolve a project's git remote to its team key
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
             promote.go       # Promote a memory into the store (global/ or projects/<key>/), commit, push
+            pull.go          # Pull project team memories into matching local projects; conflict-safe
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
@@ -259,6 +260,7 @@ engram/
             render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             promote.go       # `p` promote: team scope picker modal + background promote command
+            pull.go          # `P` pull: resolve project keys + pull team memories off-thread
             style.go         # color/pad/clip text helpers, type labels, humanize
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection

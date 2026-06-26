@@ -65,6 +65,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.setStatus("promoted to team"), reloadCmd())
 		}
 
+	case pullFinishedMsg:
+		m.driftDir = ""
+		if msg.err != nil {
+			return m, tea.Batch(m.setDanger("pull failed: "+msg.err.Error()), reloadCmd())
+		}
+		r := msg.res
+		summary := fmt.Sprintf("pull: %d new · %d up-to-date · %d conflict · %d skipped",
+			r.Placed, r.UpToDate, r.Conflicts, r.Skipped)
+		if r.Conflicts > 0 {
+			return m, tea.Batch(m.setDanger(summary), reloadCmd())
+		}
+		return m, tea.Batch(m.setStatus(summary), reloadCmd())
+
 	case reloadMsg:
 		if msg.err != nil {
 			return m, m.setDanger("reload failed: " + msg.err.Error())
@@ -262,6 +275,15 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.mode = modePromoteScope
 		return m, nil
+	case "P":
+		// Pull project-scoped team memories into their matching local projects.
+		if m.srcKind != srcMemories {
+			return m, nil
+		}
+		if !team.IsInitialized() {
+			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
+		}
+		return m, tea.Batch(m.setStatus("pulling…"), m.pullCmd())
 	case "ctrl+p":
 		m.mode = modePalette
 		m.palette.SetValue("")

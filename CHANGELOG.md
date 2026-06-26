@@ -25,6 +25,11 @@ and [SPEC.md](SPEC.md) §7.
   preserving Claude's own keys), writes the copy under `global/` or
   `projects/<key>/`, and commits + pushes. A filename collision with a *different*
   memory is refused rather than overwritten.
+- **Pull from team (`P`)** — fetch the team store and copy project-scoped team
+  memories into their matching local projects (matched by git remote), refreshing
+  each `MEMORY.md`. Pull never overwrites a differing local file (that's a conflict
+  to resolve), no-ops identical ones, and skips projects with no local match.
+  Global-scoped team memories stay in the store (browse / promote-on-demand).
 - Internal: `internal/team` gains `ProjectKey` (resolve a project's git remote to its
   canonical key) and `Promote`; `internal/memory` gains a lossless `engram:`
   frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving Claude's keys) and

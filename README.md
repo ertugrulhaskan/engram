@@ -78,6 +78,7 @@ engram
 | `n`        | create a new memory (in the current project) and open it |
 | `d`        | delete the selected item (asks `y`/`n` first) |
 | `p`        | promote the selected memory to the team store (pick this-project / global) |
+| `P`        | pull team memories into their matching local projects |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
@@ -129,8 +130,10 @@ Inside the TUI, **`p` promotes** the selected memory into the store — a scope
 dialog picks *this project* (keyed by its git remote) or *global*. engram stamps
 the memory with an `engram:` frontmatter block (a durable id, scope, project,
 owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
-`pull` and the sync-status badges are still landing — see [ROADMAP.md](ROADMAP.md)
-Phase 2.
+**`P` pulls** the team's project memories down into their matching local projects
+(it never overwrites a file you've changed — that's flagged as a conflict).
+Sync-status badges and guided conflict resolution are still landing — see
+[ROADMAP.md](ROADMAP.md) Phase 2.
 
 ## Understanding the list
 

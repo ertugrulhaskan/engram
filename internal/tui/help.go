@@ -22,6 +22,7 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"n", "new memory"},
 		{"d", "delete"},
 		{"p", "promote to team"},
+		{"P", "pull from team"},
 	},
 	{
 		{"t", "cycle type filter"},

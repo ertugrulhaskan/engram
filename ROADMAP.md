@@ -47,8 +47,8 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] `engram init-team <git-url>` — set up the managed clone of the team repo
 - [ ] Project identity via git remote URL (alias fallback) — *`NormalizeRemote` built; no consumer/alias yet*
 - [x] `promote` → commit + push *(single-select; multi-select pending)*
-- [ ] `pull` → place team memories where Claude reads them + refresh `MEMORY.md`
-- [ ] Personal vs team scope, enforced (personal never auto-syncs)
+- [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`
+- [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
 - [ ] Sync-status badges: `[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`
 - [ ] Conflict resolution UX for `[team ⚠]`
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
