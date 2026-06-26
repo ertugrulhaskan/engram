@@ -21,6 +21,7 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"e", "edit in $EDITOR"},
 		{"n", "new memory"},
 		{"d", "delete"},
+		{"p", "promote to team"},
 	},
 	{
 		{"t", "cycle type filter"},

@@ -9,6 +9,7 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -51,6 +52,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(m.setStatus("reloaded after @Claude"), reloadCmd())
 
+	case promoteFinishedMsg:
+		// Promote stamps the local file (engram frontmatter), so reload to reflect
+		// it. Reset the drift cache like the assistant handler does.
+		m.driftDir = ""
+		switch {
+		case msg.err != nil:
+			return m, tea.Batch(m.setDanger("promote failed: "+msg.err.Error()), reloadCmd())
+		case !msg.pushed:
+			return m, tea.Batch(m.setDanger("promoted locally; push failed — check your git remote/creds"), reloadCmd())
+		default:
+			return m, tea.Batch(m.setStatus("promoted to team"), reloadCmd())
+		}
+
 	case reloadMsg:
 		if msg.err != nil {
 			return m, m.setDanger("reload failed: " + msg.err.Error())
@@ -87,7 +101,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Transient FS error — ignore so the footer doesn't churn.
 		case m.fsSig == "":
 			m.fsSig = msg.sig // first poll: adopt the baseline, don't reload
-		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp:
+		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
 			return m, tea.Batch(reloadCmd(), pollCmd())
@@ -106,6 +120,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updatePalette(msg)
 		case modeHelp:
 			return m.updateHelp(msg)
+		case modePromoteScope:
+			return m.updatePromoteScope(msg)
 		default:
 			return m.updateNormal(msg)
 		}
@@ -222,6 +238,29 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if _, ok := m.selected(); ok {
 			m.mode = modeConfirm
 		}
+		return m, nil
+	case "p":
+		// Promote the selected memory to the team store. Memories only; needs an
+		// initialized team store. The scope picker (this project / global) follows.
+		if m.srcKind != srcMemories {
+			return m, nil
+		}
+		it, ok := m.selected()
+		if !ok {
+			return m, nil
+		}
+		if !team.IsInitialized() {
+			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
+		}
+		key, _ := team.ProjectKey(it.ProjectDir) // "" when the project has no remote
+		m.promotePath = it.Path
+		m.promoteTitle = it.Title
+		m.promoteKey = key
+		m.promoteCursor = 0
+		if key == "" {
+			m.promoteCursor = 1 // only "global" is available
+		}
+		m.mode = modePromoteScope
 		return m, nil
 	case "ctrl+p":
 		m.mode = modePalette

@@ -240,12 +240,15 @@ engram/
             index.go         # MEMORY.md index upsert / remove / reconcile
             docs.go          # read-only CLAUDE.md/MEMORY.md discovery + signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
+            frontmatter.go   # engram: frontmatter block (EngramMeta) — lossless read/write round-trip
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
         config/              # load/save theme + editor under the XDG config dir; Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
-            team.go          # package doc + Dir() (the managed clone path, <config>/team)
+            team.go          # package doc + Dir() (managed clone path) + IsInitialized()
             remote.go        # NormalizeRemote: git remote URL → canonical host/path key
+            identity.go      # ProjectKey: resolve a project's git remote to its team key
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
+            promote.go       # Promote a memory into the store (global/ or projects/<key>/), commit, push
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
@@ -255,6 +258,7 @@ engram/
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
+            promote.go       # `p` promote: team scope picker modal + background promote command
             style.go         # color/pad/clip text helpers, type labels, humanize
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection

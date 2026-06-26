@@ -19,9 +19,16 @@ and [SPEC.md](SPEC.md) §7.
   scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes.
   A failed push is non-fatal (the local commit is kept, with a retry hint), and
   git's own output — auth prompts, progress, errors — is shown directly.
-- Internal `internal/team` package (no UI): `NormalizeRemote`, which canonicalizes
-  a git remote URL to a `host/path` key (used by `promote`/`pull` in a later
-  slice), plus a shared `config.Dir()` base-path helper.
+- **Promote to team (`p`)** — in the TUI, promote the selected memory to the shared
+  store: a scope dialog picks **this project** or **global**, then engram stamps the
+  memory with an `engram:` frontmatter block (a durable id, scope, project, owner —
+  preserving Claude's own keys), writes the copy under `global/` or
+  `projects/<key>/`, and commits + pushes. A filename collision with a *different*
+  memory is refused rather than overwritten.
+- Internal: `internal/team` gains `ProjectKey` (resolve a project's git remote to its
+  canonical key) and `Promote`; `internal/memory` gains a lossless `engram:`
+  frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving Claude's keys) and
+  a UUID helper. `NormalizeRemote` and the `config.Dir()` helper landed earlier.
 
 ## [0.1.2] - 2026-06-25
 

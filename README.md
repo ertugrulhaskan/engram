@@ -77,6 +77,7 @@ engram
 | `e`        | edit the selected memory in `$EDITOR`   |
 | `n`        | create a new memory (in the current project) and open it |
 | `d`        | delete the selected item (asks `y`/`n` first) |
+| `p`        | promote the selected memory to the team store (pick this-project / global) |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
@@ -122,8 +123,14 @@ engram init-team <git-url>
 This clones the team repo to `~/.config/engram/team/` and, if the repo is empty,
 scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
 starter layout (a failed push is non-fatal — the local commit is kept, with a
-retry hint). The in-TUI `promote` / `pull` actions and sync-status badges that
-build on this store are still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
+retry hint).
+
+Inside the TUI, **`p` promotes** the selected memory into the store — a scope
+dialog picks *this project* (keyed by its git remote) or *global*. engram stamps
+the memory with an `engram:` frontmatter block (a durable id, scope, project,
+owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
+`pull` and the sync-status badges are still landing — see [ROADMAP.md](ROADMAP.md)
+Phase 2.
 
 ## Understanding the list
 

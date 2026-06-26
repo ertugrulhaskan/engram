@@ -106,3 +106,14 @@ func runGit(dir string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// runGitCapture runs a git subcommand and returns its trimmed stdout. Use it for
+// read-only queries engram needs to inspect (remote get-url, status, rev-parse);
+// runGit is for user-facing operations whose output should stream to the terminal.
+func runGitCapture(dir string, args ...string) (string, error) {
+	if dir != "" {
+		args = append([]string{"-C", dir}, args...)
+	}
+	out, err := exec.Command("git", args...).Output()
+	return strings.TrimSpace(string(out)), err
+}

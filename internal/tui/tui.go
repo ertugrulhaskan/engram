@@ -22,6 +22,7 @@ const (
 	modeConfirm
 	modePalette
 	modeHelp
+	modePromoteScope // picking team scope (this project / global) for a promote
 )
 
 // srcKind selects which collection is being browsed.

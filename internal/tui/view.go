@@ -30,6 +30,8 @@ func (m Model) View() string {
 		box, top = m.paletteBox(), true
 	case modeHelp:
 		box = m.helpModal()
+	case modePromoteScope:
+		box = m.scopeModal()
 	}
 	if box != "" {
 		frame = m.overlay(frame, box, top)

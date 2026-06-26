@@ -55,6 +55,12 @@ type Model struct {
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
 	ready                   bool
 
+	// promote scope picker (modePromoteScope)
+	promotePath   string // memory file being promoted
+	promoteTitle  string // its title, for the modal header
+	promoteKey    string // resolved project key, or "" when the project has no remote
+	promoteCursor int    // 0 = this project, 1 = global
+
 	version string // release version for the help/about footer; "" → "dev"
 }
 
