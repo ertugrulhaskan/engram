@@ -40,12 +40,12 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
       `MEMORY.md` read-only; edits are reserved for `@Claude`
 - [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 3)
 
-## Phase 2 — Team sharing over git
+## Phase 2 — Team sharing over git *(core shipped on `feat/team-init`; sync badges + conflict UX remaining)*
 
 Goal: share the team-useful memories across people and projects, no servers.
 
 - [x] `engram init-team <git-url>` — set up the managed clone of the team repo
-- [ ] Project identity via git remote URL (alias fallback) — *`NormalizeRemote` built; no consumer/alias yet*
+- [x] Project identity via git remote URL — *consumed by promote/pull; alias fallback for remote-less repos pending*
 - [x] `promote` → commit + push *(single-select; multi-select pending)*
 - [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)

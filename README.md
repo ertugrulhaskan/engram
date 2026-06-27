@@ -5,14 +5,17 @@
 `engram` is a fast, single-binary TUI that surfaces the memories Claude Code
 keeps on your machine — across **all** your projects — in one searchable place.
 Browse them, read them rendered as markdown, edit them in your `$EDITOR`, and
-(soon) share the useful ones with your team over any git host.
+share the useful ones with your team over any git host.
 
 The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** Phase 1 (local browsing) complete — `v0.1.0`. See [ROADMAP.md](ROADMAP.md).
-> Design details live in [SPEC.md](SPEC.md).
+> **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) complete —
+> `v0.1.0`. Phase 2 (team sharing over git) core — `init-team`, `promote`, `pull` — is
+> shipped on `feat/team-init`; sync-status badges and conflict-resolution UX are the
+> remaining pieces. The repo stays private until Phase 2 lands. See
+> [ROADMAP.md](ROADMAP.md). Design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html) and
 > will be served at [engram.im](https://engram.im) (Cloudflare Pages; publishing deferred —
@@ -112,7 +115,7 @@ file; typing `@` launches **`@Claude`**.
 > or merge memories on request. engram reloads when the session exits. Requires the
 > `claude` CLI on `PATH`; without it the palette action shows a one-line hint.
 
-## Team sharing setup (Phase 2 — in progress)
+## Team sharing setup (Phase 2 — core shipped)
 
 Sharing adds exactly **one** subcommand; normal use stays a no-arg TUI. To set up
 the shared team store (a git repo your team reads and writes):
@@ -148,10 +151,12 @@ Sync-status badges and guided conflict resolution are still landing — see
   - `[project]` (green) — something specific to that codebase
   - `[reference]` (purple) — a pointer to an external resource
   - `[other]` (gray) — no type recorded
-- **No "global / all-projects" scope yet.** A cross-project scope (a memory that
-  applies everywhere, or is shared with a team) is planned for **Phase 2** — see
-  [ROADMAP.md](ROADMAP.md). Your user-wide rules in `~/.claude/CLAUDE.md` show up
-  read-only under `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
+- **Scope shows up when you share.** Promote a memory and you pick **this project**
+  (keyed by its git remote) or **global** (the team-wide bucket) — the **Phase 2**
+  cross-project scope. In-list sync-status badges that surface that scope at a glance
+  are still landing (see [ROADMAP.md](ROADMAP.md)). Your user-wide rules in
+  `~/.claude/CLAUDE.md` show up read-only under `/files`, alongside per-project
+  `CLAUDE.md` and `MEMORY.md`.
 
 ## How it works
 
@@ -169,7 +174,7 @@ Files are never modified except when you explicitly edit one. See
 
 - **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
-- **Phase 2** — team sharing over git: promote / pull, sync-status badges *(next)*
+- **Phase 2** — team sharing over git: `init-team`, promote / pull *(core shipped; sync-status badges + conflict resolve next)*
 - **Phase 3** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing

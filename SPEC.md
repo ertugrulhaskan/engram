@@ -138,6 +138,10 @@ type DocFile struct {
 
 ## 7. Sharing design (Phase 2)
 
+> **Status:** the core of this design is implemented — `init-team`, `promote`, and
+> `pull` are shipped on `feat/team-init`. Sync-status badges (§7 list states) and the
+> `[team ⚠]` conflict-resolution UX are the remaining work.
+
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
 

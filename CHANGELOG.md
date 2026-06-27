@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Phase 2 (team sharing over git) — first slice.** See [ROADMAP.md](ROADMAP.md)
-and [SPEC.md](SPEC.md) §7.
+**Phase 2 (team sharing over git) — core complete.** `init-team`, `promote`, and
+`pull` are in place; sync-status badges and conflict-resolution UX are the remaining
+pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 
 ### Added
 - **`engram init-team <git-url>`** — one-time setup subcommand that clones the
@@ -34,6 +35,18 @@ and [SPEC.md](SPEC.md) §7.
   canonical key) and `Promote`; `internal/memory` gains a lossless `engram:`
   frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving Claude's keys) and
   a UUID helper. `NormalizeRemote` and the `config.Dir()` helper landed earlier.
+
+### Known gaps
+- **Sync-status badges** (`[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`)
+  are not yet rendered in the list — promote/pull work, but a memory's team state
+  isn't shown at a glance yet.
+- **Conflict-resolution UX** for `[team ⚠]` is pending: `pull` already *detects* and
+  protects conflicts (never overwrites a differing local file), but the guided
+  open-both-in-`$EDITOR` resolve flow isn't built.
+- **Promote is single-select**; multi-select promote is pending.
+- **No alias fallback** for projects without a git remote (they can't yet be keyed).
+- No public release or Homebrew tap published yet — the git tags are local and
+  publishing stays deferred until Phase 2 ships.
 
 ## [0.1.2] - 2026-06-25
 

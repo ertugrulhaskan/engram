@@ -260,6 +260,25 @@
   .b-teamdown { color: var(--blue); }
   .b-conflict { color: var(--danger); }
 
+  /* ---- moat: where your memory lives ---- */
+  .compare {
+    margin-top: 6px; background: var(--inset); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; font-family: var(--mono); font-size: 13.5px;
+  }
+  .crow {
+    display: grid; grid-template-columns: 1.05fr 1.3fr 1.4fr; gap: 14px; align-items: baseline;
+    padding: 13px 18px; border-top: 1px solid var(--border);
+  }
+  .crow:first-child { border-top: none; }
+  .crow.head { background: var(--surface2); font-size: 11px; }
+  .crow.head span { color: var(--dim); }
+  .crow .who { color: var(--fg); }
+  .crow .where, .crow .move { color: var(--dim); }
+  .crow.ours { background: var(--surface); }
+  .crow.ours .who { color: var(--accent); font-weight: 600; }
+  .crow.ours .who .dim { color: var(--dim); font-weight: 400; }
+  .crow.ours .move { color: var(--green); }
+
   /* promote modal floating inside the sharing mockup */
   .term .modal {
     position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%);
@@ -287,6 +306,8 @@
     .flow .arrow { transform: rotate(90deg); padding: 7px 0; }
     .badgematrix .bmrow { grid-template-columns: auto 1fr; }
     .badgematrix .bmrow .bm-act { grid-column: 1 / -1; }
+    .compare .crow { grid-template-columns: 1fr; gap: 3px; padding: 12px 16px; }
+    .compare .crow.head { display: none; }
   }
 </style>
 </head>
@@ -296,6 +317,7 @@
   <div class="brand">engram<span class="ver">v2.0</span></div>
   <nav class="nav">
     <a href="#why">why</a>
+    <a href="#moat">the moat</a>
     <a href="#sharing">sharing</a>
     <a href="#how">how it works</a>
     <a href="#roadmap">roadmap</a>
@@ -396,6 +418,25 @@
         <p>Read-only until you act. engram only ever <b style="color:var(--fg)">adds</b> its own frontmatter — it never rewrites what Claude wrote, so files stay readable by Claude Code.</p>
       </div>
     </div>
+  </section>
+
+  <section id="moat" class="sec">
+    <span class="eyebrow">// the moat</span>
+    <h2>Your memory, not their server.</h2>
+    <p class="lede">Every assistant now keeps a memory of how you work. The real question is <b style="color:var(--fg)">where it lives</b> — and whether you can read, move, and version it.</p>
+    <div class="compare">
+      <div class="crow head"><span class="who">auto-learned memory</span><span class="where">where it lives</span><span class="move">yours to move?</span></div>
+      <div class="crow ours">
+        <span class="who">Claude Code <span class="dim">+ engram</span></span>
+        <span class="where">your disk · plain Markdown</span>
+        <span class="move">yes — it's just files in git</span>
+      </div>
+      <div class="crow"><span class="who">Gemini</span><span class="where">Google account · server</span><span class="move">no — vendor-locked</span></div>
+      <div class="crow"><span class="who">Grok</span><span class="where">xAI account · server</span><span class="move">no — vendor-locked</span></div>
+      <div class="crow"><span class="who">Copilot</span><span class="where">GitHub account · server</span><span class="move">no — vendor-locked</span></div>
+    </div>
+    <p class="flow-cap" style="margin-top:16px">Claude Code is the outlier: it writes its memory to <code>~/.claude</code> as Markdown you own. engram is the fast UI and the git layer on top — so your team's hard-won context stays portable, reviewable, and never trapped behind someone's login.</p>
+    <p class="flow-cap" style="color:var(--dim)">Scope: the memory an assistant learns <em>on its own</em>. You-authored instruction files like <code>GEMINI.md</code> or <code>copilot-instructions.md</code> can live locally too — it's the <b style="color:var(--fg)">auto-memory</b> that's locked to a vendor's account.</p>
   </section>
 
   <section id="sharing" class="sec">
@@ -529,7 +570,7 @@
   <section id="roadmap" class="sec">
     <span class="eyebrow">// roadmap</span>
     <h2>Shipping in phases.</h2>
-    <p class="lede">Each phase ships independently. Local browsing and team sharing are here today; other assistants are next.</p>
+    <p class="lede">Each phase ships independently. Local browsing is here, and team sharing's core — <code>init-team</code>, promote, pull — is in; the richer sync UX and other assistants are next.</p>
     <div class="phases">
       <div class="phase done">
         <div class="head"><span class="v">v1</span><span class="tag available">available</span></div>
@@ -548,7 +589,7 @@
           <li>One-command <code>init-team</code> setup</li>
           <li>Promote &amp; pull as keystrokes</li>
           <li>Personal vs team scope, enforced</li>
-          <li>Sync badges + conflict resolve</li>
+          <li>Global vs project scope on promote</li>
         </ul>
       </div>
       <div class="phase todo">
@@ -556,12 +597,13 @@
         <h3>Other assistants</h3>
         <ul class="plist">
           <li>Pluggable source abstraction</li>
-          <li>Claude.ai memory import/export</li>
-          <li>ChatGPT / Gemini memory</li>
+          <li>Claude.ai, ChatGPT, Gemini memory</li>
+          <li>Export / import — their memory is server-locked</li>
           <li>Read-only first, editing as feasible</li>
         </ul>
       </div>
     </div>
+    <p class="flow-cap" style="margin-top:18px"><b style="color:var(--fg)">Coming soon:</b> finishing the team UX — sync-status badges, guided conflict-resolve in <code>$EDITOR</code>, multi-select promote, and an alias fallback for repos with no git remote — then other assistants (Phase 3), and a public release with <code>brew install</code>.</p>
   </section>
 
   <section class="finalcta">
