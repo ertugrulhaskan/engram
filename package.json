@@ -1,0 +1,13 @@
+{
+  "name": "engram-www",
+  "private": true,
+  "description": "Build tooling for the engram.im landing page (Tailwind CSS, stock theme only).",
+  "scripts": {
+    "build:css": "tailwindcss -i www/css/input.css -o www/css/styles.css --minify",
+    "watch:css": "tailwindcss -i www/css/input.css -o www/css/styles.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.1",
+    "tailwindcss": "^4.3.1"
+  }
+}

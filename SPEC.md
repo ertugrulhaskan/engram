@@ -331,12 +331,18 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 
 ### Website
 
-- Domain: **engram.im**. The landing page is a single self-contained HTML file at
-  `www/index.html` (no build step, no external assets), kept in this repo — one source
-  of truth alongside the docs it must stay in sync with.
+- Domain: **engram.im**. The landing page is `www/index.html`, with assets split into
+  subfolders: `www/css/` (Tailwind) and `www/js/` (behavior). Styled with **Tailwind
+  CSS (stock theme only — no custom colors/values/breakpoints)** compiled to
+  `www/css/styles.css`. Input is `www/css/input.css`; rebuild with `npm run build:css`
+  (see CONTRIBUTING "Landing page"). The built CSS is **committed**, so there is no
+  deploy-time build. Page behavior lives in `www/js/main.js` (a plain classic deferred
+  script, no modules/dependencies); the only inline script is a tiny pre-paint theme
+  guard in `<head>` (kept inline to avoid a flash of the wrong theme). It supports
+  light / dark / system themes and is keyboard-accessible; it stays in sync with the docs.
 - Served via **Cloudflare Pages** (free tier, builds directly from the private repo —
-  no GitHub Pro required): build command empty, output directory `www`, custom domain
-  `engram.im`.
+  no GitHub Pro required): build command **empty** (CSS is prebuilt & committed), output
+  directory `www`, custom domain `engram.im`.
 - **Publishing is deferred.** Gate go-live on the v0.1.0 release being public so the
   install command and the "available" badge are true. Do not create the Cloudflare
   project, change DNS, or otherwise publish without explicit sign-off (see the

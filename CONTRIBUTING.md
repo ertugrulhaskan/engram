@@ -26,6 +26,35 @@ gofmt -l .         # list any unformatted files (should print nothing)
 
 The TUI needs a real terminal — run it in your own terminal, not through a pipe.
 
+## Landing page (`www/`)
+
+The site at [www/index.html](www/index.html) is styled with **Tailwind CSS, stock theme
+only** — no custom colors, arbitrary values (`[...]`), or custom breakpoints; map any
+color to its nearest stock Tailwind shade. It supports light / dark / system themes and
+is keyboard-accessible. Assets are split into subfolders:
+
+```
+www/
+    index.html       # markup + a tiny inline pre-paint theme guard in <head>
+    css/
+        input.css    # Tailwind entry (@source "../index.html")
+        styles.css   # generated, committed
+    js/
+        main.js      # page behavior — plain classic deferred script, no modules/deps
+```
+
+```sh
+npm install          # first time only — installs the Tailwind CLI (devDependency)
+npm run build:css    # compile www/css/input.css -> www/css/styles.css (minified)
+npm run watch:css    # rebuild on change while editing
+```
+
+`www/css/styles.css` is **committed** (Cloudflare Pages serves `www/` statically with no
+build command), so rebuild and commit it whenever you change classes in `index.html`.
+`www/js/main.js` is a plain classic script (no build step) — edit it directly. Keep the
+pre-paint theme guard inline in `<head>` so the right theme paints on the first frame.
+`node_modules/` is gitignored and must never be committed.
+
 ## Project layout & the one hard rule
 
 ```

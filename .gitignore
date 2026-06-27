@@ -13,6 +13,9 @@ vendor/
 .idea/
 .vscode/
 
+# Node (landing-page Tailwind build tooling; built CSS in www/ is committed)
+node_modules/
+
 # Claude Code personal settings (verbose/debug, env)
 .claude/settings.local.json
 

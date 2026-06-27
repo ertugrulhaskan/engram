@@ -1,643 +1,292 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>engram — your team's AI memory, in the terminal</title>
 <meta name="description" content="engram brings every memory Claude Code keeps — across all your projects — into one fast terminal UI, and shares the team-useful ones over plain git. Single Go binary, no servers, no signup." />
 
-<!-- Open Graph / social -->
 <meta property="og:title" content="engram" />
-<meta property="og:description" content="Your AI's memory — yours and your team's — in the terminal. Browse, edit, and promote the memories Claude Code keeps; share them over plain git. Single binary, no servers." />
+<meta property="og:description" content="Your AI's memory — yours and your team's — in the terminal. Browse, promote, and pull the memories Claude Code keeps; share them over plain git. Single binary, no servers." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://engram.im" />
 
-<style>
-  :root {
-    /* Classic Dark — the VS Code Dark+ palette engram ships as its default theme
-       (see internal/tui/theme.go "Classic Dark"). */
-    --bg:       #1a1a1a;
-    --surface:  #1e1e1e;
-    --surface2: #252526;
-    --inset:    #1b1b1b;
-    --border:   #3a3a3a;
-    --fg:       #d4d4d4;
-    --dim:      #808080;
-    --accent:   #4fa6ed;  /* brand blue */
-    --blue:     #569cd6;  /* user */
-    --orange:   #ce9178;  /* feedback */
-    --green:    #6a9955;  /* project / prompt */
-    --purple:   #c586c0;  /* reference */
-    --teal:     #4ec9b0;
-    --yellow:   #dcdcaa;
-    --danger:   #e05561;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
-  }
-
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0;
-    background:
-      radial-gradient(900px 480px at 50% -8%, rgba(79,166,237,0.10), transparent 60%),
-      var(--bg);
-    color: var(--fg);
-    font-family: var(--sans);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-
-  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
-  .eyebrow {
-    font-family: var(--mono); font-size: 13px; color: var(--dim);
-    display: block; margin: 0 0 10px;
-  }
-
-  /* ---- header ---- */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 22px 24px; max-width: 1000px; margin: 0 auto;
-  }
-  .brand { font-family: var(--mono); font-weight: 700; font-size: 18px; letter-spacing: -0.5px; color: var(--accent); }
-  .brand .ver { color: var(--dim); font-weight: 400; font-size: 13px; margin-left: 8px; }
-  .nav a { color: var(--dim); margin-left: 22px; font-size: 14px; }
-  .nav a:hover { color: var(--fg); text-decoration: none; }
-  .nav a.gh {
-    border: 1px solid var(--border); border-radius: 8px; padding: 7px 13px;
-    color: var(--fg);
-  }
-  .nav a.gh:hover { border-color: var(--accent); }
-
-  /* ---- hero ---- */
-  .hero { text-align: center; padding: 50px 0 24px; }
-  .pill {
-    display: inline-block; font-family: var(--mono); font-size: 12px;
-    color: var(--green); border: 1px solid var(--border);
-    background: var(--surface); border-radius: 999px; padding: 5px 14px; margin-bottom: 26px;
-  }
-  .pill .blink { color: var(--green); }
-  h1 {
-    font-size: clamp(30px, 6vw, 54px); margin: 0 0 18px; letter-spacing: -1px;
-    font-family: var(--mono); font-weight: 800; line-height: 1.12; color: #fff;
-  }
-  .tagline { font-size: clamp(15px, 2vw, 17px); color: var(--dim); max-width: 600px; margin: 0 auto 28px; }
-
-  /* ---- install command ---- */
-  .cmd {
-    display: inline-flex; align-items: center; gap: 14px;
-    font-family: var(--mono); font-size: 14px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 12px 12px 18px; text-align: left; max-width: 100%;
-  }
-  .cmd .prompt { color: var(--green); user-select: none; }
-  .cmd code { color: var(--fg); overflow-x: auto; }
-  .cmd button {
-    font-family: var(--sans); font-size: 12px; cursor: pointer; flex: none;
-    color: var(--dim); background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 7px; padding: 6px 11px; transition: color .15s, border-color .15s;
-  }
-  .cmd button:hover { color: var(--fg); border-color: var(--accent); }
-  .cmd button.copied { color: var(--green); border-color: var(--green); }
-  .subcmd { color: var(--dim); font-family: var(--mono); font-size: 12px; margin: 14px 0 0; }
-  .subcmd code { color: var(--fg); }
-
-  /* ---- terminal mock ---- */
-  .term {
-    margin: 48px auto 0; max-width: 880px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.5); overflow: hidden; text-align: left; position: relative;
-  }
-  .term .chrome {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface2); padding: 11px 14px; border-bottom: 1px solid var(--border);
-  }
-  .term .chrome .led { width: 12px; height: 12px; border-radius: 50%; }
-  .led.r { background: #e05561; } .led.y { background: #dcdcaa; } .led.g { background: #6a9955; }
-  .term .chrome .title { margin-left: 10px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
-  .term .topbar {
-    display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    font-family: var(--mono); font-size: 12px; color: var(--dim);
-    padding: 9px 16px; border-bottom: 1px solid var(--border); background: var(--inset);
-  }
-  .term .topbar b { color: var(--accent); font-weight: 600; }
-  .term .body { display: grid; grid-template-columns: 1.1fr 1fr; font-family: var(--mono); font-size: 13px; }
-  .term .list { padding: 14px 12px; border-right: 1px solid var(--border); }
-  .term .preview { padding: 14px 18px; color: var(--dim); }
-  .grouphdr { color: var(--green); margin: 0 0 8px; }
-  .grouphdr.alt { color: var(--blue); margin-top: 16px; }
-  .row { display: flex; gap: 9px; align-items: baseline; padding: 3px 4px; border-radius: 5px; white-space: nowrap; overflow: hidden; }
-  .row.sel { background: var(--surface2); }
-  .row .chev { color: var(--accent); width: 10px; display: inline-block; }
-  .badge { font-size: 11px; flex: none; }
-  .b-user { color: var(--blue); } .b-feedback { color: var(--orange); }
-  .b-project { color: var(--green); } .b-reference { color: var(--purple); } .b-other { color: var(--dim); }
-  .row .name { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
-  .row.sel .name { color: var(--fg); }
-  .preview .meta { color: var(--dim); margin: 0 0 8px; font-size: 12px; }
-  .preview .meta .b-project { color: var(--green); }
-  .preview h4 { color: var(--fg); margin: 0 0 10px; font-family: var(--mono); font-size: 14px; }
-  .preview p { margin: 0 0 12px; color: var(--fg); font-size: 12.5px; line-height: 1.5; }
-  .preview p code, .preview .in { background: var(--surface2); border-radius: 4px; padding: 1px 5px; color: var(--teal); font-size: 12px; }
-  .codeblk {
-    background: var(--inset); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; font-size: 12px; color: var(--fg); overflow-x: auto; margin: 0;
-  }
-  .codeblk .kw { color: var(--blue); } .codeblk .ty { color: var(--teal); } .codeblk .fn { color: var(--yellow); }
-  .statusbar {
-    font-family: var(--mono); font-size: 11px; color: var(--dim);
-    background: var(--surface2); border-top: 1px solid var(--border); padding: 8px 16px;
-    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  }
-  .statusbar .key { color: var(--accent); }
-  .statusbar .theme b { color: var(--accent); font-weight: 600; }
-
-  /* ---- section heading ---- */
-  .sec { padding: 86px 0 0; }
-  .sec h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 8px; color: #fff; font-family: var(--mono); font-weight: 800; letter-spacing: -0.5px; }
-  .sec .lede { color: var(--dim); margin: 0 0 30px; max-width: 640px; font-size: 15px; }
-
-  /* ---- features ---- */
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
-  .card .ico { font-family: var(--mono); font-size: 18px; margin-bottom: 14px; }
-  .card h3 { margin: 0 0 6px; font-size: 15px; color: var(--fg); }
-  .card p { margin: 0; color: var(--dim); font-size: 13.5px; }
-  .card code { font-family: var(--mono); color: var(--fg); background: var(--surface2); border-radius: 4px; padding: 0 4px; font-size: 12.5px; }
-
-  /* ---- zero setup ---- */
-  .zero { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 34px; }
-  .zero .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
-  .zero p.intro { color: var(--dim); font-size: 14px; margin: 0 0 18px; }
-  .zero p.intro code { font-family: var(--mono); color: var(--fg); }
-  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 11px; }
-  .checks li { padding-left: 26px; position: relative; color: var(--fg); font-size: 14px; }
-  .checks li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
-  .filetree {
-    background: var(--inset); border: 1px solid var(--border); border-radius: 10px;
-    padding: 16px 18px; font-family: var(--mono); font-size: 13px; color: var(--dim);
-    overflow-x: auto; margin: 0; line-height: 1.7;
-  }
-  .filetree .proj { color: var(--blue); } .filetree .idx { color: var(--green); } .filetree .f { color: var(--fg); }
-
-  /* ---- roadmap ---- */
-  .phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
-  .phase .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .phase .v { font-family: var(--mono); font-size: 13px; color: var(--dim); }
-  .phase h3 { margin: 0 0 16px; font-size: 16px; color: var(--fg); }
-  .tag {
-    font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border);
-  }
-  .tag.available { color: var(--green); border-color: var(--green); }
-  .tag.next { color: var(--accent); border-color: var(--accent); }
-  .tag.planned { color: var(--dim); }
-  .plist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-  .plist li { padding-left: 22px; position: relative; font-size: 13.5px; color: var(--dim); }
-  .phase.done .plist li { color: var(--fg); }
-  .phase.done .plist li::before { content: "✓"; color: var(--green); position: absolute; left: 0; font-weight: 700; }
-  .phase.todo .plist li::before { content: "○"; color: var(--dim); position: absolute; left: 0; }
-  .phase .plist li code { font-family: var(--mono); color: var(--fg); font-size: 12.5px; }
-
-  /* ---- final cta ---- */
-  .finalcta { text-align: center; padding: 100px 0 8px; }
-  .finalcta h2 { font-size: clamp(24px, 5vw, 38px); margin: 0 0 12px; color: #fff; font-family: var(--mono); font-weight: 800; letter-spacing: -0.5px; }
-  .finalcta .sub { color: var(--dim); margin: 0 0 26px; }
-
-  /* ---- footer ---- */
-  footer {
-    border-top: 1px solid var(--border); margin-top: 90px; padding: 26px 0 50px;
-    color: var(--dim); font-size: 14px;
-  }
-  footer .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-  footer .brand { font-size: 15px; }
-  footer .links a { color: var(--dim); margin-left: 20px; }
-  footer .links a:hover { color: var(--fg); text-decoration: none; }
-
-  /* ---- why: problem -> solution ---- */
-  .sec .lede code, .flow-cap code, .problem .pain code, .problem .fix code { font-family: var(--mono); color: var(--fg); }
-  .problem { display: grid; gap: 12px; }
-  .prow {
-    display: grid; grid-template-columns: 1fr 1fr;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
-  }
-  .prow .pain { padding: 18px 20px; color: var(--dim); font-size: 14px; border-right: 1px solid var(--border); }
-  .prow .fix  { padding: 18px 20px; color: var(--fg);  font-size: 14px; background: var(--inset); }
-  .prow .fix b { color: var(--accent); font-weight: 600; }
-  .prow .lbl { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 5px; }
-
-  /* ---- team sharing: flow + badge matrix ---- */
-  .flow { display: flex; align-items: stretch; gap: 0; margin: 4px 0 14px; }
-  .flow .step {
-    flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--fg);
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px;
-  }
-  .flow .step .n { display: block; color: var(--dim); font-size: 11px; margin-bottom: 5px; }
-  .flow .step code, .flow .step b { color: var(--accent); font-weight: 600; }
-  .flow .arrow { align-self: center; color: var(--accent); padding: 0 12px; font-size: 18px; flex: none; }
-  .flow-cap { color: var(--dim); font-size: 13px; margin: 0 0 8px; }
-
-  .badgematrix {
-    margin-top: 26px; background: var(--inset); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden; font-family: var(--mono); font-size: 13px;
-  }
-  .bmrow {
-    display: grid; grid-template-columns: 110px 1fr auto; gap: 14px; align-items: baseline;
-    padding: 11px 16px; border-top: 1px solid var(--border);
-  }
-  .bmrow:first-child { border-top: none; }
-  .bm-mean { color: var(--dim); }
-  .bm-act { color: var(--accent); white-space: nowrap; }
-  .bm-act.none { color: var(--dim); }
-
-  /* sync-status badges — reuse the existing palette; red is conflict-only */
-  .b-personal { color: var(--dim); }
-  .b-new      { color: var(--accent); }
-  .b-teamok   { color: var(--green); }
-  .b-teamedit { color: var(--yellow); }
-  .b-teamdown { color: var(--blue); }
-  .b-conflict { color: var(--danger); }
-
-  /* ---- moat: where your memory lives ---- */
-  .compare {
-    margin-top: 6px; background: var(--inset); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden; font-family: var(--mono); font-size: 13.5px;
-  }
-  .crow {
-    display: grid; grid-template-columns: 1.05fr 1.3fr 1.4fr; gap: 14px; align-items: baseline;
-    padding: 13px 18px; border-top: 1px solid var(--border);
-  }
-  .crow:first-child { border-top: none; }
-  .crow.head { background: var(--surface2); font-size: 11px; }
-  .crow.head span { color: var(--dim); }
-  .crow .who { color: var(--fg); }
-  .crow .where, .crow .move { color: var(--dim); }
-  .crow.ours { background: var(--surface); }
-  .crow.ours .who { color: var(--accent); font-weight: 600; }
-  .crow.ours .who .dim { color: var(--dim); font-weight: 400; }
-  .crow.ours .move { color: var(--green); }
-
-  /* promote modal floating inside the sharing mockup */
-  .term .modal {
-    position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%);
-    width: min(430px, 86%); background: var(--surface2); border: 1px solid var(--accent);
-    border-radius: 10px; padding: 14px 16px; box-shadow: 0 18px 44px rgba(0,0,0,0.6);
-    font-family: var(--mono); font-size: 12.5px;
-  }
-  .term .modal h5 { margin: 0 0 10px; color: var(--fg); font-size: 13px; font-weight: 600; }
-  .term .modal .opt { margin: 5px 0; color: var(--dim); }
-  .term .modal .opt.on { color: var(--fg); }
-  .term .modal .opt .rad { color: var(--accent); }
-  .term .modal .hint { margin: 11px 0 0; color: var(--dim); }
-  .term .modal .hint .key { color: var(--accent); }
-
-  @media (max-width: 820px) {
-    .features, .phases { grid-template-columns: 1fr; }
-    .zero .grid { grid-template-columns: 1fr; }
-    .term .body { grid-template-columns: 1fr; }
-    .term .list { border-right: none; border-bottom: 1px solid var(--border); }
-    .nav a:not(.gh) { display: none; }
-    .statusbar .theme { display: none; }
-    .problem .prow { grid-template-columns: 1fr; }
-    .problem .prow .pain { border-right: none; border-bottom: 1px solid var(--border); }
-    .flow { flex-direction: column; }
-    .flow .arrow { transform: rotate(90deg); padding: 7px 0; }
-    .badgematrix .bmrow { grid-template-columns: auto 1fr; }
-    .badgematrix .bmrow .bm-act { grid-column: 1 / -1; }
-    .compare .crow { grid-template-columns: 1fr; gap: 3px; padding: 12px 16px; }
-    .compare .crow.head { display: none; }
-  }
-</style>
+<script>
+  (function () {
+    try {
+      var t = localStorage.theme;
+      if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
+<body class="bg-white text-neutral-800 font-sans leading-relaxed antialiased dark:bg-neutral-950 dark:text-neutral-300">
 
-<header>
-  <div class="brand">engram<span class="ver">v2.0</span></div>
-  <nav class="nav">
-    <a href="#why">why</a>
-    <a href="#moat">the moat</a>
-    <a href="#sharing">sharing</a>
-    <a href="#how">how it works</a>
-    <a href="#roadmap">roadmap</a>
-    <a class="gh" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
-  </nav>
+<header class="sticky top-0 z-50 border-b border-neutral-200 bg-white/70 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/70">
+  <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 md:grid md:grid-cols-3">
+    <div class="justify-self-start font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram<span class="ml-2 text-sm font-normal text-neutral-500">v2.0</span></div>
+    <nav aria-label="Primary" class="hidden justify-self-center font-mono text-xs uppercase tracking-wider md:flex md:items-center md:gap-6">
+      <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#moat">the moat</a>
+      <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#sharing">sharing</a>
+      <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#palette">palette</a>
+      <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#roadmap">roadmap</a>
+    </nav>
+    <div class="flex items-center gap-1 justify-self-end">
+      <div id="thm" class="relative">
+        <button id="thm-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Color theme" class="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-blue-400">
+          <span data-sico="light" class="hidden text-amber-500"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+          <span data-sico="system" class="text-sky-500"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+          <span data-sico="dark" class="hidden text-indigo-400"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
+          <span aria-hidden="true" class="text-neutral-400">▾</span>
+        </button>
+        <div id="thm-menu" role="menu" aria-label="Theme" class="absolute right-0 mt-2 hidden w-36 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+          <button type="button" role="menuitemradio" data-theme-set="light" aria-checked="false" class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"><span class="text-amber-500"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>Light<span data-check class="ml-auto text-blue-600 dark:text-blue-400" aria-hidden="true"></span></button>
+          <button type="button" role="menuitemradio" data-theme-set="system" aria-checked="true" class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"><span class="text-sky-500"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>System<span data-check class="ml-auto text-blue-600 dark:text-blue-400" aria-hidden="true">✓</span></button>
+          <button type="button" role="menuitemradio" data-theme-set="dark" aria-checked="false" class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"><span class="text-indigo-400"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>Dark<span data-check class="ml-auto text-blue-600 dark:text-blue-400" aria-hidden="true"></span></button>
+        </div>
+      </div>
+      <a class="ml-2 hidden rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 md:inline-block dark:border-neutral-700 dark:text-neutral-200 dark:hover:border-blue-400" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
+      <button id="ham" type="button" aria-label="Menu" aria-controls="drawer" aria-expanded="false" class="ml-1 cursor-pointer rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 md:hidden dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-blue-400">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
 </header>
 
-<main class="wrap">
-
-  <section class="hero">
-    <span class="pill"><span class="blink">●</span> your team's AI memory, in one place</span>
-    <h1>Your AI's memory —<br>yours, your team's, all in one terminal.</h1>
-    <p class="tagline">Claude Code writes memories to disk — scattered one folder per project. engram brings them into one fast terminal UI: browse, edit, and promote the good ones to your whole team over plain git. No servers, no signup.</p>
-
-    <div class="cmd">
-      <span class="prompt">$</span>
-      <code>go install github.com/ertugrulhaskan/engram@latest</code>
-      <button onclick="copyCmd(this)">copy</button>
+<!-- mobile drawer (slides in from the right; full height) -->
+<div id="drawer" class="pointer-events-none fixed inset-0 z-50 md:hidden">
+  <div id="drawer-bg" class="absolute inset-0 bg-black/50 opacity-0 transition-opacity duration-300"></div>
+  <aside id="drawer-panel" role="dialog" aria-modal="true" aria-label="Menu" class="absolute right-0 top-0 flex h-full w-72 max-w-full translate-x-full flex-col border-l border-neutral-200 bg-white p-6 shadow-2xl transition-transform duration-300 dark:border-neutral-800 dark:bg-neutral-950">
+    <div class="mb-6 flex items-center justify-between">
+      <span class="font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram</span>
+      <button id="drawer-close" type="button" aria-label="Close menu" class="cursor-pointer rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-blue-400">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12"/></svg>
+      </button>
     </div>
-    <p class="subcmd">or <code>brew install ertugrulhaskan/tap/engram</code> · macOS, Linux, single binary</p>
+    <nav aria-label="Mobile menu" class="flex flex-col gap-1 font-mono text-sm uppercase tracking-wider">
+      <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#moat">the moat</a>
+      <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#sharing">sharing</a>
+      <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#palette">palette</a>
+      <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#roadmap">roadmap</a>
+    </nav>
+    <a class="mt-4 rounded-lg border border-neutral-200 px-3 py-3 text-center text-sm text-neutral-900 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-200 dark:hover:border-blue-400" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
+  </aside>
+</div>
 
-    <!-- terminal mockup -->
-    <div class="term" aria-hidden="true">
-      <div class="chrome">
-        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
-        <span class="title">~/code — engram</span>
+<main class="mx-auto max-w-5xl px-6">
+
+  <!-- hero -->
+  <section class="pt-12 pb-2 text-center">
+    <span class="mb-6 inline-block rounded-full border border-neutral-200 bg-neutral-100 px-4 py-1.5 font-mono text-xs text-green-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-green-500"><span class="motion-safe:animate-pulse" aria-hidden="true">●</span> your team's AI memory, in one place</span>
+    <h1 class="mx-auto mb-5 max-w-3xl font-mono text-4xl font-extrabold leading-tight tracking-tight text-neutral-900 md:text-6xl dark:text-white">Your AI's memory, in one terminal.</h1>
+    <p class="mx-auto mb-7 max-w-xl text-base text-neutral-600 md:text-lg dark:text-neutral-400">Claude Code writes memories to disk, one folder per project. engram brings them into one fast TUI — and shares the best with your team over plain git.</p>
+    <div class="inline-flex max-w-full items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 text-left font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+      <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+      <code class="overflow-x-auto text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
+      <button type="button" data-copy aria-label="Copy install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+    </div>
+    <p class="mt-4 font-mono text-xs text-neutral-600 dark:text-neutral-400">macOS, Linux · single binary · no servers, no signup</p>
+  </section>
+
+  <!-- demo: themed terminal with the view switcher UNDER it -->
+  <section id="demo" class="pt-10">
+    <div id="term" class="overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div class="flex items-center gap-2 border-b border-neutral-200 bg-neutral-100 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+        <span class="h-3 w-3 rounded-full bg-red-500" aria-hidden="true"></span><span class="h-3 w-3 rounded-full bg-amber-400" aria-hidden="true"></span><span class="h-3 w-3 rounded-full bg-green-500" aria-hidden="true"></span>
+        <span class="ml-3 font-mono text-xs text-neutral-600 dark:text-neutral-400">~/code — engram</span>
       </div>
-      <div class="topbar">
-        <span>engram · 11 memories · all projects</span>
-        <span>grouped by <b>project</b> &nbsp; type <b>all</b></span>
-      </div>
-      <div class="body">
-        <div class="list">
-          <p class="grouphdr">▌ engram (3)</p>
-          <div class="row sel"><span class="chev">❯</span><span class="badge b-project">[project]</span><span class="name">Bubble Tea model lives…</span></div>
-          <div class="row"><span class="chev"> </span><span class="badge b-feedback">[feedback]</span><span class="name">Prefer concise commits</span></div>
-          <div class="row"><span class="chev"> </span><span class="badge b-project">[project]</span><span class="name">Use lipgloss for styling</span></div>
-          <p class="grouphdr alt">▌ payments-api (3)</p>
-          <div class="row"><span class="chev"> </span><span class="badge b-feedback">[feedback]</span><span class="name">Never log full PANs</span></div>
-          <div class="row"><span class="chev"> </span><span class="badge b-reference">[reference]</span><span class="name">Stripe webhook secret…</span></div>
-        </div>
-        <div class="preview">
-          <p class="meta"><span class="b-project">[project]</span> engram · edited yesterday</p>
-          <h4>Bubble Tea model lives in internal/tui</h4>
-          <p>All UI state is one <span class="in">model</span> struct. It holds <b>no file logic</b> — mutations go through <span class="in">internal/memory</span>.</p>
-          <pre class="codeblk"><span class="kw">type</span> <span class="ty">model</span> <span class="kw">struct</span> {
-    memories []memory.<span class="ty">Memory</span>
-    cursor   <span class="ty">int</span>
-    focus    <span class="ty">focusArea</span>
+
+      <!-- browse -->
+      <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" tabindex="0" data-tabview class="focus-visible:outline-none">
+        <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
+          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
+            <p class="mb-2 text-green-700 dark:text-green-500">▌ engram (3)</p>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-800 dark:text-neutral-200">Bubble Tea model…</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Prefer concise commits</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-600 dark:text-neutral-400">Use lipgloss for styling</span></div>
+            <p class="mb-2 mt-4 text-sky-700 dark:text-sky-400">▌ payments-api (2)</p>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-purple-700 dark:text-purple-400">[reference]</span><span class="text-neutral-600 dark:text-neutral-400">Stripe webhook secret…</span></div>
+          </div>
+          <div class="px-4 py-4">
+            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-green-700 dark:text-green-500">[project]</span> engram · edited yesterday</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Bubble Tea model lives in internal/tui</p>
+            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">All UI state is one <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">model</span> struct. It holds <b>no file logic</b> — mutations go through <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">internal/memory</span>.</p>
+            <pre class="m-0 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs text-neutral-800 dark:border-neutral-700 dark:bg-black dark:text-neutral-300"><span class="text-sky-700 dark:text-sky-400">type</span> <span class="text-teal-700 dark:text-teal-400">model</span> <span class="text-sky-700 dark:text-sky-400">struct</span> {
+    memories []memory.<span class="text-teal-700 dark:text-teal-400">Memory</span>
+    cursor   <span class="text-teal-700 dark:text-teal-400">int</span>
 }</pre>
+          </div>
+        </div>
+        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> filter · <span class="text-blue-700 dark:text-blue-400">e</span> edit · <span class="text-blue-700 dark:text-blue-400">n</span> new · <span class="text-blue-700 dark:text-blue-400">g</span> group · <span class="text-blue-700 dark:text-blue-400">t</span> type</div>
+      </div>
+
+      <!-- promote -->
+      <div id="panel-promote" role="tabpanel" aria-labelledby="tab-promote" tabindex="0" data-tabview class="hidden focus-visible:outline-none">
+        <div class="relative grid grid-cols-1 font-mono text-sm md:grid-cols-2">
+          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
+            <p class="mb-2 text-green-700 dark:text-green-500">▌ payments-api (4)</p>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[team ✓]</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-blue-700 dark:text-blue-400">[+] new</span><span class="text-neutral-800 dark:text-neutral-200">Stripe webhook flow</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-amber-700 dark:text-amber-300">[team ●]</span><span class="text-neutral-600 dark:text-neutral-400">Retry / backoff policy</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-neutral-600 dark:text-neutral-400">[personal]</span><span class="text-neutral-600 dark:text-neutral-400">Editor is nvim</span></div>
+          </div>
+          <div class="px-4 py-4">
+            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">[+] new</span> payments-api · not yet shared</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Stripe webhook flow</p>
+            <p class="text-xs leading-normal text-neutral-700 dark:text-neutral-300">Verify the signature before parsing. Treat <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">charge.succeeded</span> as the source of truth.</p>
+          </div>
+          <div class="absolute bottom-3 left-1/2 w-11/12 max-w-md -translate-x-1/2 rounded-lg border border-blue-500 bg-neutral-100 px-4 py-3.5 font-mono text-xs shadow-xl dark:border-blue-400 dark:bg-neutral-800">
+            <p class="mb-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Promote “Stripe webhook flow” →</p>
+            <p class="my-1.5 text-neutral-800 dark:text-neutral-200"><span class="text-blue-700 dark:text-blue-400" aria-hidden="true">◉</span> this project &nbsp;<span class="text-neutral-600 dark:text-neutral-400">github.com/acme/payments-api</span></p>
+            <p class="my-1.5 text-neutral-600 dark:text-neutral-400"><span aria-hidden="true">○</span> global &nbsp;apply everywhere</p>
+            <p class="mt-3 text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">enter</span> promote · commit + push</p>
+          </div>
+        </div>
+        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">space</span> select · <span class="text-blue-700 dark:text-blue-400">p</span> promote · <span class="text-blue-700 dark:text-blue-400">enter</span> open</div>
+      </div>
+
+      <!-- pull -->
+      <div id="panel-pull" role="tabpanel" aria-labelledby="tab-pull" tabindex="0" data-tabview class="hidden focus-visible:outline-none">
+        <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
+          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
+            <p class="mb-2 text-neutral-600 dark:text-neutral-400">team <span class="text-blue-700 dark:text-blue-400">acme/memory</span> · 2 incoming</p>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-sky-700 dark:text-sky-400">[team ↓]</span><span class="text-neutral-800 dark:text-neutral-200">Idempotency keys</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-sky-700 dark:text-sky-400">[team ↓]</span><span class="text-neutral-600 dark:text-neutral-400">Webhook retry policy</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[team ✓]</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
+          </div>
+          <div class="px-4 py-4">
+            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-sky-700 dark:text-sky-400">[team ↓]</span> from <span class="text-neutral-800 dark:text-neutral-200">dana@acme</span> · 2h ago</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Idempotency keys</p>
+            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Send an <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">Idempotency-Key</span> on every POST. Pull lands it under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">~/.claude</span> where Claude reads it.</p>
+            <p class="text-xs text-green-700 dark:text-green-500">✓ git pull · 2 files updated</p>
+          </div>
+        </div>
+        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">P</span> pull all · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
+      </div>
+    </div>
+
+    <!-- view switcher: UNDER the terminal, auto-advances until you pick another tab -->
+    <div class="mt-3 flex justify-center">
+      <div role="tablist" aria-label="Demo view" class="inline-flex gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900">
+        <button id="tab-browse" type="button" role="tab" aria-selected="true" aria-controls="panel-browse" tabindex="0" class="flex cursor-pointer items-center gap-2 rounded-md bg-neutral-200 px-3 py-1 text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-neutral-800 dark:text-neutral-200"><span data-num aria-hidden="true" class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white dark:bg-blue-400 dark:text-neutral-950">1</span>browse</button>
+        <button id="tab-promote" type="button" role="tab" aria-selected="false" aria-controls="panel-promote" tabindex="-1" class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200"><span data-num aria-hidden="true" class="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">2</span>promote</button>
+        <button id="tab-pull" type="button" role="tab" aria-selected="false" aria-controls="panel-pull" tabindex="-1" class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200"><span data-num aria-hidden="true" class="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">3</span>pull</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- pillars -->
+  <section class="pt-20">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-sky-600 dark:text-sky-400" aria-hidden="true">◧</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Every memory, one place</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">One searchable two-pane TUI across all your projects. No more grepping <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code> by hand.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-blue-600 dark:text-blue-400" aria-hidden="true">⤴</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Share over plain git</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Promote a memory; teammates pull it. No servers, no account — your git host is the auth.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-green-600 dark:text-green-500" aria-hidden="true">✓</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Safe by default</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Read-only until you act. engram only ever <b class="font-semibold text-neutral-900 dark:text-neutral-200">adds</b> its own frontmatter — never rewrites what Claude wrote.</p></div>
+    </div>
+  </section>
+
+  <!-- moat -->
+  <section id="moat" class="scroll-mt-20 pt-20">
+    <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// the moat</span>
+    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Your memory, not their server.</h2>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">Every assistant keeps a memory of how you work. The real question is where it lives — and whether you can read, move, and version it.</p>
+    <div class="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 font-mono text-sm dark:border-neutral-700 dark:bg-black">
+      <div class="hidden grid-cols-12 gap-3.5 bg-neutral-100 px-5 py-3 text-xs text-neutral-600 md:grid dark:bg-neutral-800 dark:text-neutral-400"><span class="col-span-3">auto-learned memory</span><span class="col-span-4">where it lives</span><span class="col-span-5">yours to move?</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 bg-white px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700 dark:bg-neutral-900"><span class="font-semibold text-blue-700 md:col-span-3 dark:text-blue-400">Claude Code <span class="font-normal text-neutral-600 dark:text-neutral-400">+ engram</span></span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">your disk · plain Markdown</span><span class="text-green-700 md:col-span-5 dark:text-green-500">yes — it's just files in git</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Gemini</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">Google account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Grok</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">xAI account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Copilot</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">GitHub account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
+    </div>
+    <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Claude Code is the outlier — it writes memory to <code class="font-mono text-neutral-800 dark:text-neutral-300">~/.claude</code> as Markdown you own. engram adds the fast UI and the git layer, so your team's context stays portable and never trapped behind a login.</p>
+  </section>
+
+  <!-- team sharing -->
+  <section id="sharing" class="scroll-mt-20 pt-20">
+    <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// team sharing</span>
+    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Promote a memory. Your team pulls it.</h2>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">One git repo your team reads and writes. Sync is manual — engram badges what changed and you decide what's personal and what's team.</p>
+    <div class="mb-4 flex flex-col items-stretch md:flex-row">
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">1 · once</span><code class="font-semibold text-blue-700 dark:text-blue-400">engram init-team &lt;git-url&gt;</code></div>
+      <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">2 · in the TUI</span>select &amp; <b class="font-semibold text-blue-700 dark:text-blue-400">promote</b> — commit + push</div>
+      <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> — lands where Claude reads</div>
+    </div>
+    <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-5 font-mono text-xs dark:border-neutral-700 dark:bg-black">
+      <p class="mb-3 text-neutral-600 dark:text-neutral-400">sync-status badges — engram checks on launch and badges what changed</p>
+      <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-neutral-600 dark:text-neutral-400">[personal]</span><span class="text-neutral-600 dark:text-neutral-400">local only, private</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">[+] new</span><span class="text-neutral-600 dark:text-neutral-400">not yet shared — promote</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-green-700 dark:text-green-500">[team ✓]</span><span class="text-neutral-600 dark:text-neutral-400">in sync with the team</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-amber-700 dark:text-amber-300">[team ●]</span><span class="text-neutral-600 dark:text-neutral-400">edited locally — re-promote</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-sky-700 dark:text-sky-400">[team ↓]</span><span class="text-neutral-600 dark:text-neutral-400">newer on the team — pull</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-red-700 dark:text-red-500">[team ⚠]</span><span class="text-neutral-600 dark:text-neutral-400">both changed — resolve</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- command palette -->
+  <section id="palette" class="scroll-mt-20 pt-20">
+    <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// command palette</span>
+    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Two keys run everything: / and @</h2>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400"><code class="font-mono text-neutral-800 dark:text-neutral-300">ctrl+p</code> opens the palette. Type <code class="font-mono text-neutral-800 dark:text-neutral-300">/</code> to jump around engram, or <code class="font-mono text-neutral-800 dark:text-neutral-300">@</code> to hand the work to Claude.</p>
+    <div class="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 font-mono text-sm dark:border-neutral-700 dark:bg-black">
+      <div class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> type <span class="text-neutral-800 dark:text-neutral-200">/</span> for commands · <span class="text-neutral-800 dark:text-neutral-200">@</span> for the assistant</div>
+      <div class="grid grid-cols-1 md:grid-cols-2">
+        <div class="border-b border-neutral-200 px-5 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
+          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400">/ &nbsp; jump around engram</p>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/memory</span><span class="text-neutral-600 dark:text-neutral-400">browse your memories</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/plans</span><span class="text-neutral-600 dark:text-neutral-400">browse plan-mode plans</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/files</span><span class="text-neutral-600 dark:text-neutral-400"><code class="text-neutral-800 dark:text-neutral-300">CLAUDE.md</code> + <code class="text-neutral-800 dark:text-neutral-300">MEMORY.md</code> · read-only</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/settings</span><span class="text-neutral-600 dark:text-neutral-400">theme, editor</span></div>
+        </div>
+        <div class="px-5 py-4">
+          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400">@ &nbsp; hand off to Claude</p>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-neutral-600 dark:text-neutral-400">fix &amp; edit memories with Claude Code</span></div>
+          <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — there you run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code>, <code class="text-neutral-800 dark:text-neutral-300">/memory-check</code>, and the rest. engram reloads when it exits.</p>
         </div>
       </div>
-      <div class="statusbar">
-        <span><span class="key">↑↓/jk</span> move &nbsp; <span class="key">/</span> filter &nbsp; <span class="key">e</span> edit &nbsp; <span class="key">n</span> new &nbsp; <span class="key">d</span> delete &nbsp; <span class="key">t</span> type &nbsp; <span class="key">g</span> group &nbsp; <span class="key">q</span> quit</span>
-        <span class="theme">theme <b>Classic Dark</b> · 1-5</span>
-      </div>
     </div>
   </section>
 
-  <section id="why" class="sec">
-    <span class="eyebrow">// why engram</span>
-    <h2>Memories Claude writes, but you can't see.</h2>
-    <p class="lede">Claude Code is quietly building a memory of how you work — one markdown file at a time, buried under <code>~/.claude/projects/&lt;project&gt;/memory/</code>. It works, until you actually want to use it.</p>
-    <div class="problem">
-      <div class="prow">
-        <div class="pain"><span class="lbl">the problem</span>Memories are scattered one folder per project — awkward to read raw in a pager.</div>
-        <div class="fix"><span class="lbl">what engram does</span>One searchable two-pane UI across <b>every</b> project.</div>
-      </div>
-      <div class="prow">
-        <div class="pain"><span class="lbl">the problem</span>The team-useful ones are stuck on one laptop, with no way to share them.</div>
-        <div class="fix"><span class="lbl">what engram does</span>Promote one and your teammates <b>pull it over plain git</b>.</div>
-      </div>
-      <div class="prow">
-        <div class="pain"><span class="lbl">the problem</span>Editing the raw files by hand risks corrupting what Claude reads.</div>
-        <div class="fix"><span class="lbl">what engram does</span>Read-only by default — engram only ever <b>adds</b> its own frontmatter.</div>
-      </div>
-    </div>
-    <p class="lede" style="margin:28px 0 0">Not a replacement for committing a <code>CLAUDE.md</code> to your repo — engram covers the gap that can't: cross-project memories, a personal-vs-team layer, and a real UI. It pairs with Claude Code's own <code>/memory</code> and <code>/memory-check</code> commands, adding the cross-project view and team layer those don't.</p>
-  </section>
-
-  <section class="sec">
-    <span class="eyebrow">// the difference</span>
-    <h2>Three reasons it's worth the install.</h2>
-    <div class="features">
-      <div class="card">
-        <div class="ico" style="color:var(--blue)">◧</div>
-        <h3>Every memory, one place</h3>
-        <p>One two-pane TUI over <b style="color:var(--fg)">all</b> your projects — searchable, grouped, rendered as markdown. No more grepping <code>~/.claude</code> by hand.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--accent)">⤴</div>
-        <h3>Share over plain git</h3>
-        <p>Promote a memory and it rides to your team through a git repo you already control. No servers, no engram account — your git host is the auth.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--green)">✓</div>
-        <h3>Safe by default</h3>
-        <p>Read-only until you act. engram only ever <b style="color:var(--fg)">adds</b> its own frontmatter — it never rewrites what Claude wrote, so files stay readable by Claude Code.</p>
-      </div>
+  <!-- roadmap -->
+  <section id="roadmap" class="scroll-mt-20 pt-20">
+    <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// roadmap</span>
+    <h2 class="mb-7 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Shipping in phases.</h2>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v1</span><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Local browsing</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Discover, search, edit, themes, plans.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v2</span><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">init-team, promote &amp; pull, personal vs team scope.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v3</span><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">next</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Pluggable sources — ChatGPT, Gemini memory.</p></div>
     </div>
   </section>
 
-  <section id="moat" class="sec">
-    <span class="eyebrow">// the moat</span>
-    <h2>Your memory, not their server.</h2>
-    <p class="lede">Every assistant now keeps a memory of how you work. The real question is <b style="color:var(--fg)">where it lives</b> — and whether you can read, move, and version it.</p>
-    <div class="compare">
-      <div class="crow head"><span class="who">auto-learned memory</span><span class="where">where it lives</span><span class="move">yours to move?</span></div>
-      <div class="crow ours">
-        <span class="who">Claude Code <span class="dim">+ engram</span></span>
-        <span class="where">your disk · plain Markdown</span>
-        <span class="move">yes — it's just files in git</span>
-      </div>
-      <div class="crow"><span class="who">Gemini</span><span class="where">Google account · server</span><span class="move">no — vendor-locked</span></div>
-      <div class="crow"><span class="who">Grok</span><span class="where">xAI account · server</span><span class="move">no — vendor-locked</span></div>
-      <div class="crow"><span class="who">Copilot</span><span class="where">GitHub account · server</span><span class="move">no — vendor-locked</span></div>
-    </div>
-    <p class="flow-cap" style="margin-top:16px">Claude Code is the outlier: it writes its memory to <code>~/.claude</code> as Markdown you own. engram is the fast UI and the git layer on top — so your team's hard-won context stays portable, reviewable, and never trapped behind someone's login.</p>
-    <p class="flow-cap" style="color:var(--dim)">Scope: the memory an assistant learns <em>on its own</em>. You-authored instruction files like <code>GEMINI.md</code> or <code>copilot-instructions.md</code> can live locally too — it's the <b style="color:var(--fg)">auto-memory</b> that's locked to a vendor's account.</p>
-  </section>
-
-  <section id="sharing" class="sec">
-    <span class="eyebrow">// team sharing</span>
-    <h2>Promote a memory. Your team pulls it.</h2>
-    <p class="lede">The shared store is one git repo your whole team reads and writes. engram keeps a managed clone and shells out to git for every sync — no servers, no engram-level auth, nothing new to trust. Personal memories never leave your machine unless you promote them.</p>
-
-    <div class="flow">
-      <div class="step"><span class="n">1 · once</span><code>engram init-team &lt;git-url&gt;</code></div>
-      <span class="arrow">→</span>
-      <div class="step"><span class="n">2 · in the TUI</span>select &amp; <b>promote</b> — commit + push</div>
-      <span class="arrow">→</span>
-      <div class="step"><span class="n">3 · teammate</span><b>pull</b> — lands where Claude reads</div>
-    </div>
-    <p class="flow-cap">Setup is one command, once. Day to day, <code>promote</code> and <code>pull</code> are keystrokes inside the TUI — engram stays a no-arg tool.</p>
-
-    <div class="term" aria-hidden="true">
-      <div class="chrome">
-        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
-        <span class="title">~/code — engram · team</span>
-      </div>
-      <div class="topbar">
-        <span>engram · 11 memories · <b>6 shared with team</b></span>
-        <span>team <b>acme/memory</b> · synced</span>
-      </div>
-      <div class="body">
-        <div class="list">
-          <p class="grouphdr">▌ payments-api (4)</p>
-          <div class="row"><span class="chev"> </span><span class="badge b-teamok">[team ✓]</span><span class="name">Never log full PANs</span></div>
-          <div class="row sel"><span class="chev">❯</span><span class="badge b-new">[+] new</span><span class="name">Stripe webhook flow</span></div>
-          <div class="row"><span class="chev"> </span><span class="badge b-teamdown">[team ↓]</span><span class="name">Idempotency keys</span></div>
-          <div class="row"><span class="chev"> </span><span class="badge b-teamedit">[team ●]</span><span class="name">Retry / backoff policy</span></div>
-          <p class="grouphdr alt">▌ dotfiles (1)</p>
-          <div class="row"><span class="chev"> </span><span class="badge b-personal">[personal]</span><span class="name">Editor is nvim</span></div>
-        </div>
-        <div class="preview">
-          <p class="meta"><span class="b-new">[+] new</span> payments-api · not yet shared</p>
-          <h4>Stripe webhook flow</h4>
-          <p>Verify the signature before parsing. Treat <span class="in">charge.succeeded</span> as the source of truth — <b>not</b> the redirect.</p>
-          <p style="color:var(--dim);font-size:12px;margin:0">Promote to share this with everyone on <span class="in">github.com/acme/payments-api</span>.</p>
-        </div>
-      </div>
-      <div class="modal">
-        <h5>Promote “Stripe webhook flow” →</h5>
-        <p class="opt on"><span class="rad">◉</span> this project &nbsp;<span style="color:var(--dim)">github.com/acme/payments-api</span></p>
-        <p class="opt"><span class="rad">○</span> global &nbsp;<span style="color:var(--dim)">apply everywhere</span></p>
-        <p class="hint"><span class="key">enter</span> promote · commit + push &nbsp; <span class="key">esc</span> cancel</p>
-      </div>
-      <div class="statusbar">
-        <span><span class="key">space</span> select &nbsp; <span class="key">p</span> promote &nbsp; <span class="key">P</span> pull &nbsp; <span class="key">enter</span> open &nbsp; <span class="key">q</span> quit</span>
-        <span class="theme">team <b>acme/memory</b></span>
-      </div>
-    </div>
-
-    <div class="badgematrix">
-      <div class="bmrow"><span class="b-personal">[personal]</span><span class="bm-mean">local only, intentionally private</span><span class="bm-act none">—</span></div>
-      <div class="bmrow"><span class="b-new">[+] new</span><span class="bm-mean">local, not yet in the team repo</span><span class="bm-act">promote</span></div>
-      <div class="bmrow"><span class="b-teamok">[team ✓]</span><span class="bm-mean">local matches the team copy</span><span class="bm-act none">—</span></div>
-      <div class="bmrow"><span class="b-teamedit">[team ●]</span><span class="bm-mean">edited locally since promoting</span><span class="bm-act">re-promote</span></div>
-      <div class="bmrow"><span class="b-teamdown">[team ↓]</span><span class="bm-mean">team has a newer version</span><span class="bm-act">pull</span></div>
-      <div class="bmrow"><span class="b-conflict">[team ⚠]</span><span class="bm-mean">both changed — opens both in $EDITOR</span><span class="bm-act">resolve</span></div>
-    </div>
-    <p class="lede" style="margin:24px 0 0">Sync is manual and deliberate. engram never auto-pulls and never auto-shares — on launch it does a cheap check and just badges what changed. You decide what crosses the line between personal and team.</p>
-  </section>
-
-  <section id="features" class="sec">
-    <span class="eyebrow">// the day-to-day</span>
-    <h2>Built for living in the terminal.</h2>
-    <div class="features">
-      <div class="card">
-        <div class="ico" style="color:var(--blue)">◧</div>
-        <h3>Two-pane TUI</h3>
-        <p>A searchable list beside a fully rendered markdown preview. Hit <code>/</code> to fuzzy-filter across titles, projects, and types — Glamour-styled and keyboard-driven.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--orange)">✎</div>
-        <h3>Edit in $EDITOR</h3>
-        <p>Press <code>e</code> to open the selected memory in your editor, then reload in place. <code>n</code> to create, <code>d</code> to delete — the <code>MEMORY.md</code> index stays in sync.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--purple)">▦</div>
-        <h3>Group your way</h3>
-        <p>Toggle between by-project and by-type with <code>g</code>; filter to a single type with <code>t</code>. Color-coded badges for user, feedback, project, reference.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--teal)">⌘</div>
-        <h3>Command palette</h3>
-        <p><code>ctrl+p</code> opens to two guides: type <code>/</code> for <code>/memory</code>, <code>/plans</code>, and <code>/files</code> (your <code>CLAUDE.md</code> + <code>MEMORY.md</code>, read-only), or <code>@</code> for the assistant.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--accent)">✦</div>
-        <h3>@Claude repairs drift</h3>
-        <p>Hand malformed frontmatter, broken <code>[[links]]</code>, or files stranded by a renamed project to an interactive Claude Code session, seeded with your memory health. engram reloads when it exits.</p>
-      </div>
-      <div class="card">
-        <div class="ico" style="color:var(--green)">◑</div>
-        <h3>Live theming</h3>
-        <p>Classic Dark, Tokyo Night, Gruvbox, Nord, Dracula. Switch with <code>1-5</code>; your choice persists under XDG config.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="how" class="sec">
-    <span class="eyebrow">// zero setup</span>
-    <h2>It already knows where to look.</h2>
-    <div class="zero">
-      <div class="grid">
-        <div>
-          <p class="intro">engram scans <code>~/.claude/projects/*/memory/</code> and parses both shapes Claude Code writes — YAML frontmatter and plain markdown with a <code>MEMORY.md</code> index. Nothing to configure.</p>
-          <ul class="checks">
-            <li>Discovers memories across every project automatically</li>
-            <li>Parses YAML frontmatter and plain-markdown shapes alike</li>
-            <li>Keeps <code>MEMORY.md</code> in sync on new, edit, and delete</li>
-            <li>Reconciles a drifted index with <code>R</code></li>
-            <li>Team memories land where Claude reads them — same folders, same <code>MEMORY.md</code></li>
-          </ul>
-        </div>
-        <pre class="filetree">~/.claude/projects/
-├── <span class="proj">engram</span>/memory/
-│   ├── <span class="idx">MEMORY.md</span>
-│   ├── <span class="f">bubbletea-model.md</span>
-│   └── <span class="f">lipgloss-styling.md</span>
-├── <span class="proj">payments-api</span>/memory/
-│   └── <span class="f">idempotency.md</span>
-└── <span class="proj">dotfiles</span>/memory/
-    └── <span class="f">editor-is-nvim.md</span></pre>
-      </div>
-    </div>
-  </section>
-
-  <section id="roadmap" class="sec">
-    <span class="eyebrow">// roadmap</span>
-    <h2>Shipping in phases.</h2>
-    <p class="lede">Each phase ships independently. Local browsing is here, and team sharing's core — <code>init-team</code>, promote, pull — is in; the richer sync UX and other assistants are next.</p>
-    <div class="phases">
-      <div class="phase done">
-        <div class="head"><span class="v">v1</span><span class="tag available">available</span></div>
-        <h3>Local browsing</h3>
-        <ul class="plist">
-          <li>Discover &amp; parse all memories</li>
-          <li>Two-pane searchable TUI</li>
-          <li>Edit, new, delete + index sync</li>
-          <li>Themes, command palette, plans</li>
-        </ul>
-      </div>
-      <div class="phase done">
-        <div class="head"><span class="v">v2</span><span class="tag available">available</span></div>
-        <h3>Team sharing over git</h3>
-        <ul class="plist">
-          <li>One-command <code>init-team</code> setup</li>
-          <li>Promote &amp; pull as keystrokes</li>
-          <li>Personal vs team scope, enforced</li>
-          <li>Global vs project scope on promote</li>
-        </ul>
-      </div>
-      <div class="phase todo">
-        <div class="head"><span class="v">v3</span><span class="tag next">next</span></div>
-        <h3>Other assistants</h3>
-        <ul class="plist">
-          <li>Pluggable source abstraction</li>
-          <li>Claude.ai, ChatGPT, Gemini memory</li>
-          <li>Export / import — their memory is server-locked</li>
-          <li>Read-only first, editing as feasible</li>
-        </ul>
-      </div>
-    </div>
-    <p class="flow-cap" style="margin-top:18px"><b style="color:var(--fg)">Coming soon:</b> finishing the team UX — sync-status badges, guided conflict-resolve in <code>$EDITOR</code>, multi-select promote, and an alias fallback for repos with no git remote — then other assistants (Phase 3), and a public release with <code>brew install</code>.</p>
-  </section>
-
-  <section class="finalcta">
-    <h2>Stop grepping your memory files.</h2>
-    <p class="sub">One binary. No servers. No signup — yours today, your team in one keystroke.</p>
-    <div class="cmd">
-      <span class="prompt">$</span>
-      <code>go install github.com/ertugrulhaskan/engram@latest</code>
-      <button onclick="copyCmd(this)">copy</button>
+  <!-- final cta -->
+  <section class="pt-24 pb-2 text-center">
+    <h2 class="mb-3 font-mono text-3xl font-extrabold tracking-tight text-neutral-900 md:text-4xl dark:text-white">Stop grepping your memory files.</h2>
+    <p class="mb-7 text-neutral-600 dark:text-neutral-400">One binary. No servers. No signup — yours today, your team in one keystroke.</p>
+    <div class="inline-flex max-w-full items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 text-left font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+      <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+      <code class="overflow-x-auto text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
+      <button type="button" data-copy aria-label="Copy install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
     </div>
   </section>
 
 </main>
 
-<footer>
-  <div class="wrap">
-    <span class="brand">engram <span style="color:var(--dim);font-weight:400">memory for Claude Code — personal and team</span></span>
-    <span class="links">
-      <a href="https://github.com/ertugrulhaskan/engram">GitHub</a>
-      <a href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
-      <a href="#roadmap">Roadmap</a>
+<footer class="mt-20 border-t border-neutral-200 py-6 pb-12 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+  <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6">
+    <span class="text-base">engram <span class="font-normal text-neutral-500">memory for Claude Code — personal and team</span></span>
+    <span>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram">GitHub</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram/blob/main/ROADMAP.md">Roadmap</a>
     </span>
   </div>
 </footer>
 
-<script>
-  function copyCmd(btn) {
-    var code = btn.parentElement.querySelector('code');
-    navigator.clipboard.writeText(code.innerText).then(function () {
-      btn.textContent = 'copied ✓';
-      btn.classList.add('copied');
-      setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1600);
-    });
-  }
-</script>
+<script src="js/main.js" defer></script>
 </body>
 </html>

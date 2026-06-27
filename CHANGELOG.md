@@ -36,6 +36,18 @@ pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md)
   frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving Claude's keys) and
   a UUID helper. `NormalizeRemote` and the `config.Dir()` helper landed earlier.
 
+### Changed
+- **Landing page (`www/`) rebuilt** with Tailwind CSS (stock theme only) compiled to a
+  committed `www/css/styles.css` via `npm run build:css`. Consolidated to a shorter layout
+  with an interactive (auto-advancing, keyboard-accessible) terminal demo, a dedicated
+  command-palette section, light / dark / system themes, and accessibility passes
+  (ARIA tabs, focus-visible rings, `prefers-reduced-motion`). Build tooling
+  (`package.json`, `www/css/input.css`) added; `node_modules/` is gitignored.
+- **Landing-page assets split into subfolders** — `www/css/` (Tailwind input + built
+  output) and `www/js/main.js` (page behavior as a plain classic deferred script, no
+  modules or dependencies). Only a tiny pre-paint theme guard stays inline in `<head>`;
+  the copy buttons are wired via `addEventListener` instead of inline `onclick`.
+
 ### Known gaps
 - **Sync-status badges** (`[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`)
   are not yet rendered in the list — promote/pull work, but a memory's team state
@@ -142,8 +154,9 @@ tag is local; publishing the release artifacts is deferred until Phase 2 (see
 - **Severity-colored footer messages** — transient footer messages are
   color-coded: warnings and deletions render as white on red, cancellations as
   dark brown on emerald.
-- Landing page for **engram.im** (`www/index.html`) — a single self-contained
-  HTML page in the Classic Dark theme, with no build step or external assets.
+- Landing page for **engram.im** (`www/index.html`) — at the time, a single self-contained
+  HTML page in the Classic Dark theme (later rebuilt with a Tailwind build step + light/dark/
+  system themes; see [Unreleased]).
   Intended to be served via Cloudflare Pages from `www/`; publishing is deferred
   (see SPEC §9).
 - Project `.mcp.json` registering the `context7` and `sequential-thinking` MCP

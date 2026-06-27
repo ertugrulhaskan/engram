@@ -17,9 +17,12 @@ keeps so it can remember things across sessions.
 > remaining pieces. The repo stays private until Phase 2 lands. See
 > [ROADMAP.md](ROADMAP.md). Design details live in [SPEC.md](SPEC.md).
 >
-> **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html) and
-> will be served at [engram.im](https://engram.im) (Cloudflare Pages; publishing deferred —
-> see [SPEC.md](SPEC.md) §9).
+> **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
+> with Tailwind CSS (stock theme only; assets split into `www/css/` and `www/js/`) — run
+> `npm run build:css` and commit the generated `www/css/styles.css` after changing classes
+> (see [CONTRIBUTING.md](CONTRIBUTING.md) "Landing page"). It will be served at
+> [engram.im](https://engram.im) (Cloudflare Pages; publishing deferred — see
+> [SPEC.md](SPEC.md) §9).
 
 ## Why
 
