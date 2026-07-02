@@ -39,7 +39,8 @@ pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md)
 ### Changed
 - **Landing page (`www/`) rebuilt** with Tailwind CSS (stock theme only) compiled to a
   committed `www/css/styles.css` via `npm run build:css`. Consolidated to a shorter layout
-  with an interactive (auto-advancing, keyboard-accessible) terminal demo, a dedicated
+  with an interactive terminal demo whose `browse` / `promote` / `pull` view tabs live in
+  the terminal's title bar and auto-advance (keyboard-accessible), a dedicated
   command-palette section, light / dark / system themes, and accessibility passes
   (ARIA tabs, focus-visible rings, `prefers-reduced-motion`). Build tooling
   (`package.json`, `www/css/input.css`) added; `node_modules/` is gitignored.
