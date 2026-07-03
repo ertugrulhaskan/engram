@@ -39,8 +39,28 @@ func (m Model) View() string {
 
 	// Make every line exactly m.width: pad short lines (so an overlaid dialog
 	// never leaves stale cells to its right) and clip overflow (glamour margins
-	// on very narrow terminals). Height is already correct via the reserved row.
-	return clampFrame(frame, m.width)
+	// on very narrow terminals). Then clamp the line count so the frame is never
+	// taller than the screen — a too-tall frame scrolls the alt-screen and
+	// desyncs the line-diff renderer, leaving ghost rows until the next full
+	// repaint. Normally the layout already yields exactly m.height-1 lines; this
+	// only bites on a very short terminal, where panesH is floored above h-5.
+	return clampFrameHeight(clampFrame(frame, m.width), m.height)
+}
+
+// clampFrameHeight drops any lines past the terminal's height budget so the
+// frame can never be taller than the screen. It keeps at most h-1 lines, leaving
+// the final terminal row unwritten (see resize: writing the last cell scrolls
+// the alt-screen on some terminals). Shorter frames pass through untouched.
+func clampFrameHeight(frame string, h int) string {
+	limit := h - 1
+	if limit < 1 {
+		limit = 1
+	}
+	lines := strings.Split(frame, "\n")
+	if len(lines) <= limit {
+		return frame
+	}
+	return strings.Join(lines[:limit], "\n")
 }
 
 // clampFrame makes every line of frame exactly w cells — padding short lines and
@@ -50,11 +70,15 @@ func (m Model) View() string {
 func clampFrame(frame string, w int) string {
 	lines := strings.Split(frame, "\n")
 	for i, ln := range lines {
+		// A glamour inline-code chip (`code`) can end a wrapped preview line with
+		// its background still open; every clamped line must therefore end with a
+		// reset, or the padding spaces — and the first cells of the next row —
+		// inherit that background and render as a gray ghost band / block.
 		switch lw := ansi.StringWidth(ln); {
-		case lw < w:
-			ln += spaces(w - lw)
 		case lw > w:
-			ln = ansi.Truncate(ln, w, "")
+			ln = ansi.Truncate(ln, w, "") + ansi.ResetStyle // reset after (Truncate only keeps existing codes, doesn't synthesize a close)
+		default:
+			ln += ansi.ResetStyle + spaces(w-lw) // reset before padding so the padding stays clean
 		}
 		lines[i] = ln
 	}

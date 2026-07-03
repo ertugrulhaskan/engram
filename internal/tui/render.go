@@ -111,10 +111,13 @@ func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
 		nameW = 4
 	}
 
+	// Selection: an accent chevron + bold accent title over a SelBg row highlight.
+	// The highlight is safe from ghost-cell bleed because clampFrame now closes
+	// every line's background (a glamour code chip could otherwise leave a bg open
+	// and smear across rows) — the row fill itself was never the leak.
 	bg := ""
-	titleColor := t.Fg
 	if selected {
-		bg, titleColor = t.SelBg, t.SelFg
+		bg = t.SelBg
 	}
 	st := func(c string) lipgloss.Style {
 		s := fg(c)
@@ -125,8 +128,10 @@ func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
 	}
 
 	indent := st(t.Faint).Render("  ")
+	titleColor := t.Fg
 	if selected {
-		indent = st(t.Accent).Bold(true).Render("› ")
+		indent = st(t.Accent).Bold(true).Render("› ") // chevron, distinct from the header's ▌ bar
+		titleColor = t.Accent
 	}
 	out := indent
 	if it.Badge != "" {
@@ -134,7 +139,7 @@ func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
 	}
 	titleStyle := st(titleColor)
 	if selected {
-		titleStyle = titleStyle.Bold(true) // bold pops the selected row; SelBg is subtle in some themes
+		titleStyle = titleStyle.Bold(true)
 	}
 	out += titleStyle.Render(padRight(it.Title, nameW))
 	if rightCol > 0 {
@@ -165,7 +170,12 @@ func (m Model) previewPane() string {
 	block := lipgloss.JoinVertical(lipgloss.Left, meta, "", title, "", m.viewport.View())
 	// Width(previewW) so every preview line fills the pane — otherwise the joined
 	// frame has ragged line widths and a floated dialog leaves stale cells.
-	return lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).Render(block)
+	// Height+MaxHeight pin the pane to exactly panesH lines: a long preview can
+	// never push the whole frame past the terminal height. An overflowing frame
+	// scrolls the alt-screen, which desyncs Bubble Tea's line-diff renderer and
+	// leaves ghost rows (a trailing highlight) until the next full repaint.
+	return lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
+		Height(m.panesH).MaxHeight(m.panesH).Render(block)
 }
 
 // renderTitle styles the preview title in the accent color, with `code` spans

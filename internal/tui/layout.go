@@ -52,9 +52,13 @@ func (m *Model) resize(w, h int) {
 	if vpH < 1 {
 		vpH = 1
 	}
+	// The viewport width must match the pane's content width (previewW - pad);
+	// inflating it past that made the viewport's lines wider than the pane, so
+	// previewPane's Width() re-wrapped every line and multiplied the pane's
+	// height — enough to push the frame past the terminal on narrow terminals.
 	innerW := m.previewW - previewPad
-	if innerW < 10 {
-		innerW = 10
+	if innerW < 1 {
+		innerW = 1
 	}
 	if !m.ready {
 		m.viewport = viewport.New(innerW, vpH)

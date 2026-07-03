@@ -49,6 +49,19 @@ pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md)
   modules or dependencies). Only a tiny pre-paint theme guard stays inline in `<head>`;
   the copy buttons are wired via `addEventListener` instead of inline `onclick`.
 
+### Fixed
+- **List "ghost" cells eliminated.** Navigating the list left gray residual cells
+  (col-0 blocks and full-width bands on spacer rows) that only a terminal resize
+  cleared. Root cause: a glamour inline-code chip at the end of a wrapped preview
+  line left its background open, so `clampFrame`'s padding — and the first cells of
+  the next row — inherited it. `clampFrame` now closes every emitted line with a
+  reset. Also bound the frame to the terminal (cap the preview pane to the panes
+  height, stop inflating the viewport width past the pane, and clamp the frame to
+  `height-1` lines) so a long preview or a short terminal can't over-scroll the
+  alt-screen and desync Bubble Tea's renderer.
+- **Selected row** keeps its highlight and now also shows an accent chevron + bold
+  accent title; the unused `SelFg` theme field was removed.
+
 ### Known gaps
 - **Sync-status badges** (`[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`)
   are not yet rendered in the list — promote/pull work, but a memory's team state
