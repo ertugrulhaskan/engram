@@ -136,11 +136,18 @@ Inside the TUI, **`p` promotes** the selected memory into the store — a scope
 dialog picks *this project* (keyed by its git remote) or *global*. engram stamps
 the memory with an `engram:` frontmatter block (a durable id, scope, project,
 owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
-**`P` pulls** the team's project memories down into their matching local projects
-(it never overwrites a file you've changed — that's flagged as a conflict).
+Before it pushes, engram **scans the memory for secrets** and, by default, blocks
+the promote if it finds one — showing the redacted match with an option to
+override. **`P` pulls** the team's project memories down into their matching local
+projects (it never overwrites a file you've changed — that's flagged as a conflict).
 Shared memories then carry a **sync-status badge** in the list — `✓` synced, `●`
 differs, `!` missing — so you can see each one's state against the team store at a
 glance. Guided conflict resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
+
+The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
+(`block` default · `block-strict` no override · `warn` · `off`) and
+`secretScanScope` (`secrets` default · `secrets+pii`). It uses a curated rule set —
+a guard, not a guarantee, so treat the override as a real decision.
 
 ## Understanding the list
 

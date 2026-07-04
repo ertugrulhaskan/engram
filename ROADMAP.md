@@ -47,6 +47,7 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] `engram init-team <git-url>` — set up the managed clone of the team repo
 - [x] Project identity via git remote URL — *consumed by promote/pull; alias fallback for remote-less repos pending*
 - [x] `promote` → commit + push *(single-select; multi-select pending)*
+- [ ] `withdraw` → take a promoted memory back: remove its copy from the team store, reset the local scope to personal, commit + push *(the reverse of `promote`; teammates who already pulled keep their copy)*
 - [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
 - [x] Sync-status badges — `✓` synced / `●` differs / `!` missing *(incoming `↓` and conflict `⚠` badges land with conflict resolution)*

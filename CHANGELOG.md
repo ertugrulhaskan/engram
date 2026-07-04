@@ -38,6 +38,16 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   carry no badge, and the whole column disappears when no team store is set up, so
   the feature is invisible until you use team sharing. The preview pane spells the
   state out in words (`team synced` / `team differs`).
+- **Secret-scan guard on promote** — before a memory is pushed to the shared store,
+  engram scans it for credentials (AWS / GitHub / Anthropic / OpenAI / Stripe /
+  Google / Slack keys, private-key blocks, JWTs, `scheme://user:pass@` URLs, and
+  secret-named env vars regardless of framework prefix — `REACT_APP_`, `VITE_`,
+  `NEXT_PUBLIC_`, `NUXT_`, …). By default a match blocks the promote with a modal listing the
+  **redacted** findings and an informed override. Configurable via
+  `secretScanAction` (`block` (default) / `block-strict` / `warn` / `off`) and
+  `secretScanScope` (`secrets` (default) / `secrets+pii`). The curated set catches
+  the common formats, not everything — a guard paired with the override, not a
+  guarantee — and the raw secret is never displayed or logged.
 - Internal: `internal/team` gains `ProjectKey` (resolve a project's git remote to its
   canonical key), `Promote`, and read-only `SyncStates`; `internal/memory` gains a
   lossless `engram:` frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving

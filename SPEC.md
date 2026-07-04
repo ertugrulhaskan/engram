@@ -202,6 +202,11 @@ filename. The id is assigned once, on the first promote.
   `engram.scope: team`, assign an `engram.id` if absent, commit, push.
   Multi-select supported. A modal picks the scope, defaulting to the current
   project, with a "global" option.
+- **withdraw** *(planned — the reverse of promote)* — remove the memory's copy from
+  the store, reset the local `engram.scope` to personal, commit, push. Teammates who
+  already pulled keep their local copy (pull never deletes), so withdraw stops
+  *future* sharing rather than recalling existing copies. Named `withdraw`, not
+  "unpromote"/"demote" — see the term note below.
 - **pull** — `git pull` the clone, then place team files where Claude reads them
   (matching project, or global) and refresh the relevant `MEMORY.md`.
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
@@ -210,6 +215,32 @@ filename. The id is assigned once, on the first promote.
   when you run `pull`.
 - **Rejected push** (non-fast-forward) → engram runs `git pull --rebase` and
   retries once; if that conflicts, it hands off to the user.
+
+### Secret-scan guard (promote)
+
+Promoting pushes a memory into a shared git repo, where a leaked credential is
+effectively permanent. So before a push, engram scans the memory
+(`internal/secrets.Scan`, pure regexes; `internal/team.ScanForSecrets` reads the
+file) and applies a configured policy:
+
+- `secretScanAction`: `block` (default — modal with the redacted findings and a
+  `y` override) · `block-strict` (no override) · `warn` (footer note, promote) ·
+  `off` (skip). Mechanism lives in `internal/secrets`/`internal/team`; the policy
+  (which action) lives in the TUI. A scan error blocks (fails closed).
+- `secretScanScope`: `secrets` (default — keys/tokens/private keys) · `secrets+pii`
+  (also emails and card-like numbers; noisier).
+
+Findings are **always redacted** (a format prefix + mask); the raw secret is never
+rendered or logged. Two layers cover most real cases: **by value shape** (provider
+key formats, JWTs, `scheme://user:pass@` URLs) regardless of the variable name, and
+**by name** — any identifier containing `secret`/`token`/`password`/`api_key`/
+`access_key`/`private_key`/`client_secret` before a `=`/`:`, so framework env vars
+(`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix.
+**The rule set is curated, not exhaustive** — a *blandly*-named var (a bare `*_KEY`
+with no secret-word) holding a raw high-entropy blob (no recognizable format) is
+matched by neither layer, and a secret split across lines is missed. It's a guard
+paired with the informed override, not a guarantee; treat the override as a real
+decision, not a rubber stamp.
 
 ### Sync-status (shown as badges in the list)
 
