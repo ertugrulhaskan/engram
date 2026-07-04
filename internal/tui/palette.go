@@ -17,7 +17,12 @@ const (
 	palJump                       // switch source and select path
 	palSettings                   // open the settings dialog
 	palAssistant                  // launch an AI assistant session (@Claude …)
-	palPrefix                     // seed a prefix ("/" or "@") into the input to reveal its menu
+	palPrefix                     // seed a prefix ("/", "@" or ">") into the input to reveal its menu
+	palPromote                    // > promote the selected memory
+	palPull                       // > pull team memories
+	palWithdraw                   // > withdraw the selected memory
+	palResolve                    // > resolve a conflict
+	palInit                       // > init the team store from a git URL (arg)
 )
 
 // palItem is one command-palette candidate, rendered as a two-line row (primary
@@ -33,7 +38,8 @@ type palItem struct {
 	src        srcKind
 	path       string
 	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
-	prefix     string // for palPrefix: text seeded into the input ("/" or "@")
+	prefix     string // for palPrefix: text seeded into the input ("/", "@" or ">")
+	arg        string // for palInit: the git URL typed after ">init"
 }
 
 // --- command palette ---
@@ -87,6 +93,21 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case palAssistant:
 			m.mode = modeNormal
 			return m, m.assistantCmd(sel.provider)
+		case palPromote:
+			m.mode = modeNormal
+			return m.actionPromote()
+		case palPull:
+			m.mode = modeNormal
+			return m.actionPull()
+		case palWithdraw:
+			m.mode = modeNormal
+			return m.actionWithdraw()
+		case palResolve:
+			m.mode = modeNormal
+			return m.actionResolve()
+		case palInit:
+			m.mode = modeNormal
+			return m.actionInit(sel.arg)
 		case palPrefix:
 			// A guide row ("/" or "@") seeds its prefix so the next keystrokes
 			// filter that menu — equivalent to typing the prefix by hand. The
@@ -120,6 +141,25 @@ func (m Model) paletteCommands() []palCommand {
 		{"plans", palItem{glyph: "▣", glyphColor: t.TReference, label: "plans", sub: "Browse your plan-mode plans", right: "/plans", action: palSwitch, src: srcPlans}},
 		{"files", palItem{glyph: "▤", glyphColor: t.TUser, label: "files", sub: "CLAUDE.md & MEMORY.md (read-only; edit via @Claude)", right: "/files", action: palSwitch, src: srcFiles}},
 		{"settings", palItem{glyph: "◈", glyphColor: t.TFeedback, label: "settings", sub: "Open the config file (theme, editor)", right: "/settings", action: palSettings}},
+	}
+}
+
+// teamVerb is one team command reachable via ">" in the palette. Each acts on the
+// selected memory (except init) through an actionX method, so the palette owns the
+// team verbs that used to be single keys (p / P / w / c).
+type teamVerb struct {
+	name string
+	item palItem
+}
+
+func (m Model) teamVerbs() []teamVerb {
+	t := m.theme()
+	return []teamVerb{
+		{"promote", palItem{glyph: "↑", glyphColor: t.TProject, label: "promote", sub: "Share the selected memory with the team", right: ">promote", action: palPromote}},
+		{"pull", palItem{glyph: "↓", glyphColor: t.TReference, label: "pull", sub: "Bring team memories into their matching projects", right: ">pull", action: palPull}},
+		{"resolve", palItem{glyph: "↕", glyphColor: t.TFeedback, label: "resolve", sub: "Merge a conflicting memory in $EDITOR", right: ">resolve", action: palResolve}},
+		{"withdraw", palItem{glyph: "◆", glyphColor: t.TUser, label: "withdraw", sub: "Take a promoted memory back from the team", right: ">withdraw", action: palWithdraw}},
+		{"init", palItem{glyph: "⊕", glyphColor: t.Accent, label: "init", sub: "Set up the team store — type: >init <git-url>", right: ">init", action: palInit}},
 	}
 }
 
@@ -157,6 +197,9 @@ func (m *Model) rebuildPalette() {
 			{glyph: "@", glyphColor: t.Accent, label: "assistant",
 				sub:   "Fix & edit memories/plans with Claude Code",
 				right: "type @", rightColor: t.Dim, action: palPrefix, prefix: "@"},
+			{glyph: ">", glyphColor: t.Accent, label: "team",
+				sub:   "Share, pull, resolve & set up the team store",
+				right: "type >", rightColor: t.Dim, action: palPrefix, prefix: ">"},
 		}
 		m.palRows = rows
 		if m.palCursor >= len(rows) || m.palCursor < 0 {
@@ -178,6 +221,35 @@ func (m *Model) rebuildPalette() {
 					right: "assistant", rightColor: t.Accent,
 					action: palAssistant, provider: p.key,
 				})
+			}
+		}
+		m.palRows = rows
+		if m.palCursor >= len(rows) || m.palCursor < 0 {
+			m.palCursor = 0
+		}
+		if m.palTop > m.palCursor {
+			m.palTop = m.palCursor
+		}
+		return
+	}
+
+	if strings.HasPrefix(q, ">") {
+		// ">verb [arg]" — filter the team verbs by the first word; init keeps the
+		// rest as its git-URL argument.
+		rest := strings.TrimSpace(q[1:])
+		verb, arg := rest, ""
+		if i := strings.IndexAny(rest, " \t"); i >= 0 {
+			verb, arg = rest[:i], strings.TrimSpace(rest[i+1:])
+		}
+		verb = strings.ToLower(verb)
+		for _, v := range m.teamVerbs() {
+			if verb == "" || strings.HasPrefix(v.name, verb) {
+				it := v.item
+				if it.action == palInit && arg != "" {
+					it.arg = arg
+					it.sub = "Set up the team store from " + arg
+				}
+				rows = append(rows, it)
 			}
 		}
 		m.palRows = rows

@@ -22,7 +22,7 @@ func TestHelpOverlay(t *testing.T) {
 		t.Fatalf("after `?`, mode = %v, want modeHelp", got)
 	}
 	out := m.(Model).View()
-	for _, want := range []string{"Keybindings", "command palette", "engram v9.9.9", "MIT"} {
+	for _, want := range []string{"Keybindings", "palette", "team:", "engram v9.9.9", "MIT"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help overlay missing %q", want)
 		}

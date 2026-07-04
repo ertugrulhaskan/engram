@@ -70,6 +70,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// A pre-promote secret scan came back — promote, block, or warn per policy.
 		return m.applyScanResult(msg)
 
+	case initFinishedMsg:
+		// `>init` finished cloning/scaffolding the team store; reload so sync state
+		// (and the badge column) recomputes now that a store exists.
+		m.driftDir = ""
+		if msg.err != nil {
+			return m, m.setDanger("init-team: " + msg.err.Error())
+		}
+		return m, tea.Batch(m.setStatus("team store ready"), reloadCmd())
+
 	case withdrawFinishedMsg:
 		m.driftDir = ""
 		switch {
@@ -286,81 +295,6 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modeConfirm
 		}
 		return m, nil
-	case "p":
-		// Promote the selected memory to the team store. Memories only; needs an
-		// initialized team store. The scope picker (this project / global) follows.
-		if m.srcKind != srcMemories {
-			return m, nil
-		}
-		it, ok := m.selected()
-		if !ok {
-			return m, nil
-		}
-		if !team.IsInitialized() {
-			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
-		}
-		key, _ := team.ProjectKey(it.ProjectDir) // "" when the project has no remote
-		m.promotePath = it.Path
-		m.promoteTitle = it.Title
-		m.promoteKey = key
-		m.promoteCursor = 0
-		if key == "" {
-			m.promoteCursor = 1 // only "global" is available
-		}
-		m.mode = modePromoteScope
-		return m, nil
-	case "w":
-		// Withdraw the selected memory from the team store (reverse of promote).
-		// Memories only, and only when it's actually shared; a confirm follows.
-		if m.srcKind != srcMemories {
-			return m, nil
-		}
-		it, ok := m.selected()
-		if !ok {
-			return m, nil
-		}
-		if !team.IsInitialized() {
-			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
-		}
-		if m.syncStates[it.Path] == team.StateNone {
-			return m, m.setStatus("not shared — nothing to withdraw")
-		}
-		m.withdrawPath = it.Path
-		m.withdrawTitle = it.Title
-		m.mode = modeWithdrawConfirm
-		return m, nil
-	case "c":
-		// Resolve a team conflict: open both versions with git-style markers in
-		// $EDITOR. Temporary key — moves to the `>resolve` command palette.
-		if m.srcKind != srcMemories {
-			return m, nil
-		}
-		it, ok := m.selected()
-		if !ok {
-			return m, nil
-		}
-		if !team.IsInitialized() {
-			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
-		}
-		// Diverged/Differs are conflicts; Incoming is included so global memories —
-		// which `P` (pull) walks past — still have a way to take the store's update.
-		if s := m.syncStates[it.Path]; s != team.StateDiverged && s != team.StateDiffers && s != team.StateIncoming {
-			return m, m.setStatus("nothing to resolve — already in sync")
-		}
-		tmp, err := team.BeginConflictResolve(it.Path)
-		if err != nil {
-			return m, m.setDanger("resolve: " + err.Error())
-		}
-		return m, m.resolveCmd(it.Path, tmp)
-	case "P":
-		// Pull project-scoped team memories into their matching local projects.
-		if m.srcKind != srcMemories {
-			return m, nil
-		}
-		if !team.IsInitialized() {
-			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
-		}
-		return m, tea.Batch(m.setStatus("pulling…"), m.pullCmd())
 	case "ctrl+p":
 		m.mode = modePalette
 		m.palette.SetValue("")
