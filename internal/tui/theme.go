@@ -142,6 +142,27 @@ func syncBadge(s team.SyncState) (label, bg, fgc, word string) {
 	}
 }
 
+// Scope-chip colors. Fixed across themes (like the sync colors above): they tag
+// which bucket a shared memory lives in — team-wide (global) or a single project
+// — which is a semantic tag, not brand. Rendered as colored text (not a filled
+// pill), so the chip stays lighter than the sync pill sitting beside it.
+const (
+	scopeGlobalColor  = "#4ec9b0" // teal — the team-wide bucket
+	scopeProjectColor = "#4a9eff" // azure — one project's bucket (kept distinct from the periwinkle syncIncomingColor so scope ≠ state)
+)
+
+// scopeColor maps a scope-chip label to its fixed color ("" when there's no chip).
+func scopeColor(scope string) string {
+	switch scope {
+	case "global":
+		return scopeGlobalColor
+	case "project":
+		return scopeProjectColor
+	default:
+		return ""
+	}
+}
+
 // themes is the switchable set, ordered to match the 1–5 number keys.
 var themes = []Theme{
 	{

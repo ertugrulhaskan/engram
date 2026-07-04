@@ -237,7 +237,11 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 	if scopeW > 0 {
 		out += st(t.Fg).Render(" ")
 		if it.Scope != "" {
-			out += st(t.Dim).Render(padLeft(it.Scope, scopeW)) // muted context, right-aligned against the pill
+			c := it.ScopeColor
+			if c == "" {
+				c = t.Dim
+			}
+			out += st(c).Render(padLeft(it.Scope, scopeW)) // teal global / blue project, right-aligned against the pill
 		} else {
 			out += st(t.Fg).Render(padRight("", scopeW)) // blank, keeps the pill edge aligned
 		}
@@ -273,12 +277,22 @@ func (m Model) previewPane() string {
 		used = runewidth.StringWidth(b) + 1
 	}
 	if _, bg, _, word := syncBadge(m.syncStates[it.Path]); word != "" {
-		tok := "team " + word // colored text in the preview, where there's room
 		if it.Scope != "" {
-			tok = "team " + it.Scope + " · " + word // e.g. "team global · synced"
+			// Match the list: scope word in its own color (teal/blue), state in the
+			// sync color — e.g. "team global · synced". Reuse the Item's ScopeColor
+			// (set in memoryItems) so list and preview can't diverge.
+			sc := it.ScopeColor
+			if sc == "" {
+				sc = t.Dim
+			}
+			meta += fg(t.Dim).Render("team ") + fg(sc).Bold(true).Render(it.Scope) +
+				fg(t.Dim).Render(" · ") + fg(bg).Bold(true).Render(word) + " "
+			used += runewidth.StringWidth("team "+it.Scope+" · "+word) + 1
+		} else {
+			tok := "team " + word // colored text in the preview, where there's room
+			meta += fg(bg).Bold(true).Render(tok) + " "
+			used += runewidth.StringWidth(tok) + 1
 		}
-		meta += fg(bg).Bold(true).Render(tok) + " "
-		used += runewidth.StringWidth(tok) + 1
 	}
 	rest := "edited " + humanizeSince(it.Modified)
 	if it.Context != "" {

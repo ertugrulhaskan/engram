@@ -42,6 +42,7 @@ type Item struct {
 	SyncColor  string // hex pill background
 	SyncFg     string // hex pill foreground
 	Scope      string // shared-scope chip: "global" / "project"; "" = not shared
+	ScopeColor string // hex chip color (teal global / blue project); "" = not shared
 	GroupKey   string // "" = flat (no group headers)
 	GroupLabel string // header text for the first row of a group
 	GroupColor string // header color (hex)
@@ -204,7 +205,7 @@ func (m Model) memoryItems() []Item {
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope,
+			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope, ScopeColor: scopeColor(scope),
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})
