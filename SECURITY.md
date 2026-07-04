@@ -17,7 +17,7 @@ release line only.
 Report privately through GitHub's
 [private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability):
 on the repository, go to **Security → Report a vulnerability**. If that isn't
-available to you, email the maintainer at **ertughaskan@gmail.com** with details
+available to you, email **security@engram.im** with details
 and, if possible, a minimal reproduction.
 
 engram runs entirely locally: it reads files under `~/.claude/` and writes only
