@@ -19,7 +19,7 @@ discussions) and when an individual is representing the project in public spaces
 
 ## Reporting
 
-If you experience or witness unacceptable behavior, please report it to
-**conduct@engram.im**. All reports will be reviewed
+If you experience or witness unacceptable behavior, please report it to the
+project maintainer at **ertughaskan@gmail.com**. All reports will be reviewed
 and investigated promptly and fairly, and the reporter's privacy will be
 respected.
