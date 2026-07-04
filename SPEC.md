@@ -138,9 +138,10 @@ type DocFile struct {
 
 ## 7. Sharing design (Phase 2)
 
-> **Status:** the core of this design is implemented — `init-team`, `promote`, and
-> `pull` are shipped on `feat/team-init`. Sync-status badges (§7 list states) and the
-> `[team ⚠]` conflict-resolution UX are the remaining work.
+> **Status:** the core of this design plus sync-status badges are implemented and
+> merged to `main` — `init-team`, `promote`, `pull`, and the `✓`/`●`/`!` badges (see
+> the implemented subset under §7 list states). The `[team ↓]` incoming and `[team ⚠]`
+> conflict states, and the resolve UX, are the remaining work.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -223,6 +224,20 @@ Every memory has a state relative to the team repo:
 | `[team ↓]`   | team has a newer version             | pull             |
 | `[team ⚠]`   | both changed                         | resolve          |
 
+**Implemented subset (today).** `SyncStates` (`internal/team/status.go`) computes only
+the states that are provable from what's on disk, matching a local memory to the store
+**by `engram.id`** (a memory can appear under two scopes, so it counts as synced if it
+matches *any* store copy):
+
+- `✓` **synced** — a store copy matches the local content.
+- `●` **differs** — a store copy exists but none matches. *No direction is claimed:*
+  distinguishing "you edited" (`●`) from "team is ahead" (`↓`) needs a recorded
+  last-synced anchor, which the `engram:` block doesn't carry yet.
+- `!` **missing** — the memory is `scope: team` but its id is in no store copy.
+
+Personal memories carry no badge. `[+] new`, `[team ↓]`, and `[team ⚠]` arrive with the
+sync-anchor + conflict-resolution work.
+
 ### Collisions & conflicts
 
 - **Pull never overwrites a personal file.** If a personal `slug.md` and an
@@ -254,6 +269,7 @@ engram/
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
             promote.go       # Promote a memory into the store (global/ or projects/<key>/), commit, push
             pull.go          # Pull project team memories into matching local projects; conflict-safe
+            status.go        # SyncStates: read-only per-memory sync state (✓ synced / ● differs / ! missing)
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs

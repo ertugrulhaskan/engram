@@ -7,6 +7,7 @@ import (
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // pollInterval is how often engram re-scans the filesystem for external changes.
@@ -44,6 +45,7 @@ type reloadMsg struct {
 	mems  []memory.Memory
 	plans []plan.Plan
 	docs  []memory.DocFile
+	sync  map[string]team.SyncState
 	sig   string
 	err   error
 }
@@ -59,9 +61,10 @@ func reloadCmd() tea.Cmd {
 			return reloadMsg{err: err} // keep the current state rather than blanking plans
 		}
 		docs, _ := memory.DiscoverDocs("") // best-effort; don't fail the reload over docs
+		sync, _ := team.SyncStates(mems)   // best-effort; empty when no team store
 		// Capture the signature alongside the data so the reload updates the
 		// poll baseline atomically (no reload -> sig-changed -> reload loop).
 		sig, _ := combinedSig()
-		return reloadMsg{mems: mems, plans: plans, docs: docs, sig: sig}
+		return reloadMsg{mems: mems, plans: plans, docs: docs, sync: sync, sig: sig}
 	}
 }

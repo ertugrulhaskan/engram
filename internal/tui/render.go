@@ -11,8 +11,13 @@ import (
 func (m Model) listPane() string {
 	t := m.theme()
 	h := m.listRows()
-	badgeW := m.badgeColW()         // widest badge in view; computed once per render
-	rightCol := m.rightColW(badgeW) // computed once per render, not per row
+	badgeW := m.badgeColW() // widest type badge in view; computed once per render
+	syncW := m.syncColW()   // sync-glyph column width (0 when nothing in view is shared)
+	leftCols := badgeW
+	if syncW > 0 {
+		leftCols += syncW + 1
+	}
+	rightCol := m.rightColW(leftCols) // computed once per render, not per row
 	lines := make([]string, 0, h)
 	for i := m.top; i < m.top+h; i++ {
 		switch {
@@ -23,7 +28,7 @@ func (m Model) listPane() string {
 		case m.rows[i].kind == rowHeader:
 			lines = append(lines, m.headerRow(m.rows[i]))
 		default:
-			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, rightCol))
+			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, syncW, rightCol))
 		}
 	}
 	shown := m.shownCount()
@@ -60,11 +65,28 @@ func (m Model) badgeColW() int {
 	return w
 }
 
+// syncColW is the width of the team-sync glyph column: the widest SyncBadge in
+// view, measured with the same runewidth oracle memRow pads with, so the column
+// can't drift. It collapses to 0 when nothing in view carries a sync badge, so
+// the feature is invisible for anyone not using team sharing.
+func (m Model) syncColW() int {
+	w := 0
+	for _, r := range m.rows {
+		if r.kind == rowMemory && r.item.SyncBadge != "" {
+			if l := runewidth.StringWidth(r.item.SyncBadge); l > w {
+				w = l
+			}
+		}
+	}
+	return w
+}
+
 // rightColW sizes the right-aligned column from the widest Item.Right in view
 // (project name when grouped by type, or the date for plans), collapsing to 0
-// when nothing needs it or it would starve the title. badgeW is the in-view badge
-// column width so the budget reflects the actual (not worst-case) badge column.
-func (m Model) rightColW(badgeW int) int {
+// when nothing needs it or it would starve the title. leftCols is the in-view
+// left column width (type badge + sync column) so the budget reflects the actual
+// (not worst-case) left side.
+func (m Model) rightColW(leftCols int) int {
 	maxr := 0
 	for _, r := range m.rows {
 		if r.kind == rowMemory {
@@ -76,7 +98,7 @@ func (m Model) rightColW(badgeW int) int {
 	if maxr == 0 {
 		return 0
 	}
-	maxAllowed := m.listW - 2 - badgeW - 2 - 12
+	maxAllowed := m.listW - 2 - leftCols - 2 - 12
 	if maxAllowed < 6 {
 		return 0
 	}
@@ -96,14 +118,18 @@ func (m Model) headerRow(r row) string {
 	return fg(r.color).Render("▌ ") + fgb(r.color).Render(label) + fg(t.Dim).Render(suffix)
 }
 
-func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
+func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) string {
 	t := m.theme()
 
 	badgeCol := 0
 	if it.Badge != "" {
 		badgeCol = badgeW + 1 // padded badge + trailing space
 	}
-	nameW := m.listW - 2 - badgeCol - rightCol
+	syncCol := 0
+	if syncW > 0 {
+		syncCol = syncW + 1 // reserved for every row so titles stay column-aligned
+	}
+	nameW := m.listW - 2 - badgeCol - syncCol - rightCol
 	if rightCol > 0 {
 		nameW-- // gap before the right column
 	}
@@ -137,6 +163,13 @@ func (m Model) memRow(it Item, selected bool, badgeW, rightCol int) string {
 	if it.Badge != "" {
 		out += st(it.BadgeColor).Render(padRight("["+it.Badge+"]", badgeW)) + st(t.Fg).Render(" ")
 	}
+	if syncW > 0 {
+		if it.SyncBadge != "" {
+			out += st(it.SyncColor).Render(padRight(it.SyncBadge, syncW)) + st(t.Fg).Render(" ")
+		} else {
+			out += st(t.Fg).Render(padRight("", syncW) + " ") // blank column keeps titles aligned
+		}
+	}
 	titleStyle := st(titleColor)
 	if selected {
 		titleStyle = titleStyle.Bold(true)
@@ -160,6 +193,11 @@ func (m Model) previewPane() string {
 		b := "[" + it.Badge + "]"
 		meta = fg(it.BadgeColor).Bold(true).Render(b) + " "
 		used = runewidth.StringWidth(b) + 1
+	}
+	if _, c, word := syncBadge(m.syncStates[it.Path]); word != "" {
+		tok := "team " + word // spelled out here where there's room, unlike the list glyph
+		meta += fg(c).Bold(true).Render(tok) + " "
+		used += runewidth.StringWidth(tok) + 1
 	}
 	rest := "edited " + humanizeSince(it.Modified)
 	if it.Context != "" {

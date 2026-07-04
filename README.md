@@ -12,9 +12,9 @@ leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
 > **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) complete —
-> `v0.1.0`. Phase 2 (team sharing over git) core — `init-team`, `promote`, `pull` — is
-> shipped on `feat/team-init`; sync-status badges and conflict-resolution UX are the
-> remaining pieces. The repo stays private until Phase 2 lands. See
+> `v0.1.0`. Phase 2 (team sharing over git) core — `init-team`, `promote`, `pull`, and
+> sync-status badges — is shipped on `main`; conflict-resolution UX is the remaining
+> piece. The repo stays private until Phase 2 lands. See
 > [ROADMAP.md](ROADMAP.md). Design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
@@ -138,8 +138,9 @@ the memory with an `engram:` frontmatter block (a durable id, scope, project,
 owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
 **`P` pulls** the team's project memories down into their matching local projects
 (it never overwrites a file you've changed — that's flagged as a conflict).
-Sync-status badges and guided conflict resolution are still landing — see
-[ROADMAP.md](ROADMAP.md) Phase 2.
+Shared memories then carry a **sync-status badge** in the list — `✓` synced, `●`
+differs, `!` missing — so you can see each one's state against the team store at a
+glance. Guided conflict resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
 
 ## Understanding the list
 
@@ -154,10 +155,13 @@ Sync-status badges and guided conflict resolution are still landing — see
   - `[project]` (green) — something specific to that codebase
   - `[reference]` (purple) — a pointer to an external resource
   - `[other]` (gray) — no type recorded
+- **Sync badge = team state.** Once you share, a team-scoped memory shows a small
+  glyph next to its type badge: `✓` (green) synced with the team store, `●` (amber)
+  differs from it, `!` (red) promoted but missing from the store. Personal memories
+  show no glyph, and the column vanishes entirely until you set up a team store.
 - **Scope shows up when you share.** Promote a memory and you pick **this project**
   (keyed by its git remote) or **global** (the team-wide bucket) — the **Phase 2**
-  cross-project scope. In-list sync-status badges that surface that scope at a glance
-  are still landing (see [ROADMAP.md](ROADMAP.md)). Your user-wide rules in
+  cross-project scope. Your user-wide rules in
   `~/.claude/CLAUDE.md` show up read-only under `/files`, alongside per-project
   `CLAUDE.md` and `MEMORY.md`.
 

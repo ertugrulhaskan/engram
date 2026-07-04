@@ -12,6 +12,7 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // Model is the root Bubble Tea model.
@@ -34,7 +35,8 @@ type Model struct {
 	palTop       int             // first visible palette candidate (scroll)
 	input        textinput.Model // new-memory title
 	renderer     *glamour.TermRenderer
-	previewCache map[string]string // rendered body keyed by path; cleared on resize/theme/reload
+	previewCache map[string]string         // rendered body keyed by path; cleared on resize/theme/reload
+	syncStates   map[string]team.SyncState // memory path -> team sync state; recomputed on load/reload
 
 	themeIdx       int
 	editorOverride string // optional editor command from config; "" = use env/host
@@ -114,6 +116,7 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 		groupBy:        groupProject,
 	}
 	m.styleInputs()
+	m.syncStates, _ = team.SyncStates(mems) // best-effort; empty when no team store
 	m.rebuildRows()
 	return m
 }

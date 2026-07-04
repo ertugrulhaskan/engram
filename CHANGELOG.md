@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Phase 2 (team sharing over git) — core complete.** `init-team`, `promote`, and
-`pull` are in place; sync-status badges and conflict-resolution UX are the remaining
-pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
+**Phase 2 (team sharing over git) — core complete.** `init-team`, `promote`,
+`pull`, and sync-status badges are in place; conflict-resolution UX is the remaining
+piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 
 ### Added
 - **`engram init-team <git-url>`** — one-time setup subcommand that clones the
@@ -31,10 +31,17 @@ pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md)
   each `MEMORY.md`. Pull never overwrites a differing local file (that's a conflict
   to resolve), no-ops identical ones, and skips projects with no local match.
   Global-scoped team memories stay in the store (browse / promote-on-demand).
+- **Sync-status badges** — team-scoped memories carry a compact glyph in the list
+  showing their state against the team store, recomputed on launch and every reload:
+  `✓` synced (matches the store), `●` differs (local and store diverge — no direction
+  claimed), `!` missing (promoted, but no copy is in the store). Personal memories
+  carry no badge, and the whole column disappears when no team store is set up, so
+  the feature is invisible until you use team sharing. The preview pane spells the
+  state out in words (`team synced` / `team differs`).
 - Internal: `internal/team` gains `ProjectKey` (resolve a project's git remote to its
-  canonical key) and `Promote`; `internal/memory` gains a lossless `engram:`
-  frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving Claude's keys) and
-  a UUID helper. `NormalizeRemote` and the `config.Dir()` helper landed earlier.
+  canonical key), `Promote`, and read-only `SyncStates`; `internal/memory` gains a
+  lossless `engram:` frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving
+  Claude's keys) and a UUID helper. `NormalizeRemote` and `config.Dir()` landed earlier.
 
 ### Changed
 - **Landing page (`www/`) rebuilt** with Tailwind CSS (stock theme only) compiled to a
@@ -63,9 +70,10 @@ pieces (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md)
   accent title; the unused `SelFg` theme field was removed.
 
 ### Known gaps
-- **Sync-status badges** (`[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`)
-  are not yet rendered in the list — promote/pull work, but a memory's team state
-  isn't shown at a glance yet.
+- **Direction and conflict badges** are not built yet: the shipped `●` means
+  "differs" without claiming which side changed, and there is no `[team ↓]` incoming
+  or `[team ⚠]` conflict state. Both need a recorded last-synced anchor and land with
+  the conflict-resolution work below.
 - **Conflict-resolution UX** for `[team ⚠]` is pending: `pull` already *detects* and
   protects conflicts (never overwrites a differing local file), but the guided
   open-both-in-`$EDITOR` resolve flow isn't built.

@@ -40,7 +40,7 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
       `MEMORY.md` read-only; edits are reserved for `@Claude`
 - [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 3)
 
-## Phase 2 — Team sharing over git *(core shipped on `feat/team-init`; sync badges + conflict UX remaining)*
+## Phase 2 — Team sharing over git *(core + sync-status badges shipped; conflict-resolution UX remaining)*
 
 Goal: share the team-useful memories across people and projects, no servers.
 
@@ -49,8 +49,8 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] `promote` → commit + push *(single-select; multi-select pending)*
 - [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
-- [ ] Sync-status badges: `[+] new`, `[team ✓]`, `[team ●]`, `[team ↓]`, `[team ⚠]`
-- [ ] Conflict resolution UX for `[team ⚠]`
+- [x] Sync-status badges — `✓` synced / `●` differs / `!` missing *(incoming `↓` and conflict `⚠` badges land with conflict resolution)*
+- [ ] Conflict resolution UX for `[team ⚠]` *(plus the `↓`/`●`-direction split it enables)*
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
 
 ## Phase 3 — Other assistants

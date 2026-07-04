@@ -92,6 +92,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.memories = msg.mems
 		m.plans = msg.plans
 		m.docs = msg.docs
+		m.syncStates = msg.sync
 		m.fsSig = msg.sig
 		m.previewCache = nil
 		m.driftDir = "" // index may have changed — recompute on next syncPreview

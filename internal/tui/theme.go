@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // Theme is a full color scheme for the UI. Colors are hex strings so they keep
@@ -102,6 +103,33 @@ func cancelStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color(statusCancelFg)).
 		Background(lipgloss.Color(statusCancelBg))
+}
+
+// Sync-badge colors. Fixed across themes on purpose (like the status colors
+// above): they signal a memory's relationship to the team store, not brand.
+const (
+	syncSyncedColor  = "#50c878" // emerald — local matches the team copy
+	syncDiffersColor = "#e0af68" // amber — local differs from the team copy
+	syncMissingColor = "#e05561" // red — promoted, but no copy in the store
+)
+
+// syncBadge maps a team sync state to a compact list glyph, its color, and a
+// word for the preview meta. The glyphs (✓ ● and ASCII !) are never
+// emoji-presented, so runewidth measures them the same way a terminal renders
+// them and the column stays aligned — unlike ⚠, which many terminals draw
+// emoji-wide (2 cells) while runewidth reports 1. StateNone renders nothing, so
+// personal/unshared memories carry no sync column.
+func syncBadge(s team.SyncState) (glyph, color, word string) {
+	switch s {
+	case team.StateSynced:
+		return "✓", syncSyncedColor, "synced"
+	case team.StateDiffers:
+		return "●", syncDiffersColor, "differs"
+	case team.StateMissing:
+		return "!", syncMissingColor, "missing"
+	default:
+		return "", "", ""
+	}
 }
 
 // themes is the switchable set, ordered to match the 1–5 number keys.
