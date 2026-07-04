@@ -202,11 +202,12 @@ filename. The id is assigned once, on the first promote.
   `engram.scope: team`, assign an `engram.id` if absent, commit, push.
   Multi-select supported. A modal picks the scope, defaulting to the current
   project, with a "global" option.
-- **withdraw** *(planned — the reverse of promote)* — remove the memory's copy from
-  the store, reset the local `engram.scope` to personal, commit, push. Teammates who
-  already pulled keep their local copy (pull never deletes), so withdraw stops
-  *future* sharing rather than recalling existing copies. Named `withdraw`, not
-  "unpromote"/"demote" — see the term note below.
+- **withdraw** *(the reverse of promote; TUI key `w`)* — remove the memory's copy
+  from the store (matched by `engram.id` within its scope dir), reset the local
+  `engram.scope` to personal (keeping the id for a later re-promote), commit, push.
+  Teammates who already pulled keep their local copy (pull never deletes), so
+  withdraw stops *future* sharing rather than recalling existing copies. Named
+  `withdraw`, not "unpromote"/"demote".
 - **pull** — `git pull` the clone, then place team files where Claude reads them
   (matching project, or global) and refresh the relevant `MEMORY.md`.
 - **Sync is manual.** Personal memories never leave the machine unless promoted,

@@ -31,6 +31,11 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   each `MEMORY.md`. Pull never overwrites a differing local file (that's a conflict
   to resolve), no-ops identical ones, and skips projects with no local match.
   Global-scoped team memories stay in the store (browse / promote-on-demand).
+- **Withdraw from team (`w`)** — the reverse of promote: after a confirm, remove the
+  selected memory's shared copy from the team store (matched by id), reset it to
+  personal (keeping its id for a later re-promote), and commit + push the removal.
+  Teammates who already pulled keep their copy — withdraw stops future sharing, it
+  doesn't recall existing copies.
 - **Sync-status badges** — team-scoped memories carry a compact glyph in the list
   showing their state against the team store, recomputed on launch and every reload:
   `✓` synced (matches the store), `●` differs (local and store diverge — no direction

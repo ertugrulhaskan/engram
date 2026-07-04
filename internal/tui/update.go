@@ -56,6 +56,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// A pre-promote secret scan came back — promote, block, or warn per policy.
 		return m.applyScanResult(msg)
 
+	case withdrawFinishedMsg:
+		m.driftDir = ""
+		switch {
+		case msg.err != nil && msg.removed:
+			// The team copy was removed, but the local scope reset failed — say so
+			// rather than reporting a flat failure.
+			return m, tea.Batch(m.setDanger("removed from team, but the local update failed: "+msg.err.Error()), reloadCmd())
+		case msg.err != nil:
+			return m, tea.Batch(m.setDanger("withdraw failed: "+msg.err.Error()), reloadCmd())
+		case !msg.removed:
+			return m, tea.Batch(m.setStatus("withdrawn — was not in the team store"), reloadCmd())
+		case !msg.pushed:
+			return m, tea.Batch(m.setDanger("withdrawn locally; push failed — check your git remote/creds"), reloadCmd())
+		default:
+			return m, tea.Batch(m.setStatus("withdrawn from team"), reloadCmd())
+		}
+
 	case promoteFinishedMsg:
 		// Promote stamps the local file (engram frontmatter), so reload to reflect
 		// it. Reset the drift cache like the assistant handler does.
@@ -119,7 +136,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Transient FS error — ignore so the footer doesn't churn.
 		case m.fsSig == "":
 			m.fsSig = msg.sig // first poll: adopt the baseline, don't reload
-		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn:
+		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
 			return m, tea.Batch(reloadCmd(), pollCmd())
@@ -142,6 +159,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updatePromoteScope(msg)
 		case modeSecretWarn:
 			return m.updateSecretWarn(msg)
+		case modeWithdrawConfirm:
+			return m.updateWithdrawConfirm(msg)
 		default:
 			return m.updateNormal(msg)
 		}
@@ -281,6 +300,23 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.promoteCursor = 1 // only "global" is available
 		}
 		m.mode = modePromoteScope
+		return m, nil
+	case "w":
+		// Withdraw the selected memory from the team store (reverse of promote).
+		// Memories only, and only when it's actually shared; a confirm follows.
+		if m.srcKind != srcMemories {
+			return m, nil
+		}
+		it, ok := m.selected()
+		if !ok {
+			return m, nil
+		}
+		if m.syncStates[it.Path] == team.StateNone {
+			return m, m.setStatus("not shared — nothing to withdraw")
+		}
+		m.withdrawPath = it.Path
+		m.withdrawTitle = it.Title
+		m.mode = modeWithdrawConfirm
 		return m, nil
 	case "P":
 		// Pull project-scoped team memories into their matching local projects.

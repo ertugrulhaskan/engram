@@ -22,8 +22,9 @@ const (
 	modeConfirm
 	modePalette
 	modeHelp
-	modePromoteScope // picking team scope (this project / global) for a promote
-	modeSecretWarn   // a promote was blocked because the memory looks like it holds a secret
+	modePromoteScope    // picking team scope (this project / global) for a promote
+	modeSecretWarn      // a promote was blocked because the memory looks like it holds a secret
+	modeWithdrawConfirm // confirming a withdraw (removing a shared memory from the team store)
 )
 
 // srcKind selects which collection is being browsed.

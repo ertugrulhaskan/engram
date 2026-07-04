@@ -23,6 +23,7 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"d", "delete"},
 		{"p", "promote to team"},
 		{"P", "pull from team"},
+		{"w", "withdraw from team"},
 	},
 	{
 		{"t", "cycle type filter"},

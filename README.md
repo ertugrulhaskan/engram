@@ -85,6 +85,7 @@ engram
 | `d`        | delete the selected item (asks `y`/`n` first) |
 | `p`        | promote the selected memory to the team store (pick this-project / global) |
 | `P`        | pull team memories into their matching local projects |
+| `w`        | withdraw the selected memory from the team store (reverse of promote) |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
@@ -142,7 +143,9 @@ override. **`P` pulls** the team's project memories down into their matching loc
 projects (it never overwrites a file you've changed — that's flagged as a conflict).
 Shared memories then carry a **sync-status badge** in the list — `✓` synced, `●`
 differs, `!` missing — so you can see each one's state against the team store at a
-glance. Guided conflict resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
+glance. **`w` withdraws** a shared memory (after a confirm): it removes the copy from
+the store and resets the memory to personal — the reverse of promote. Guided conflict
+resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
 
 The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
 (`block` default · `block-strict` no override · `warn` · `off`) and

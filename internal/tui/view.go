@@ -34,6 +34,8 @@ func (m Model) View() string {
 		box = m.scopeModal()
 	case modeSecretWarn:
 		box = m.secretModal()
+	case modeWithdrawConfirm:
+		box = m.withdrawModal()
 	}
 	if box != "" {
 		frame = m.overlay(frame, box, top)

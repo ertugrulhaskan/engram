@@ -64,6 +64,10 @@ type Model struct {
 	promoteKey    string // resolved project key, or "" when the project has no remote
 	promoteCursor int    // 0 = this project, 1 = global
 
+	// withdraw confirm (modeWithdrawConfirm)
+	withdrawPath  string // memory being withdrawn
+	withdrawTitle string // its title, for the modal header
+
 	// secret-scan guard on promote
 	scanAction      string            // config policy: block | block-strict | warn | off
 	scanPII         bool              // also flag PII when scanning
