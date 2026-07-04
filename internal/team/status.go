@@ -124,6 +124,9 @@ func storeIndexByID(storeDir string) map[string][]string {
 			if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
 				return nil
 			}
+			if containsSymlink(storeDir, path) {
+				return nil // never read *through* a symlinked store entry (see promote/pull)
+			}
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				return nil // skip unreadable files rather than fail the whole scan

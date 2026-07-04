@@ -114,6 +114,22 @@ then `>`). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 - **Selected row** keeps its highlight and now also shows an accent chevron + bold
   accent title; the unused `SelFg` theme field was removed.
 
+### Security
+- **Promote and pull refuse to act through a symlink in the team store.** A teammate
+  with push access could commit a symlink pointing outside the store (at a shell rc,
+  `~/.ssh`, …); promote would have written *through* it (an arbitrary-file overwrite)
+  and pull would have read *through* it. Both now reject any store path that traverses
+  a symlink, `init-team` clones with `core.symlinks=false` (persisted for later pulls),
+  and submodule recursion is disabled.
+- **`init-team` blocks git's `ext::` transport.** A pasted `ext::<cmd>` URL could run an
+  arbitrary command at clone time; the clone and pull now set `protocol.ext.allow=never`
+  regardless of the user's git config.
+- **Withdrawal never deletes an edited memory.** Withdraw-propagation on pull now keeps
+  a local team copy whose content no longer matches its sync anchor, so a withdrawal
+  can't silently discard unshared local edits (the copy shows `! missing` instead).
+- **The secret scan now catches PGP private-key blocks** (`-----BEGIN PGP PRIVATE KEY
+  BLOCK-----`), which previously slipped through the promote guard.
+
 ### Known gaps
 - **Global-scoped memories don't auto-pull yet** — `>pull` walks `projects/` only;
   an updated global memory is taken via `>resolve` (shown as `↓ incoming`).

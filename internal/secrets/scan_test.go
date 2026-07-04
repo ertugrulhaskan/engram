@@ -19,6 +19,7 @@ func TestScan_Secrets(t *testing.T) {
 		{"google", "AIza" + strings.Repeat("e", 35), "google-api-key"},
 		{"slack", "xoxb-123456789012-abcdefghijkl", "slack-token"},
 		{"private-key", "-----BEGIN OPENSSH PRIVATE KEY-----", "private-key-block"},
+		{"pgp-private-key", "-----BEGIN PGP PRIVATE KEY BLOCK-----", "private-key-block"},
 		{"generic", `password = "hunter2hunter2hunter2"`, "generic-secret-assignment"},
 		{"env-secret-key", `CLERK_SECRET_KEY = "randomvalue123456"`, "generic-secret-assignment"},
 		{"env-secretkey", `CLERK_SECRETKEY=abcdefghijklmnop`, "generic-secret-assignment"},

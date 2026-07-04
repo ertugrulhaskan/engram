@@ -45,7 +45,7 @@ var rules = []rule{
 	{"slack-token", regexp.MustCompile(`xox[baprs]-[0-9A-Za-z-]{10,}`), false},
 	{"slack-webhook", regexp.MustCompile(`https://hooks\.slack\.com/services/[A-Za-z0-9/]+`), false},
 	{"url-credentials", regexp.MustCompile(`[a-z][a-z0-9+.-]*://[^\s:/@]*:[^\s/@]+@`), false},
-	{"private-key-block", regexp.MustCompile(`-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP |ENCRYPTED )?PRIVATE KEY-----`), false},
+	{"private-key-block", regexp.MustCompile(`-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----`), false},
 	{"jwt", regexp.MustCompile(`eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}`), false},
 	{"generic-secret-assignment", regexp.MustCompile(`(?i)[\w.-]*(?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)[\w.-]*["']?\s*[:=]\s*["']?[A-Za-z0-9/+=_-]{12,}`), false},
 	{"email-address", regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`), true},

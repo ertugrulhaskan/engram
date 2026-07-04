@@ -41,11 +41,20 @@ func InitTeam(gitURL string) error {
 		return e
 	}
 
-	// `--` ends git option parsing so a remote URL beginning with '-' can't be
-	// mistaken for a flag.
-	if err := runGit("", "clone", "--", gitURL, dir); err != nil {
+	// Harden the clone against a hostile pasted URL. `--` ends option parsing so a
+	// '-'-leading URL can't become a flag; `protocol.ext.allow=never` blocks git's
+	// `ext::<cmd>` transport (which would run an arbitrary command); and
+	// `--no-recurse-submodules` avoids the submodule clone-time exec vector.
+	// `core.symlinks=false` makes any committed symlink check out as a plain file
+	// so it can never later be written or read *through* (see containsSymlink).
+	if err := runGit("", "-c", "protocol.ext.allow=never", "-c", "core.symlinks=false",
+		"clone", "--no-recurse-submodules", "--", gitURL, dir); err != nil {
 		return fail(fmt.Errorf("git clone failed: %v", err))
 	}
+	// The clone-time -c applies to this checkout only; persist it so later
+	// `pull --ff-only` checkouts also refuse to materialize a pushed symlink.
+	// Best-effort — the containsSymlink guard is the load-bearing defense.
+	_, _ = runGitCapture(dir, "config", "core.symlinks", "false")
 
 	// An empty (commit-less) clone gets the starter layout; a populated one is
 	// left exactly as cloned.

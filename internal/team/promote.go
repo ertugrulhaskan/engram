@@ -35,6 +35,13 @@ func Promote(memPath, placement string) (pushed bool, err error) {
 	}
 	dest := filepath.Join(dir, rel)
 
+	// Refuse to act on a destination that traverses a symlink in the store — a
+	// teammate could commit one pointing outside the store (e.g. at ~/.ssh or a
+	// shell rc), turning the read/write below into an arbitrary-file access.
+	if containsSymlink(dir, dest) {
+		return false, fmt.Errorf("refusing to promote through a symlink in the team store")
+	}
+
 	raw, err := os.ReadFile(memPath)
 	if err != nil {
 		return false, err

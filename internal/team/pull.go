@@ -44,7 +44,7 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
 		return res, fmt.Errorf("team store not initialized — run `engram init-team <git-url>` first")
 	}
-	if out, err := exec.Command("git", "-C", dir, "pull", "--ff-only").CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "-c", "protocol.ext.allow=never", "pull", "--ff-only").CombinedOutput(); err != nil {
 		reason := strings.TrimSpace(string(out))
 		if reason == "" {
 			reason = err.Error()
@@ -84,6 +84,9 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 			return nil
 		}
 
+		if containsSymlink(dir, path) {
+			return nil // never read *through* a symlink a teammate committed into the store
+		}
 		teamRaw, err := os.ReadFile(path)
 		if err != nil {
 			return nil
@@ -165,8 +168,19 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 				if err != nil {
 					continue
 				}
-				if m, ok, _ := memory.ReadEngram(string(lr)); !ok || m.Scope != "team" {
+				m, ok, _ := memory.ReadEngram(string(lr))
+				if !ok || m.Scope != "team" {
 					continue // keep personal copies (incl. the owner's withdrawn one)
+				}
+				// Never delete a copy the user has edited since it last synced — that
+				// would silently discard unshared work. With an anchor present, keep
+				// the file whenever its content no longer matches it (it shows
+				// `! missing` for the user to handle). An anchor-less legacy copy
+				// can't be checked, so it keeps the prior behavior.
+				if m.SyncedHash != "" {
+					if dig, err := memory.ContentDigest(string(lr)); err != nil || dig != m.SyncedHash {
+						continue
+					}
 				}
 				if os.Remove(localPath) == nil {
 					res.Removed++
