@@ -80,6 +80,10 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   Claude's keys) and a UUID helper. `NormalizeRemote` and `config.Dir()` landed earlier.
 
 ### Changed
+- **Clear "git not found" message for team commands.** Team sharing shells out to
+  `git` for everything; if it isn't on `PATH`, `>promote`/`>pull`/`>withdraw`/
+  `>resolve`/`>init` now say so with a link to install it, instead of surfacing a raw
+  `executable file not found` error. (Local browsing needs no git.)
 - **Team commands moved to a `>` command palette.** The single keys `p`/`P`/`w`/`c`
   are retired; promote / pull / withdraw / resolve — plus **`>init <git-url>`** to set
   up the store from inside the TUI — now live under `ctrl+p` → `>` (a third prefix

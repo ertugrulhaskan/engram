@@ -5,10 +5,19 @@ package team
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
 )
+
+// HasGit reports whether the git executable is available on PATH. Every team
+// operation shells out to git, so callers gate on it to show a clear, actionable
+// message instead of a raw "executable file not found" exec error.
+func HasGit() bool {
+	_, err := exec.LookPath("git")
+	return err == nil
+}
 
 // Dir returns the managed team-store location, <config dir>/team — i.e.
 // $XDG_CONFIG_HOME/engram/team, falling back to ~/.config/engram/team.

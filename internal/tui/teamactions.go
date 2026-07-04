@@ -14,6 +14,16 @@ import (
 // up yet, pointing at the palette command that fixes it.
 const noStoreHint = "no team store — run `>init <git-url>` first"
 
+// gitMissing returns a danger command when git isn't on PATH — team sharing shells
+// out to git for everything — or nil when git is available. Every team action
+// checks it first so a missing git reads as a clear message, not a raw exec error.
+func (m Model) gitMissing() tea.Cmd {
+	if !team.HasGit() {
+		return m.setDanger("git not found — team sharing needs git (https://git-scm.com)")
+	}
+	return nil
+}
+
 // The team actions below are the bodies behind the `>` command palette (promote /
 // pull / withdraw / resolve / init). Each acts on the currently-selected memory,
 // self-guards on an initialized store, and returns the next mode/command — so the
@@ -23,6 +33,9 @@ const noStoreHint = "no team store — run `>init <git-url>` first"
 func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("promote applies to memories")
+	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd
 	}
 	it, ok := m.selected()
 	if !ok {
@@ -48,6 +61,9 @@ func (m Model) actionPull() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("pull applies to memories")
 	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd
+	}
 	if !team.IsInitialized() {
 		return m, m.setDanger(noStoreHint)
 	}
@@ -58,6 +74,9 @@ func (m Model) actionPull() (tea.Model, tea.Cmd) {
 func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("withdraw applies to memories")
+	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd
 	}
 	it, ok := m.selected()
 	if !ok {
@@ -82,6 +101,9 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("resolve applies to memories")
 	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd
+	}
 	it, ok := m.selected()
 	if !ok {
 		return m, nil
@@ -105,6 +127,9 @@ func (m Model) actionInit(url string) (tea.Model, tea.Cmd) {
 	url = strings.TrimSpace(url)
 	if url == "" {
 		return m, m.setDanger("usage: >init <git-url>")
+	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd
 	}
 	if team.IsInitialized() {
 		return m, m.setStatus("team store already set up")
