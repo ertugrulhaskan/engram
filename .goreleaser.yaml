@@ -70,12 +70,10 @@ homebrew_casks:
     repository:
       owner: ertugrulhaskan
       name: homebrew-tap
-      # PAT with write access to the tap repo (the built-in GITHUB_TOKEN can't
-      # push to a separate repository). Set HOMEBREW_TAP_TOKEN in CI secrets.
-      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
-    # Until the tap repo + token are set up, still build/render the cask but skip
-    # the push, so a release isn't left half-published by a failed cask upload.
-    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}false{{ end }}'
+      # Token with write access to the tap repo (the built-in GITHUB_TOKEN can't
+      # push to a separate repository). HOMEBREW_TAP_TOKEN is set in the engram
+      # repo's Actions secrets.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://engram.im"
     description: "Terminal UI for browsing, searching, and sharing your Claude Code memories"
     # The release binaries are unsigned; clear the macOS quarantine flag on install.
