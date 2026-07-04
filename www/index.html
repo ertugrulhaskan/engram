@@ -27,7 +27,7 @@
 
 <header class="sticky top-0 z-50 border-b border-neutral-200 bg-white/70 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/70">
   <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 md:grid md:grid-cols-3">
-    <div class="justify-self-start font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram<span class="ml-2 text-sm font-normal text-neutral-500">v2.0</span></div>
+    <div class="justify-self-start font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram</div>
     <nav aria-label="Primary" class="hidden justify-self-center font-mono text-xs uppercase tracking-wider md:flex md:items-center md:gap-6">
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#moat">the moat</a>
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#sharing">sharing</a>
@@ -151,7 +151,7 @@
             <p class="mt-3 text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">enter</span> promote · commit + push</p>
           </div>
         </div>
-        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">space</span> select · <span class="text-blue-700 dark:text-blue-400">p</span> promote · <span class="text-blue-700 dark:text-blue-400">enter</span> open</div>
+        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> › <span class="text-blue-700 dark:text-blue-400">&gt;promote</span> · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
       </div>
 
       <!-- pull -->
@@ -170,7 +170,7 @@
             <p class="text-xs text-green-700 dark:text-green-500">✓ git pull · 2 files updated</p>
           </div>
         </div>
-        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">P</span> pull all · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
+        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> › <span class="text-blue-700 dark:text-blue-400">&gt;pull</span> · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
       </div>
     </div>
   </section>
@@ -183,7 +183,7 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-sky-600 dark:text-sky-400" aria-hidden="true">◧</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Every memory, one place</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">One searchable two-pane TUI across all your projects. No more grepping <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code> by hand.</p></div>
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-blue-600 dark:text-blue-400" aria-hidden="true">⤴</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Share over plain git</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Promote a memory; teammates pull it. No servers, no account — your git host is the auth.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-green-600 dark:text-green-500" aria-hidden="true">✓</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Safe by default</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Read-only until you act. engram only ever <b class="font-semibold text-neutral-900 dark:text-neutral-200">adds</b> its own frontmatter — never rewrites what Claude wrote.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-green-600 dark:text-green-500" aria-hidden="true">✓</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Safe by default</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Read-only until you act. engram only <b class="font-semibold text-neutral-900 dark:text-neutral-200">adds</b> its own frontmatter — never rewrites Claude's — and scans for secrets before anything reaches your shared repo.</p></div>
     </div>
   </section>
 
@@ -240,34 +240,46 @@
       <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> — lands where Claude reads</div>
     </div>
     <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-5 font-mono text-xs dark:border-neutral-700 dark:bg-black">
-      <p class="mb-3 text-neutral-600 dark:text-neutral-400">sync-status badges — engram checks on launch and marks what's shared</p>
+      <p class="mb-3 text-neutral-600 dark:text-neutral-400">sync-status badges — engram checks on launch and names where each shared memory stands</p>
       <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <div class="flex items-baseline gap-3"><span class="w-20 shrink-0 text-green-700 dark:text-green-500">✓ synced</span><span class="text-neutral-600 dark:text-neutral-400">in sync with the team copy</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-20 shrink-0 text-amber-700 dark:text-amber-300">● differs</span><span class="text-neutral-600 dark:text-neutral-400">your copy differs from the team's</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-green-700 dark:text-green-500">✓ synced</span><span class="text-neutral-600 dark:text-neutral-400">matches the team copy</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">↓ incoming</span><span class="text-neutral-600 dark:text-neutral-400">the store advanced — safe to take</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-amber-700 dark:text-amber-300">↑ ahead</span><span class="text-neutral-600 dark:text-neutral-400">your unshared edits — promote to share</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-red-700 dark:text-red-400">↕ conflict</span><span class="text-neutral-600 dark:text-neutral-400">both moved — resolve in your editor</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-red-700 dark:text-red-400">! missing</span><span class="text-neutral-600 dark:text-neutral-400">promoted, but not in the store</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-amber-700 dark:text-amber-300">● differs</span><span class="text-neutral-600 dark:text-neutral-400">changed, no anchor to name a direction</span></div>
       </div>
-      <p class="mt-3 text-neutral-500 dark:text-neutral-400">Personal memories carry no badge — they never leave your disk. Incoming and conflict badges arrive with conflict resolution.</p>
+      <p class="mt-3 text-neutral-500 dark:text-neutral-400">Personal memories carry no badge — they never leave your disk. A conflict opens both versions with git-style markers in your <code class="text-neutral-700 dark:text-neutral-300">$EDITOR</code> via <span class="text-blue-700 dark:text-blue-400">&gt;resolve</span>.</p>
     </div>
   </section>
 
   <!-- command palette -->
   <section id="palette" class="scroll-mt-20 pt-20">
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// command palette</span>
-    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Two keys run everything: / and @</h2>
-    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400"><code class="font-mono text-neutral-800 dark:text-neutral-300">ctrl+p</code> opens the palette. Type <code class="font-mono text-neutral-800 dark:text-neutral-300">/</code> to jump around engram, or <code class="font-mono text-neutral-800 dark:text-neutral-300">@</code> to hand the work to Claude.</p>
+    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">One palette, three prefixes: / @ &gt;</h2>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400"><code class="font-mono text-neutral-800 dark:text-neutral-300">ctrl+p</code> opens it. Type <code class="font-mono text-neutral-800 dark:text-neutral-300">/</code> to jump around engram, <code class="font-mono text-neutral-800 dark:text-neutral-300">@</code> to hand the work to Claude, or <code class="font-mono text-neutral-800 dark:text-neutral-300">&gt;</code> to run team sharing.</p>
     <div class="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 font-mono text-sm dark:border-neutral-700 dark:bg-black">
-      <div class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> type <span class="text-neutral-800 dark:text-neutral-200">/</span> for commands · <span class="text-neutral-800 dark:text-neutral-200">@</span> for the assistant</div>
-      <div class="grid grid-cols-1 md:grid-cols-2">
+      <div class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> type <span class="text-neutral-800 dark:text-neutral-200">/</span> commands · <span class="text-neutral-800 dark:text-neutral-200">@</span> Claude · <span class="text-neutral-800 dark:text-neutral-200">&gt;</span> team</div>
+      <div class="grid grid-cols-1 md:grid-cols-3">
         <div class="border-b border-neutral-200 px-5 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400">/ &nbsp; jump around engram</p>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/memory</span><span class="text-neutral-600 dark:text-neutral-400">browse your memories</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/plans</span><span class="text-neutral-600 dark:text-neutral-400">browse plan-mode plans</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/files</span><span class="text-neutral-600 dark:text-neutral-400"><code class="text-neutral-800 dark:text-neutral-300">CLAUDE.md</code> + <code class="text-neutral-800 dark:text-neutral-300">MEMORY.md</code> · read-only</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-blue-700 dark:text-blue-400">/settings</span><span class="text-neutral-600 dark:text-neutral-400">theme, editor</span></div>
+          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> &nbsp; jump around engram</p>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/memory</span><span class="text-neutral-600 dark:text-neutral-400">browse memories</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/plans</span><span class="text-neutral-600 dark:text-neutral-400">plan-mode plans</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/files</span><span class="text-neutral-600 dark:text-neutral-400"><code class="text-neutral-800 dark:text-neutral-300">CLAUDE.md</code> · read-only</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/settings</span><span class="text-neutral-600 dark:text-neutral-400">theme, editor</span></div>
+        </div>
+        <div class="border-b border-neutral-200 px-5 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
+          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-teal-700 dark:text-teal-400">@</span> &nbsp; hand off to Claude</p>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-neutral-600 dark:text-neutral-400">fix &amp; edit memories</span></div>
+          <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code> there. engram reloads when it exits.</p>
         </div>
         <div class="px-5 py-4">
-          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400">@ &nbsp; hand off to Claude</p>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-20 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-neutral-600 dark:text-neutral-400">fix &amp; edit memories with Claude Code</span></div>
-          <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — there you run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code>, <code class="text-neutral-800 dark:text-neutral-300">/memory-check</code>, and the rest. engram reloads when it exits.</p>
+          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">&gt;</span> &nbsp; team sharing</p>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;promote</span><span class="text-neutral-600 dark:text-neutral-400">share the selected memory</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;pull</span><span class="text-neutral-600 dark:text-neutral-400">fetch teammates' memories</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;resolve</span><span class="text-neutral-600 dark:text-neutral-400">merge a conflict in <code class="text-neutral-800 dark:text-neutral-300">$EDITOR</code></span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;withdraw</span><span class="text-neutral-600 dark:text-neutral-400">take a shared memory back</span></div>
+          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;init</span><span class="text-neutral-600 dark:text-neutral-400">set up the team store</span></div>
         </div>
       </div>
     </div>
@@ -276,11 +288,11 @@
   <!-- roadmap -->
   <section id="roadmap" class="scroll-mt-20 pt-20">
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// roadmap</span>
-    <h2 class="mb-7 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Shipping in phases.</h2>
+    <h2 class="mb-7 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">What's here, what's next.</h2>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v1</span><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Local browsing</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Discover, search, edit, themes, plans.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v2</span><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">init-team, promote &amp; pull, personal vs team scope.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-between"><span class="font-mono text-sm text-neutral-600 dark:text-neutral-400">v3</span><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">next</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Pluggable sources — ChatGPT, Gemini memory.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Local browsing</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Discover, search, edit, themes, plans, the @Claude assistant.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Promote, pull, resolve &amp; withdraw, direction-aware badges, secret-scan on the way out.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">next</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Pluggable sources — ChatGPT, Gemini memory.</p></div>
     </div>
   </section>
 
