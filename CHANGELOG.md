@@ -10,34 +10,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Phase 2 (team sharing over git) — core complete.** `init-team`, `promote`,
-`pull`, and sync-status badges are in place; conflict-resolution UX is the remaining
-piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
+## [0.2.0] - 2026-07-04
+
+**Phase 2 — team sharing over git.** Share memories across a team through a plain
+git repository you host — no server, no third party. Promote a memory to a shared
+store, pull teammates' memories into their matching local projects, and resolve
+conflicts in your editor — with direction-aware sync badges and a secret-scan guard
+on the way out. Every team action lives under the `>` command palette (`ctrl+p`,
+then `>`). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
 
 ### Added
 - **`engram init-team <git-url>`** — one-time setup subcommand that clones the
   shared team repo to `~/.config/engram/team/` and, when the repo is empty,
   scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes.
   A failed push is non-fatal (the local commit is kept, with a retry hint), and
-  git's own output — auth prompts, progress, errors — is shown directly.
-- **Promote to team (`p`)** — in the TUI, promote the selected memory to the shared
+  git's own output — auth prompts, progress, errors — is shown directly. Also
+  available from inside the TUI as **`>init <git-url>`**.
+- **Promote to team (`>promote`)** — promote the selected memory to the shared
   store: a scope dialog picks **this project** or **global**, then engram stamps the
   memory with an `engram:` frontmatter block (a durable id, scope, project, owner —
   preserving Claude's own keys), writes the copy under `global/` or
   `projects/<key>/`, and commits + pushes. A filename collision with a *different*
   memory is refused rather than overwritten.
-- **Pull from team (`P`)** — fetch the team store and copy project-scoped team
+- **Pull from team (`>pull`)** — fetch the team store and copy project-scoped team
   memories into their matching local projects (matched by git remote), refreshing
-  each `MEMORY.md`. Pull never overwrites a differing local file (that's a conflict
-  to resolve), no-ops identical ones, and skips projects with no local match.
-  Global-scoped team memories stay in the store (browse / promote-on-demand).
-- **Withdraw from team (`w`)** — the reverse of promote: after a confirm, remove the
+  each `MEMORY.md`. A clean incoming update **fast-forwards** automatically; a copy
+  you edited is left alone; a genuine divergence stays a conflict to resolve. Pull
+  never overwrites a differing local file, no-ops identical ones, and skips projects
+  with no local match. Global-scoped team memories stay in the store (browse /
+  promote-on-demand). The summary reports new / updated / ahead / withdrawn counts.
+- **Withdraw from team (`>withdraw`)** — the reverse of promote: after a confirm, remove the
   selected memory's shared copy from the team store, reset it to personal (keeping
   its id), and commit + push. **Only the owner can withdraw** (an advisory
   guardrail). The removal is recorded in a `.engram-withdrawn` tombstone, so on a
   teammate's next **pull** their local team copy is removed too — a withdrawal
   *propagates*. Re-promoting clears the tombstone; personal files are never removed.
-  Pull's summary now includes a *withdrawn* count.
 - **Sync-status badges** — team-scoped memories carry a compact glyph in the list
   showing their state against the team store, recomputed on launch and every reload.
   Backed by a **sync anchor** (a `syncedHash` recorded in the `engram:` block on
@@ -45,7 +52,7 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   when it can: `✓` synced, `↓` incoming (the store advanced, your copy is untouched —
   safe to take), `↑` ahead (you have unshared edits, the store is unchanged — promote
   to share), `↕` conflict (both moved), `!` missing (promoted, no copy in the store).
-  Without an anchor (memories shared before this release) it falls back to a
+  Without an anchor (memories shared before the anchor existed) it falls back to a
   direction-less `●` differs — never a wrong direction claim. Personal memories carry
   no badge and the column disappears with no team store, so the feature stays
   invisible until you use team sharing. The preview spells the state out
@@ -53,13 +60,8 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
 - **Scope chip** — a muted `global` / `project` chip next to the sync pill shows
   which bucket a shared memory lives in. It's tied to the sync pill (never an orphan)
   and only appears for team-scoped memories once a store is set up.
-- **Pull fast-forwards a clean update (`P`)** — when only the store moved and your
-  local copy is untouched since its last sync (`↓ incoming`), pull now takes the
-  update automatically instead of flagging a needless conflict; a copy *you* edited
-  (`↑ ahead`) is left alone, and a genuine divergence stays a conflict. The pull
-  summary gained *updated* and *ahead* counts.
-- **Conflict resolution (`c`)** — on a `↕ conflict` (or `● differs`, or an incoming
-  global) memory, `c` opens a git-style merge of both versions' shared content
+- **Conflict resolution (`>resolve`)** — on a `↕ conflict` (or `● differs`, or an incoming
+  global) memory, `>resolve` opens a git-style merge of both versions' shared content
   (`<<<<<<< yours … ======= … >>>>>>> team`) in `$EDITOR`; on save engram writes the
   resolved content back, re-anchored to the store version so taking theirs reads as
   synced and keeping a merge reads as ahead. Saving with markers still present, or
@@ -74,22 +76,19 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   `secretScanScope` (`secrets` (default) / `secrets+pii`). The curated set catches
   the common formats, not everything — a guard paired with the override, not a
   guarantee — and the raw secret is never displayed or logged.
-- Internal: `internal/team` gains `ProjectKey` (resolve a project's git remote to its
-  canonical key), `Promote`, and read-only `SyncStates`; `internal/memory` gains a
-  lossless `engram:` frontmatter round-trip (`ReadEngram`/`WriteEngram`, preserving
-  Claude's keys) and a UUID helper. `NormalizeRemote` and `config.Dir()` landed earlier.
+- **`>` command palette for team actions** — promote / pull / withdraw / resolve, plus
+  **`>init <git-url>`** to set up the store from inside the TUI, live under `ctrl+p` →
+  `>` (a third prefix beside `/` sources and `@Claude`). Each acts on the selected
+  memory, with the not-initialized guard centralized behind one message that points at
+  `>init`. Team sharing shells out to `git` for everything; if it isn't on `PATH`,
+  every `>` verb says so with an install link instead of a raw `executable file not
+  found` error. (Local browsing needs no git.)
+- Internal: `internal/team` (git-backed store: init / promote / pull / withdraw /
+  resolve, plus read-only `SyncStates` and `ProjectKey`), `internal/secrets` (curated
+  credential scanner), and a lossless `engram:` frontmatter round-trip in
+  `internal/memory` (`ReadEngram`/`WriteEngram`, preserving Claude's own keys).
 
 ### Changed
-- **Clear "git not found" message for team commands.** Team sharing shells out to
-  `git` for everything; if it isn't on `PATH`, `>promote`/`>pull`/`>withdraw`/
-  `>resolve`/`>init` now say so with a link to install it, instead of surfacing a raw
-  `executable file not found` error. (Local browsing needs no git.)
-- **Team commands moved to a `>` command palette.** The single keys `p`/`P`/`w`/`c`
-  are retired; promote / pull / withdraw / resolve — plus **`>init <git-url>`** to set
-  up the store from inside the TUI — now live under `ctrl+p` → `>` (a third prefix
-  beside `/` sources and `@Claude`). Each acts on the selected memory, and the
-  not-initialized guard is centralized with one message pointing at `>init`. Frees the
-  collision-prone `p`/`P` pair and makes the verbs discoverable.
 - **Landing page (`www/`) rebuilt** with Tailwind CSS (stock theme only) compiled to a
   committed `www/css/styles.css` via `npm run build:css`. Consolidated to a shorter layout
   with an interactive terminal demo whose `browse` / `promote` / `pull` view tabs live in
@@ -116,17 +115,12 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   accent title; the unused `SelFg` theme field was removed.
 
 ### Known gaps
-- **Direction and conflict badges** are not built yet: the shipped `●` means
-  "differs" without claiming which side changed, and there is no `[team ↓]` incoming
-  or `[team ⚠]` conflict state. Both need a recorded last-synced anchor and land with
-  the conflict-resolution work below.
-- **Conflict-resolution UX** for `[team ⚠]` is pending: `pull` already *detects* and
-  protects conflicts (never overwrites a differing local file), but the guided
-  open-both-in-`$EDITOR` resolve flow isn't built.
+- **Global-scoped memories don't auto-pull yet** — `>pull` walks `projects/` only;
+  an updated global memory is taken via `>resolve` (shown as `↓ incoming`).
 - **Promote is single-select**; multi-select promote is pending.
 - **No alias fallback** for projects without a git remote (they can't yet be keyed).
-- No public release or Homebrew tap published yet — the git tags are local and
-  publishing stays deferred until Phase 2 ships.
+- Memories shared before the sync anchor existed show the direction-less `●` differs
+  until their next promote/pull re-anchors them.
 
 ## [0.1.2] - 2026-06-25
 

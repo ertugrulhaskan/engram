@@ -294,8 +294,8 @@ Every memory has a state relative to the team repo:
 | `✓ synced`   | shared content matches a store copy            | —                |
 | `↓ incoming` | local is at the base; the store advanced       | pull / resolve   |
 | `↑ ahead`    | local advanced; the store is still at the base | promote          |
-| `↕ conflict` | both advanced past the base                    | resolve (`c`)    |
-| `● differs`  | differs, but **no anchor** to name a direction | resolve (`c`)    |
+| `↕ conflict` | both advanced past the base                    | `>resolve`       |
+| `● differs`  | differs, but **no anchor** to name a direction | `>resolve`       |
 | `! missing`  | `scope: team` but its id is in no store copy   | promote          |
 
 `● differs` is the honest fallback for a memory shared before the anchor existed:
@@ -308,7 +308,7 @@ its presence (no orphan chip).
 - **Pull never overwrites a change.** Only a provable fast-forward (local digest equals
   the recorded base) rewrites a local file; a `↑ ahead` or `↕ conflict` (or any anchor-
   less differ) is left untouched. Matching is by `id`, not filename.
-- **Resolving** (`c`) brackets both versions' shared content with git-style markers in
+- **Resolving** (`>resolve`) brackets both versions' shared content with git-style markers in
   `$EDITOR` and re-anchors on save (see **resolve** under §7 Operations). An inline diff
   view is a later refinement.
 

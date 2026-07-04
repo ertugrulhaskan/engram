@@ -176,10 +176,10 @@ a guard, not a guarantee, so treat the override as a real decision.
 - **Sync badge = team state.** Once you share, a team-scoped memory shows a filled
   pill for its state against the store. Thanks to a **sync anchor** (a content
   digest recorded when you last promoted/pulled), engram names a direction: `✓`
-  synced, `↓` incoming (the store advanced, your copy is untouched — take it with `P`
-  or `c`), `↑` ahead (you have unshared edits — `promote` to share), `↕` conflict
-  (both sides moved — resolve with `c`), `!` missing (promoted but not in the store).
-  A memory shared before this release has no anchor and shows a direction-less `●`
+  synced, `↓` incoming (the store advanced, your copy is untouched — take it with
+  `>pull` or `>resolve`), `↑` ahead (you have unshared edits — `>promote` to share),
+  `↕` conflict (both sides moved — `>resolve`), `!` missing (promoted but not in the
+  store). A memory shared before the anchor existed has no anchor and shows a direction-less `●`
   differs. Personal memories show no pill, and the column vanishes until you set up a
   team store.
 - **Scope chip = which bucket.** A muted `global` / `project` chip sits beside the
