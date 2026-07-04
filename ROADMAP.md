@@ -1,9 +1,9 @@
 # engram — Roadmap
 
-Three phases, each independently shippable. Earlier phases stay useful even if
+Several phases, each independently shippable. Earlier phases stay useful even if
 later ones never land.
 
-> **Phases are milestones, not release versions.** "Phase 1 / 1.5 / 2 / 3" name
+> **Phases are milestones, not release versions.** "Phase 1 / 1.5 / 2 / 3 / 4" name
 > chunks of work; shipped releases follow [SemVer](https://semver.org), starting
 > at `v0.1.0`. (Phase 1 and Phase 1.5 are released together as `v0.1.0`.)
 
@@ -38,7 +38,7 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
       renamed project folder) and to create/rewrite/merge memories and plans on request
 - [x] `/files` source — browse the global + per-project `CLAUDE.md` and each project's
       `MEMORY.md` read-only; edits are reserved for `@Claude`
-- [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 3)
+- [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 4)
 
 ## Phase 2 — Team sharing over git *(shipped in v0.2.0 — direction badges, conflict resolution, secret-scan, `>` palette)*
 
@@ -58,7 +58,19 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
 - [ ] Auto-pull for global-scoped memories *(today `>pull` walks `projects/` only; global updates are taken via `>resolve`)*
 
-## Phase 3 — Other assistants
+## Phase 3 — Release / go public
+
+Goal: ship engram publicly — flip the repo public and make it installable. The
+release tooling (GoReleaser + CI + tag workflow) is already built; this phase runs
+it. Gated on an explicit go-ahead — nothing here happens automatically.
+
+- [ ] Make the GitHub repo public
+- [ ] Push the `v0.2.0` tag to trigger the GoReleaser publish workflow
+- [ ] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
+- [ ] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages)
+- [ ] Verify install paths end-to-end (Homebrew, `go install`, prebuilt binaries)
+
+## Phase 4 — Other assistants
 
 Goal: one place for memories beyond Claude Code — as each product allows.
 

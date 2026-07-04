@@ -12,9 +12,11 @@ leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
 > **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) complete —
-> `v0.1.0`. Phase 2 (team sharing over git) core — `init-team`, `promote`, `pull`, and
-> sync-status badges — is shipped on `main`; conflict-resolution UX is the remaining
-> piece. The repo stays private until Phase 2 lands. See
+> `v0.1.0`. Phase 2 (team sharing over git) has **shipped in `v0.2.0`** — `init-team`,
+> `promote` / `pull` / `withdraw` / `resolve`, direction-aware sync badges, and a
+> secret-scan guard, all under the `>` command palette. Going public (making the repo
+> public, publishing binaries + the Homebrew tap, deploying the site) is **Phase 3** and
+> hasn't happened yet — the repo stays private and nothing is published until then. See
 > [ROADMAP.md](ROADMAP.md). Design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
@@ -37,12 +39,12 @@ proper UI.
 
 ## Install
 
-> **Heads up — not published yet.** The repo stays private until Phase 2 ships,
-> so the Homebrew tap and prebuilt binaries below aren't available, and
-> `go install` needs repo access. For now, **build from a clone** (last option
-> below). The other commands are how it will install once published.
+> **Heads up — not published yet.** Phase 2 has shipped, but going public is **Phase 3**
+> (not done yet), so the repo is still private — the Homebrew tap and prebuilt binaries
+> below aren't available, and `go install` needs repo access. For now, **build from a
+> clone** (last option below). The other commands are how it will install once published.
 
-**Homebrew** (macOS, from the `v0.1.0` release):
+**Homebrew** (macOS, from the `v0.2.0` release):
 
 ```sh
 brew install ertugrulhaskan/tap/engram
@@ -120,7 +122,7 @@ the config file; typing `@` launches **`@Claude`**; typing `>` runs a team comma
 > or merge memories on request. engram reloads when the session exits. Requires the
 > `claude` CLI on `PATH`; without it the palette action shows a one-line hint.
 
-## Team sharing setup (Phase 2 — core shipped)
+## Team sharing setup (Phase 2 — shipped)
 
 Team sharing lives under the **`>` command palette** (`ctrl+p`, then type `>`);
 normal use stays a no-arg TUI. Set up the shared team store (a git repo your team
@@ -147,7 +149,7 @@ local projects. When only the store moved and your copy is untouched, pull
 **fast-forwards** it automatically; a copy you edited is left alone, and a genuine
 divergence is flagged as a conflict rather than overwritten. Shared memories carry a
 **sync-status badge** in the list — `✓` synced, `↓` incoming, `↑` ahead, `↕` conflict,
-`!` missing — plus a muted `global`/`project` **scope chip**, so you can see each
+`!` missing — plus a color-coded `global`/`project` **scope chip**, so you can see each
 one's state and bucket at a glance. **`>resolve`** opens both versions of a conflict
 with git-style markers in your `$EDITOR` and writes your merge back, re-anchored so
 "take theirs" reads as synced. **`>withdraw`** takes a shared memory back (after a
@@ -182,8 +184,9 @@ a guard, not a guarantee, so treat the override as a real decision.
   store). A memory shared before the anchor existed has no anchor and shows a direction-less `●`
   differs. Personal memories show no pill, and the column vanishes until you set up a
   team store.
-- **Scope chip = which bucket.** A muted `global` / `project` chip sits beside the
-  sync pill so you can see whether a shared memory is team-wide (**global**) or tied
+- **Scope chip = which bucket.** A color-coded `global` (teal) / `project` (azure)
+  chip sits beside the sync pill so you can see whether a shared memory is team-wide
+  (**global**) or tied
   to **this project** (keyed by its git remote) — the choice you make when you
   promote. Your user-wide rules in `~/.claude/CLAUDE.md` show up read-only under
   `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
@@ -204,8 +207,9 @@ Files are never modified except when you explicitly edit one. See
 
 - **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
-- **Phase 2** — team sharing over git: `init-team`, promote / pull *(core shipped; sync-status badges + conflict resolve next)*
-- **Phase 3** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
+- **Phase 3** — release / go public: publish binaries + Homebrew tap, deploy [engram.im](https://engram.im) *(not published yet)*
+- **Phase 4** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing
 

@@ -57,8 +57,8 @@ then `>`). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) §7.
   no badge and the column disappears with no team store, so the feature stays
   invisible until you use team sharing. The preview spells the state out
   (`team global · incoming`).
-- **Scope chip** — a muted `global` / `project` chip next to the sync pill shows
-  which bucket a shared memory lives in. It's tied to the sync pill (never an orphan)
+- **Scope chip** — a color-coded `global` (teal) / `project` (azure) chip next to the
+  sync pill shows which bucket a shared memory lives in. It's tied to the sync pill (never an orphan)
   and only appears for team-scoped memories once a store is set up.
 - **Conflict resolution (`>resolve`)** — on a `↕ conflict` (or `● differs`, or an incoming
   global) memory, `>resolve` opens a git-style merge of both versions' shared content
@@ -234,7 +234,7 @@ tag is local; publishing the release artifacts is deferred until Phase 2 (see
   dark brown on emerald.
 - Landing page for **engram.im** (`www/index.html`) — at the time, a single self-contained
   HTML page in the Classic Dark theme (later rebuilt with a Tailwind build step + light/dark/
-  system themes; see [Unreleased]).
+  system themes; see [0.2.0]).
   Intended to be served via Cloudflare Pages from `www/`; publishing is deferred
   (see SPEC §9).
 - Project `.mcp.json` registering the `context7` and `sequential-thinking` MCP

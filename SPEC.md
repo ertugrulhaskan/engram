@@ -141,9 +141,9 @@ type DocFile struct {
 > **Status:** implemented and merged to `main` — `init-team`, `promote`, `withdraw`,
 > `pull` (with clean-update fast-forward), the secret-scan guard, a **sync anchor**
 > (`syncedHash`) driving direction-aware badges (`✓`/`↓`/`↑`/`↕`/`!`, with `●` as the
-> no-anchor fallback), the `global`/`project` scope chip, and the `c` **conflict-resolve**
-> UX. Remaining: auto-pull for global-scoped memories (today taken via `c`), multi-select
-> promote, and the remote-less alias fallback.
+> no-anchor fallback), the `global`/`project` scope chip, and the `>resolve` **conflict-
+> resolve** UX. Remaining: auto-pull for global-scoped memories (today taken via `>resolve`),
+> multi-select promote, and the remote-less alias fallback.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -212,10 +212,10 @@ filename. The id is assigned once, on the first promote.
 
 ### Operations
 
-- **promote** `<one|many>` — copy selected personal memories into the clone, set
-  `engram.scope: team`, assign an `engram.id` if absent, commit, push.
-  Multi-select supported. A modal picks the scope, defaulting to the current
-  project, with a "global" option.
+- **promote** *(`>promote`)* — copy the selected personal memory into the clone, set
+  `engram.scope: team`, assign an `engram.id` if absent, commit, push. A modal picks the
+  scope, defaulting to the current project, with a "global" option. *(Single-select;
+  multi-select promote is a later refinement.)*
 - **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove the
   memory's copy from the store (matched by `engram.id`), record its id in a
   `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
@@ -225,7 +225,10 @@ filename. The id is assigned once, on the first promote.
   **pull**, the tombstone removes their local team-scoped copy too, so a withdrawal
   **propagates** — this is the one case where pull deletes a local file, and it
   deletes *only* a tombstoned `scope: team` copy that is no longer anywhere in the
-  store; a personal file (including the owner's own reset copy) is never removed.
+  store **and still matches its sync anchor** (an unshared local edit, or a copy with
+  no anchor to check against, is kept — never a silent loss of work). A personal file
+  is never removed, and the **owner's own copy on another machine is demoted to
+  personal, not deleted** (it is the owner keeping their memory, just un-shared).
   **Re-promoting clears the tombstone** (so a re-shared memory isn't deleted), and a
   memory still shared under another scope is kept. Named `withdraw`, not
   "unpromote"/"demote". *(Ledger entries are append-only; garbage-collecting old
@@ -248,8 +251,8 @@ filename. The id is assigned once, on the first promote.
   diff, so a frontmatter-only divergence is surfaced too.)*
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
   and engram never auto-pulls. On launch it does a cheap check against the team
-  repo and badges memories that have updates (`[team ↓]`); files are only placed
-  when you run `pull`.
+  repo and badges memories that have updates (a `↓ incoming` pill); files are only
+  placed when you run `pull`.
 - **Rejected push** (non-fast-forward) → engram runs `git pull --rebase` and
   retries once; if that conflicts, it hands off to the user.
 
@@ -300,8 +303,9 @@ Every memory has a state relative to the team repo:
 
 `● differs` is the honest fallback for a memory shared before the anchor existed:
 distinguishing incoming from ahead needs the recorded base, so without it engram makes no
-direction claim. A muted `global` / `project` **scope chip** sits beside the pill, tied to
-its presence (no orphan chip).
+direction claim. A color-coded `global` (teal) / `project` (azure) **scope chip** sits
+beside the pill — fixed across themes like the sync colors — tied to its presence (no
+orphan chip).
 
 ### Collisions & conflicts
 
@@ -314,7 +318,7 @@ its presence (no orphan chip).
 
 **Known limits.** The anchor is a 64-bit digest — ample for change detection, and a
 collision only ever degrades to a conservative conflict, never a silent overwrite. Global-
-scoped memories aren't auto-placed by pull, so an incoming global update is taken via `c`.
+scoped memories aren't auto-placed by pull, so an incoming global update is taken via `>resolve`.
 
 ## 8. Module layout
 
@@ -338,10 +342,14 @@ engram/
             identity.go      # ProjectKey: resolve a project's git remote to its team key
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
             promote.go       # Promote a memory into the store (global/ or projects/<key>/), stamp the anchor, commit, push
+            scan.go          # ScanForSecrets: read a file and run internal/secrets over it (IO kept out of the TUI)
             pull.go          # Pull project team memories; anchor-driven fast-forward vs conflict (decidePull)
             status.go        # SyncStates + relationOf: read-only direction-aware sync state (✓/↓/↑/↕/●/!)
-            withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone; ledger.go
-            resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (key c)
+            withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone
+            ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
+            resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)
+        secrets/             # NO UI here — pure credential scanning for the promote guard
+            scan.go          # Scan: curated regexes over content → redacted findings (Scope: secrets / secrets+pii)
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
@@ -351,8 +359,12 @@ engram/
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
-            promote.go       # `p` promote: team scope picker modal + background promote command
-            pull.go          # `P` pull: resolve project keys + pull team memories off-thread
+            teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
+            promote.go       # >promote: team scope picker modal + background promote command
+            pull.go          # >pull: resolve project keys + pull team memories off-thread
+            withdraw.go      # >withdraw: owner-only confirm modal + background withdraw command
+            resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save
+            secret.go        # secret-scan modal: scan before promote, show redacted findings + override
             style.go         # color/pad/clip text helpers, type labels, humanize
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection
@@ -431,14 +443,15 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 - Served via **Cloudflare Pages** (free tier, builds directly from the private repo —
   no GitHub Pro required): build command **empty** (CSS is prebuilt & committed), output
   directory `www`, custom domain `engram.im`.
-- **Publishing is deferred.** Gate go-live on the v0.1.0 release being public so the
+- **Publishing is deferred.** Gate go-live on the v0.2.0 release being public so the
   install command and the "available" badge are true. Do not create the Cloudflare
   project, change DNS, or otherwise publish without explicit sign-off (see the
   Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 
 ## 10. Open questions / future
 
-- Conflict resolution UX for `[team ⚠]` (Phase 2): inline diff vs. open both.
-- Promoting whole *types* at once (e.g. "all feedback").
-- Phase 3: ingesting Claude.ai / ChatGPT / Gemini memories — blocked on those
+- Inline diff view for `>resolve` (it currently opens both versions with git-style
+  markers in `$EDITOR`; conflict resolution itself shipped in Phase 2).
+- Promoting whole *types* at once (e.g. "all feedback"); multi-select promote.
+- Phase 4: ingesting Claude.ai / ChatGPT / Gemini memories — blocked on those
   products exposing programmatic access; likely export/import at first.

@@ -44,14 +44,15 @@ behind the shipped index-sync and release work.
 - **Layering:** `internal/memory`, `internal/plan`, and `internal/config` contain no
   UI; `internal/tui` contains no file/IO logic. Don't cross the line.
 - **Never modify a user's memory files** except on an explicit user action
-  (edit/create/delete/promote). Only ever *add* frontmatter keys engram owns; never
-  rewrite Claude's fields.
+  (edit/create/delete/promote/withdraw). Only ever *add* frontmatter keys engram owns;
+  never rewrite Claude's fields.
 - Run `gofmt -w .`, `go vet ./...`, and `go test ./...` before committing.
 - Commit messages: conventional prefixes, present tense ("add x", not "added x").
 
 ## Release / publishing
 
-The repo stays **private until Phase 2 (team sharing) ships**. The v0.1.0 release tooling
-is built but **must not publish** — no `git push --tags`, no GitHub Release, no
-visibility change — until the user explicitly says so. Mechanics: SPEC §9 and the
-"Releasing" section of CONTRIBUTING.md.
+Phase 2 (team sharing) has **shipped in `v0.2.0`**, so going public is now its own
+**Phase 3** (make the repo public, publish binaries + the Homebrew tap, deploy engram.im).
+The `v0.2.0` release tooling is built but **must not publish** — no `git push --tags`, no
+GitHub Release, no visibility change — until the user explicitly says so. Mechanics: SPEC §9
+and the "Releasing" section of CONTRIBUTING.md.
