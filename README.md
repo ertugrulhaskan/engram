@@ -86,6 +86,7 @@ engram
 | `p`        | promote the selected memory to the team store (pick this-project / global) |
 | `P`        | pull team memories into their matching local projects |
 | `w`        | withdraw the selected memory from the team store (reverse of promote) |
+| `c`        | resolve a team conflict — merge both versions in `$EDITOR` |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
@@ -140,13 +141,16 @@ owner — leaving Claude's own keys untouched) and commits + pushes the shared c
 Before it pushes, engram **scans the memory for secrets** and, by default, blocks
 the promote if it finds one — showing the redacted match with an option to
 override. **`P` pulls** the team's project memories down into their matching local
-projects (it never overwrites a file you've changed — that's flagged as a conflict).
-Shared memories then carry a **sync-status badge** in the list — `✓` synced, `●`
-differs, `!` missing — so you can see each one's state against the team store at a
-glance. **`w` withdraws** a shared memory (after a confirm) — if you're its owner: it removes
-the copy from the store, resets your memory to personal, and, via a tombstone,
+projects. When only the store moved and your copy is untouched, pull **fast-forwards**
+it automatically; a copy you edited is left alone, and a genuine divergence is flagged
+as a conflict rather than overwritten. Shared memories carry a **sync-status badge**
+in the list — `✓` synced, `↓` incoming, `↑` ahead, `↕` conflict, `!` missing — plus a
+muted `global`/`project` **scope chip**, so you can see each one's state and bucket at
+a glance. **`c` resolves** a conflict: it opens both versions with git-style markers
+in your `$EDITOR` and writes your merge back, re-anchored so "take theirs" reads as
+synced. **`w` withdraws** a shared memory (after a confirm) — if you're its owner: it
+removes the copy from the store, resets your memory to personal, and, via a tombstone,
 removes it from teammates on their next pull (re-promote with `p` puts it back).
-Guided conflict resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
 
 The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
 (`block` default · `block-strict` no override · `warn` · `off`) and
@@ -166,15 +170,20 @@ a guard, not a guarantee, so treat the override as a real decision.
   - `[project]` (green) — something specific to that codebase
   - `[reference]` (purple) — a pointer to an external resource
   - `[other]` (gray) — no type recorded
-- **Sync badge = team state.** Once you share, a team-scoped memory shows a small
-  glyph next to its type badge: `✓` (green) synced with the team store, `●` (amber)
-  differs from it, `!` (red) promoted but missing from the store. Personal memories
-  show no glyph, and the column vanishes entirely until you set up a team store.
-- **Scope shows up when you share.** Promote a memory and you pick **this project**
-  (keyed by its git remote) or **global** (the team-wide bucket) — the **Phase 2**
-  cross-project scope. Your user-wide rules in
-  `~/.claude/CLAUDE.md` show up read-only under `/files`, alongside per-project
-  `CLAUDE.md` and `MEMORY.md`.
+- **Sync badge = team state.** Once you share, a team-scoped memory shows a filled
+  pill for its state against the store. Thanks to a **sync anchor** (a content
+  digest recorded when you last promoted/pulled), engram names a direction: `✓`
+  synced, `↓` incoming (the store advanced, your copy is untouched — take it with `P`
+  or `c`), `↑` ahead (you have unshared edits — `promote` to share), `↕` conflict
+  (both sides moved — resolve with `c`), `!` missing (promoted but not in the store).
+  A memory shared before this release has no anchor and shows a direction-less `●`
+  differs. Personal memories show no pill, and the column vanishes until you set up a
+  team store.
+- **Scope chip = which bucket.** A muted `global` / `project` chip sits beside the
+  sync pill so you can see whether a shared memory is team-wide (**global**) or tied
+  to **this project** (keyed by its git remote) — the choice you make when you
+  promote. Your user-wide rules in `~/.claude/CLAUDE.md` show up read-only under
+  `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
 
 ## How it works
 

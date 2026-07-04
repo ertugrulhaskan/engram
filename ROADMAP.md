@@ -40,7 +40,7 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
       `MEMORY.md` read-only; edits are reserved for `@Claude`
 - [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 3)
 
-## Phase 2 — Team sharing over git *(core + sync-status badges shipped; conflict-resolution UX remaining)*
+## Phase 2 — Team sharing over git *(core shipped, incl. direction badges + conflict resolution)*
 
 Goal: share the team-useful memories across people and projects, no servers.
 
@@ -48,11 +48,13 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Project identity via git remote URL — *consumed by promote/pull; alias fallback for remote-less repos pending*
 - [x] `promote` → commit + push *(single-select; multi-select pending)*
 - [x] `withdraw` → take a promoted memory back: remove its copy from the team store, reset the local scope to personal, commit + push *(the reverse of `promote`; teammates who already pulled keep their copy)*
-- [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`
+- [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`; **fast-forward** a clean incoming update, leave a local-ahead copy, flag a real divergence
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
-- [x] Sync-status badges — `✓` synced / `●` differs / `!` missing *(incoming `↓` and conflict `⚠` badges land with conflict resolution)*
-- [ ] Conflict resolution UX for `[team ⚠]` *(plus the `↓`/`●`-direction split it enables)*
+- [x] **Sync anchor** (`syncedHash` in the `engram:` block) enabling direction-aware badges: `✓` synced / `↓` incoming / `↑` ahead / `↕` conflict / `!` missing *(direction-less `●` differs for pre-anchor memories)*
+- [x] Conflict resolution UX (`c`) — git-style markers in `$EDITOR`, re-anchored on save
+- [x] Scope chip (`global` / `project`) on shared rows
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
+- [ ] Auto-pull for global-scoped memories *(today `P` walks `projects/` only; global updates are taken via `c`)*
 
 ## Phase 3 — Other assistants
 

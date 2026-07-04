@@ -39,12 +39,31 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   *propagates*. Re-promoting clears the tombstone; personal files are never removed.
   Pull's summary now includes a *withdrawn* count.
 - **Sync-status badges** — team-scoped memories carry a compact glyph in the list
-  showing their state against the team store, recomputed on launch and every reload:
-  `✓` synced (matches the store), `●` differs (local and store diverge — no direction
-  claimed), `!` missing (promoted, but no copy is in the store). Personal memories
-  carry no badge, and the whole column disappears when no team store is set up, so
-  the feature is invisible until you use team sharing. The preview pane spells the
-  state out in words (`team synced` / `team differs`).
+  showing their state against the team store, recomputed on launch and every reload.
+  Backed by a **sync anchor** (a `syncedHash` recorded in the `engram:` block on
+  every promote/pull — a digest of the shared content), engram names a *direction*
+  when it can: `✓` synced, `↓` incoming (the store advanced, your copy is untouched —
+  safe to take), `↑` ahead (you have unshared edits, the store is unchanged — promote
+  to share), `↕` conflict (both moved), `!` missing (promoted, no copy in the store).
+  Without an anchor (memories shared before this release) it falls back to a
+  direction-less `●` differs — never a wrong direction claim. Personal memories carry
+  no badge and the column disappears with no team store, so the feature stays
+  invisible until you use team sharing. The preview spells the state out
+  (`team global · incoming`).
+- **Scope chip** — a muted `global` / `project` chip next to the sync pill shows
+  which bucket a shared memory lives in. It's tied to the sync pill (never an orphan)
+  and only appears for team-scoped memories once a store is set up.
+- **Pull fast-forwards a clean update (`P`)** — when only the store moved and your
+  local copy is untouched since its last sync (`↓ incoming`), pull now takes the
+  update automatically instead of flagging a needless conflict; a copy *you* edited
+  (`↑ ahead`) is left alone, and a genuine divergence stays a conflict. The pull
+  summary gained *updated* and *ahead* counts.
+- **Conflict resolution (`c`)** — on a `↕ conflict` (or `● differs`, or an incoming
+  global) memory, `c` opens a git-style merge of both versions' shared content
+  (`<<<<<<< yours … ======= … >>>>>>> team`) in `$EDITOR`; on save engram writes the
+  resolved content back, re-anchored to the store version so taking theirs reads as
+  synced and keeping a merge reads as ahead. Saving with markers still present, or
+  emptying the file, aborts and leaves the memory untouched.
 - **Secret-scan guard on promote** — before a memory is pushed to the shared store,
   engram scans it for credentials (AWS / GitHub / Anthropic / OpenAI / Stripe /
   Google / Slack keys, private-key blocks, JWTs, `scheme://user:pass@` URLs, and

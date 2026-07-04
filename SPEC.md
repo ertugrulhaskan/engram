@@ -138,10 +138,12 @@ type DocFile struct {
 
 ## 7. Sharing design (Phase 2)
 
-> **Status:** the core of this design plus sync-status badges are implemented and
-> merged to `main` — `init-team`, `promote`, `pull`, and the `✓`/`●`/`!` badges (see
-> the implemented subset under §7 list states). The `[team ↓]` incoming and `[team ⚠]`
-> conflict states, and the resolve UX, are the remaining work.
+> **Status:** implemented and merged to `main` — `init-team`, `promote`, `withdraw`,
+> `pull` (with clean-update fast-forward), the secret-scan guard, a **sync anchor**
+> (`syncedHash`) driving direction-aware badges (`✓`/`↓`/`↑`/`↕`/`!`, with `●` as the
+> no-anchor fallback), the `global`/`project` scope chip, and the `c` **conflict-resolve**
+> UX. Remaining: auto-pull for global-scoped memories (today taken via `c`), multi-select
+> promote, and the remote-less alias fallback.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -188,7 +190,17 @@ engram:
   scope: team                       # personal | team
   project: github.com/acme/app      # normalized git remote, or "global"
   owner: you@acme.com
+  syncedHash: 9f2a3c…               # digest of the shared content at last sync (the base)
 ```
+
+`syncedHash` is the **sync anchor**: a short digest (`memory.ContentDigest`) of the
+memory's *shared content* — Claude's frontmatter and body, with engram's own block
+excluded so the anchor never hashes itself — recorded on every promote and pull. It is
+the common base engram compares against to distinguish a clean fast-forward (`↓`) from a
+real conflict (`↕`), and to split `●` differs into a direction. It is a within-version
+change-detection optimization, not a security primitive: a memory without it (shared
+before this release) simply falls back to the direction-less `●`, and a digest that ever
+fails to line up degrades to a conservative conflict — never a silent overwrite.
 
 `id` is the **durable identity**: a memory keeps it across slug renames and
 edits, so a renamed promotion *updates* its team copy instead of orphaning it
@@ -216,9 +228,22 @@ filename. The id is assigned once, on the first promote.
   memory still shared under another scope is kept. Named `withdraw`, not
   "unpromote"/"demote". *(Ledger entries are append-only; garbage-collecting old
   tombstones once every clone has synced is a later refinement.)*
-- **pull** — `git pull` the clone, then place team files where Claude reads them
-  (matching project, or global), remove any local team copy whose id was withdrawn
-  upstream (see **withdraw**), and refresh the relevant `MEMORY.md`.
+- **pull** — `git pull` the clone, then place project team files where Claude reads
+  them, remove any local team copy whose id was withdrawn upstream (see **withdraw**),
+  and refresh the relevant `MEMORY.md`. For a memory already present locally, the
+  **sync anchor** decides: only the store moved and the local is untouched → **fast-
+  forward** (take the store copy); only the local moved → left as `↑ ahead`; both moved
+  (or no anchor) → left as a conflict, never overwritten. The summary counts new /
+  updated / ahead / up-to-date / withdrawn / conflict / skipped. *(Pull walks
+  `projects/` only; a local copy of a global memory is updated via `resolve`.)*
+- **resolve** *(TUI key `c`)* — reconcile a `↕ conflict` / `● differs` / incoming-global
+  memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
+  engram block excluded) into a temp file bracketed by git-style markers
+  (`<<<<<<< yours … ======= … >>>>>>> team`), opens `$EDITOR`, and on save writes the
+  resolved content back — re-anchoring on the store version so "take theirs" reads as
+  `✓ synced` and a kept merge reads as `↑ ahead`. A file still holding a marker line, or
+  emptied, aborts with the memory untouched. *(Whole-content markers, not a line-level
+  diff, so a frontmatter-only divergence is surfaced too.)*
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
   and engram never auto-pulls. On launch it does a cheap check against the team
   repo and badges memories that have updates (`[team ↓]`); files are only placed
@@ -256,36 +281,38 @@ decision, not a rubber stamp.
 
 Every memory has a state relative to the team repo:
 
-| Badge        | Meaning                              | Suggested action |
-|--------------|--------------------------------------|------------------|
-| `[personal]` | local only, intentionally private    | —                |
-| `[+] new`    | local, not yet in the team repo      | promote          |
-| `[team ✓]`   | local matches team                   | —                |
-| `[team ●]`   | edited locally since promoting       | promote (update) |
-| `[team ↓]`   | team has a newer version             | pull             |
-| `[team ⚠]`   | both changed                         | resolve          |
+`SyncStates` (`internal/team/status.go`) matches a local memory to the store **by
+`engram.id`** (a memory can appear under two scopes, so it counts as synced if it matches
+*any* store copy), then `relationOf` — the single direction rule shared with pull's
+`decidePull` — reads the anchor to name the state:
 
-**Implemented subset (today).** `SyncStates` (`internal/team/status.go`) computes only
-the states that are provable from what's on disk, matching a local memory to the store
-**by `engram.id`** (a memory can appear under two scopes, so it counts as synced if it
-matches *any* store copy):
+| Badge        | Meaning                                        | Suggested action |
+|--------------|------------------------------------------------|------------------|
+| *(none)*     | personal — local only, intentionally private   | —                |
+| `✓ synced`   | shared content matches a store copy            | —                |
+| `↓ incoming` | local is at the base; the store advanced       | pull / resolve   |
+| `↑ ahead`    | local advanced; the store is still at the base | promote          |
+| `↕ conflict` | both advanced past the base                    | resolve (`c`)    |
+| `● differs`  | differs, but **no anchor** to name a direction | resolve (`c`)    |
+| `! missing`  | `scope: team` but its id is in no store copy   | promote          |
 
-- `✓` **synced** — a store copy matches the local content.
-- `●` **differs** — a store copy exists but none matches. *No direction is claimed:*
-  distinguishing "you edited" (`●`) from "team is ahead" (`↓`) needs a recorded
-  last-synced anchor, which the `engram:` block doesn't carry yet.
-- `!` **missing** — the memory is `scope: team` but its id is in no store copy.
-
-Personal memories carry no badge. `[+] new`, `[team ↓]`, and `[team ⚠]` arrive with the
-sync-anchor + conflict-resolution work.
+`● differs` is the honest fallback for a memory shared before the anchor existed:
+distinguishing incoming from ahead needs the recorded base, so without it engram makes no
+direction claim. A muted `global` / `project` **scope chip** sits beside the pill, tied to
+its presence (no orphan chip).
 
 ### Collisions & conflicts
 
-- **Pull never overwrites a personal file.** If a personal `slug.md` and an
-  incoming team `slug.md` differ, the memory is marked `[team ⚠]`; identical
-  content is a no-op. (With stable `id`s, matching is by id, not filename.)
-- **Resolving `[team ⚠]`** opens both versions in `$EDITOR` (reusing the existing
-  edit flow); an inline diff view is a later refinement.
+- **Pull never overwrites a change.** Only a provable fast-forward (local digest equals
+  the recorded base) rewrites a local file; a `↑ ahead` or `↕ conflict` (or any anchor-
+  less differ) is left untouched. Matching is by `id`, not filename.
+- **Resolving** (`c`) brackets both versions' shared content with git-style markers in
+  `$EDITOR` and re-anchors on save (see **resolve** under §7 Operations). An inline diff
+  view is a later refinement.
+
+**Known limits.** The anchor is a 64-bit digest — ample for change detection, and a
+collision only ever degrades to a conservative conflict, never a silent overwrite. Global-
+scoped memories aren't auto-placed by pull, so an incoming global update is taken via `c`.
 
 ## 8. Module layout
 
@@ -300,7 +327,7 @@ engram/
             index.go         # MEMORY.md index upsert / remove / reconcile
             docs.go          # read-only CLAUDE.md/MEMORY.md discovery + signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
-            frontmatter.go   # engram: frontmatter block (EngramMeta) — lossless read/write round-trip
+            frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
         config/              # load/save theme + editor under the XDG config dir; Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
@@ -308,9 +335,11 @@ engram/
             remote.go        # NormalizeRemote: git remote URL → canonical host/path key
             identity.go      # ProjectKey: resolve a project's git remote to its team key
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
-            promote.go       # Promote a memory into the store (global/ or projects/<key>/), commit, push
-            pull.go          # Pull project team memories into matching local projects; conflict-safe
-            status.go        # SyncStates: read-only per-memory sync state (✓ synced / ● differs / ! missing)
+            promote.go       # Promote a memory into the store (global/ or projects/<key>/), stamp the anchor, commit, push
+            pull.go          # Pull project team memories; anchor-driven fast-forward vs conflict (decidePull)
+            status.go        # SyncStates + relationOf: read-only direction-aware sync state (✓/↓/↑/↕/●/!)
+            withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone; ledger.go
+            resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (key c)
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
