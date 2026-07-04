@@ -216,4 +216,7 @@ you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — free to use, modify, and share. Provided **"as is," with no
+warranty**; the author isn't liable for any loss or damage from using it. engram
+edits files under `~/.claude/` and syncs them over git, so keep backups of anything
+you can't afford to lose.
