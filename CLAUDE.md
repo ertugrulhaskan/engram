@@ -51,8 +51,9 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-Phase 2 (team sharing) has **shipped in `v0.2.0`**, so going public is now its own
-**Phase 3** (make the repo public, publish binaries + the Homebrew tap, deploy engram.im).
-The `v0.2.0` release tooling is built but **must not publish** — no `git push --tags`, no
-GitHub Release, no visibility change — until the user explicitly says so. Mechanics: SPEC §9
-and the "Releasing" section of CONTRIBUTING.md.
+Phase 3 — going public — is in progress: the repo is being made public and `v0.2.0`
+released (binaries + Homebrew tap, deploy engram.im). The release tooling is built and
+verified. **Don't run the publish steps unprompted** — no `git push --tags` (it fires the
+GoReleaser workflow), no GitHub Release, no visibility change — unless the maintainer
+explicitly asks in that turn. Mechanics: SPEC §9 and the "Releasing" section of
+CONTRIBUTING.md.

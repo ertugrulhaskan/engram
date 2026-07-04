@@ -443,10 +443,10 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 - Served via **Cloudflare Pages** (free tier, builds directly from the private repo —
   no GitHub Pro required): build command **empty** (CSS is prebuilt & committed), output
   directory `www`, custom domain `engram.im`.
-- **Publishing is deferred.** Gate go-live on the v0.2.0 release being public so the
-  install command and the "available" badge are true. Do not create the Cloudflare
-  project, change DNS, or otherwise publish without explicit sign-off (see the
-  Releasing rules in CLAUDE.md / CONTRIBUTING.md).
+- **Publishing runs at the Phase 3 launch.** Go-live is gated on the `v0.2.0` release
+  being public so the install command and the "available" badge are true. The Cloudflare
+  project, DNS, and release are the maintainer's deliberate steps — don't perform them
+  unprompted (see the Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 
 ## 10. Open questions / future
 

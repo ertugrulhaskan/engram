@@ -11,20 +11,17 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) complete —
-> `v0.1.0`. Phase 2 (team sharing over git) has **shipped in `v0.2.0`** — `init-team`,
+> **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) shipped as
+> `v0.1.0`; Phase 2 (team sharing over git) shipped as `v0.2.0` — `init-team`,
 > `promote` / `pull` / `withdraw` / `resolve`, direction-aware sync badges, and a
-> secret-scan guard, all under the `>` command palette. Going public (making the repo
-> public, publishing binaries + the Homebrew tap, deploying the site) is **Phase 3** and
-> hasn't happened yet — the repo stays private and nothing is published until then. See
-> [ROADMAP.md](ROADMAP.md). Design details live in [SPEC.md](SPEC.md).
+> secret-scan guard, all under the `>` command palette. Open source (MIT). See
+> [ROADMAP.md](ROADMAP.md) for what's next; design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
 > with Tailwind CSS (stock theme only; assets split into `www/css/` and `www/js/`) — run
 > `npm run build:css` and commit the generated `www/css/styles.css` after changing classes
-> (see [CONTRIBUTING.md](CONTRIBUTING.md) "Landing page"). It will be served at
-> [engram.im](https://engram.im) (Cloudflare Pages; publishing deferred — see
-> [SPEC.md](SPEC.md) §9).
+> (see [CONTRIBUTING.md](CONTRIBUTING.md) "Landing page"). Served at
+> [engram.im](https://engram.im) via Cloudflare Pages.
 
 ## Why
 
@@ -39,10 +36,8 @@ proper UI.
 
 ## Install
 
-> **Heads up — not published yet.** Phase 2 has shipped, but going public is **Phase 3**
-> (not done yet), so the repo is still private — the Homebrew tap and prebuilt binaries
-> below aren't available, and `go install` needs repo access. For now, **build from a
-> clone** (last option below). The other commands are how it will install once published.
+The quickest path on any platform is **Go**; macOS users can use the **Homebrew**
+cask, and prebuilt **binaries** are attached to each release.
 
 **Homebrew** (macOS, from the `v0.2.0` release):
 
@@ -208,7 +203,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
-- **Phase 3** — release / go public: publish binaries + Homebrew tap, deploy [engram.im](https://engram.im) *(not published yet)*
+- **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im)
 - **Phase 4** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing

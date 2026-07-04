@@ -25,7 +25,7 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Browse plan-mode plans too: multi-source switcher + command palette (`ctrl+p`),
       themed multi-pane UI with live theme switching, config persisted under XDG
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
-      tag-triggered release workflow — *publishing deferred until Phase 2*
+      tag-triggered release workflow — *runs at the Phase 3 release*
 
 ## Phase 1.5 — Assisted memory maintenance *(core shipped in `v0.1.0`; one item left)*
 
