@@ -67,7 +67,7 @@ it. Gated on an explicit go-ahead — nothing here happens automatically.
 - [ ] Make the GitHub repo public
 - [ ] Push the `v0.2.0` tag to trigger the GoReleaser publish workflow
 - [ ] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
-- [ ] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages)
+- [ ] Deploy the landing page to [engram.im](https://engram.im) (Netlify)
 - [ ] Verify install paths end-to-end (Homebrew, `go install`, prebuilt binaries)
 
 ## Phase 4 — Other assistants

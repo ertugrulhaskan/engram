@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — engram</title>
+<meta name="description" content="How engram.im handles data: cookieless by default, Google Analytics only after consent. The engram tool itself runs locally and sends none of your memories anywhere." />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://engram.im/privacy.html" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.theme;
+      if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-white text-neutral-800 font-sans leading-relaxed antialiased dark:bg-neutral-950 dark:text-neutral-300">
+
+<header class="border-b border-neutral-200 dark:border-neutral-800">
+  <div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+    <a href="index.html" class="font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram</a>
+    <a href="index.html" class="font-mono text-xs text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200">← back to home</a>
+  </div>
+</header>
+
+<main class="mx-auto max-w-3xl px-6 py-12">
+  <h1 class="mb-2 font-mono text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">Privacy Policy</h1>
+  <p class="mb-8 font-mono text-xs text-neutral-500 dark:text-neutral-400">Last updated: July 4, 2026</p>
+
+  <p class="mb-6">This policy covers the website <b class="font-semibold text-neutral-900 dark:text-neutral-200">engram.im</b>. The engram <em>tool</em> is separate: it runs entirely on your own machine, reads and writes files under <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude/</code>, and syncs only over a git remote you control — it has no servers and sends none of your memories to us. This page is about the marketing site only.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">What we collect</h2>
+  <p class="mb-3">The site has no accounts, no sign-up, and no forms — we don't ask you for any personal information. The only data collection is optional analytics:</p>
+  <ul class="mb-4 list-disc space-y-1.5 pl-6 text-neutral-700 dark:text-neutral-300">
+    <li><b class="font-semibold text-neutral-900 dark:text-neutral-200">Google Analytics (only if you accept cookies)</b> — pages you view, approximate location (country/region), device and browser type, and the site that referred you. This is used solely to understand how the site is used.</li>
+    <li><b class="font-semibold text-neutral-900 dark:text-neutral-200">Standard server logs</b> — our host (Netlify) may keep basic request logs (IP address, timestamp, user-agent) for security and operations, as most web servers do.</li>
+  </ul>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Cookies &amp; consent</h2>
+  <p class="mb-3">Analytics cookies are <b class="font-semibold text-neutral-900 dark:text-neutral-200">off by default</b>. Google Analytics is not loaded and sets no cookies until you click <b class="font-semibold text-neutral-900 dark:text-neutral-200">Accept</b> in the cookie banner. If you click Decline, or ignore the banner, no analytics cookies are set.</p>
+  <p class="mb-3">If you accept, Google Analytics sets cookies (e.g. <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">_ga</code>, <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">_ga_*</code>) to distinguish visitors. You can withdraw consent at any time by clearing this site's cookies and local storage in your browser — you'll then be asked again on your next visit.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Legal basis</h2>
+  <p class="mb-3">For visitors in the EU/UK, our legal basis for analytics is your <b class="font-semibold text-neutral-900 dark:text-neutral-200">consent</b> (GDPR Art. 6(1)(a) and the ePrivacy/PECR cookie rules). Consent is optional and can be withdrawn as described above.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Third parties</h2>
+  <ul class="mb-4 list-disc space-y-1.5 pl-6 text-neutral-700 dark:text-neutral-300">
+    <li><b class="font-semibold text-neutral-900 dark:text-neutral-200">Google</b> processes the analytics data — see Google's <a class="text-blue-600 underline underline-offset-2 hover:text-blue-500 dark:text-blue-400" href="https://policies.google.com/privacy" rel="noopener" target="_blank">Privacy Policy</a>.</li>
+    <li><b class="font-semibold text-neutral-900 dark:text-neutral-200">Netlify</b> hosts the site — see Netlify's <a class="text-blue-600 underline underline-offset-2 hover:text-blue-500 dark:text-blue-400" href="https://www.netlify.com/privacy/" rel="noopener" target="_blank">Privacy Policy</a>.</li>
+  </ul>
+  <p class="mb-3">We don't sell your data, and we don't share it beyond these processors.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Your rights</h2>
+  <p class="mb-3">Depending on where you live (e.g. under GDPR or California's CCPA/CPRA), you may have the right to access, correct, or delete your data, and to opt out. Since the site collects only anonymous-ish analytics and no account data, the simplest way to stop collection is to decline cookies or clear them. For any request, contact us below.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Changes</h2>
+  <p class="mb-3">We may update this policy as the site changes; the "last updated" date above will reflect any revision.</p>
+
+  <h2 class="mb-2 mt-8 font-mono text-xl font-bold text-neutral-900 dark:text-neutral-200">Contact</h2>
+  <p class="mb-3">Questions about this policy? Email <a class="text-blue-600 underline underline-offset-2 hover:text-blue-500 dark:text-blue-400" href="mailto:ertughaskan@gmail.com">ertughaskan@gmail.com</a>.</p>
+</main>
+
+<footer class="mt-8 border-t border-neutral-200 py-6 pb-12 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+  <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-6">
+    <span>engram <span class="font-normal text-neutral-500">— your AI's memory, in the terminal</span></span>
+    <span>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="index.html">Home</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram">GitHub</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

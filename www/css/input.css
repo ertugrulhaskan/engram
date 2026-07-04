@@ -4,6 +4,7 @@
    no custom colors/values/breakpoints; only stock `dark:` utilities are used). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Stock theme only — no customization. Scan the landing page for class names.
-   Path is relative to this stylesheet (www/css/), so index.html is one level up. */
+/* Stock theme only — no customization. Scan the pages for class names.
+   Paths are relative to this stylesheet (www/css/), so the pages are one level up. */
 @source "../index.html";
+@source "../privacy.html";

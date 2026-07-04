@@ -233,7 +233,7 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 - Landing page for **engram.im** (`www/index.html`) — at the time, a single self-contained
   HTML page in the Classic Dark theme (later rebuilt with a Tailwind build step + light/dark/
   system themes; see [0.2.0]).
-  Served via Cloudflare Pages from `www/` (see SPEC §9).
+  Served via Netlify from `www/` (see SPEC §9).
 - Project `.mcp.json` registering the `context7` and `sequential-thinking` MCP
   servers so Claude Code (not just VSCode) can use them; the context7 key is read
   from the `${CONTEXT7_API_KEY}` environment variable, so no secret is committed.

@@ -39,15 +39,7 @@
   })();
 </script>
 <link rel="stylesheet" href="css/styles.css" />
-
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-V97M01VZNY"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){ dataLayer.push(arguments); }
-  gtag('js', new Date());
-  gtag('config', 'G-V97M01VZNY');
-</script>
+<!-- Google Analytics loads only after cookie consent — see js/main.js -->
 </head>
 <body class="bg-white text-neutral-800 font-sans leading-relaxed antialiased dark:bg-neutral-950 dark:text-neutral-300">
 
@@ -109,10 +101,17 @@
     <span class="mb-6 inline-block rounded-full border border-neutral-200 bg-neutral-100 px-4 py-1.5 font-mono text-xs text-green-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-green-500"><span class="motion-safe:animate-pulse" aria-hidden="true">●</span> your team's AI memory, in one place</span>
     <h1 class="mx-auto mb-5 max-w-3xl font-mono text-4xl font-extrabold leading-tight tracking-tight text-neutral-900 md:text-6xl dark:text-white">Your AI's memory, in one terminal.</h1>
     <p class="mx-auto mb-7 max-w-xl text-base text-neutral-600 md:text-lg dark:text-neutral-400">Claude Code writes memories to disk, one folder per project. engram brings them into one fast TUI — and shares the best with your team over plain git.</p>
-    <div class="inline-flex max-w-full items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 text-left font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
-      <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
-      <code class="overflow-x-auto text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
-      <button type="button" data-copy aria-label="Copy install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+    <div class="mx-auto flex w-full max-w-xl flex-col gap-2 text-left">
+      <div class="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+        <code class="flex-1 overflow-x-auto whitespace-nowrap text-neutral-800 dark:text-neutral-200">brew install ertugrulhaskan/tap/engram</code>
+        <button type="button" data-copy aria-label="Copy the Homebrew install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+      </div>
+      <div class="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+        <code class="flex-1 overflow-x-auto whitespace-nowrap text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
+        <button type="button" data-copy aria-label="Copy the Go install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+      </div>
     </div>
     <p class="mt-4 font-mono text-xs text-neutral-600 dark:text-neutral-400">macOS, Linux · single binary · no servers, no signup</p>
   </section>
@@ -326,10 +325,17 @@
   <section class="pt-24 pb-2 text-center">
     <h2 class="mb-3 font-mono text-3xl font-extrabold tracking-tight text-neutral-900 md:text-4xl dark:text-white">Stop grepping your memory files.</h2>
     <p class="mb-7 text-neutral-600 dark:text-neutral-400">One binary. No servers. No signup — yours today, your team in one keystroke.</p>
-    <div class="inline-flex max-w-full items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 text-left font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
-      <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
-      <code class="overflow-x-auto text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
-      <button type="button" data-copy aria-label="Copy install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+    <div class="mx-auto flex w-full max-w-xl flex-col gap-2 text-left">
+      <div class="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+        <code class="flex-1 overflow-x-auto whitespace-nowrap text-neutral-800 dark:text-neutral-200">brew install ertugrulhaskan/tap/engram</code>
+        <button type="button" data-copy aria-label="Copy the Homebrew install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+      </div>
+      <div class="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-100 py-3 pl-5 pr-3 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <span class="select-none text-green-700 dark:text-green-500" aria-hidden="true">$</span>
+        <code class="flex-1 overflow-x-auto whitespace-nowrap text-neutral-800 dark:text-neutral-200">go install github.com/ertugrulhaskan/engram@latest</code>
+        <button type="button" data-copy aria-label="Copy the Go install command" class="flex-none cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-sans text-xs text-neutral-600 transition hover:border-blue-500 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:border-blue-400 dark:hover:text-neutral-200">copy</button>
+      </div>
     </div>
   </section>
 
@@ -343,10 +349,22 @@
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram/blob/main/ROADMAP.md">Roadmap</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram/blob/main/LICENSE">License</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="privacy.html">Privacy</a>
     </span>
   </div>
   <div class="mx-auto mt-3 max-w-5xl px-6 text-xs text-neutral-500 dark:text-neutral-500">Open source under the MIT License — provided “as is”, with no warranty.</div>
 </footer>
+
+<!-- cookie consent (Google Analytics loads only after Accept) -->
+<div id="cookie-banner" class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-neutral-200 bg-white/95 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/95">
+  <div class="mx-auto flex max-w-5xl flex-col gap-3 px-6 py-4 text-sm text-neutral-700 sm:flex-row sm:items-center sm:justify-between dark:text-neutral-300">
+    <p class="max-w-2xl">We use <b class="font-semibold text-neutral-900 dark:text-neutral-200">Google Analytics</b> cookies to see how the site is used — only if you agree. See the <a class="underline decoration-neutral-400 underline-offset-2 hover:text-neutral-900 dark:hover:text-neutral-100" href="privacy.html">Privacy Policy</a>.</p>
+    <div class="flex flex-none gap-2">
+      <button type="button" id="cookie-decline" class="cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-neutral-700 hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600">Decline</button>
+      <button type="button" id="cookie-accept" class="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400">Accept</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/main.js" defer></script>
 </body>

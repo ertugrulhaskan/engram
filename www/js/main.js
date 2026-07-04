@@ -195,3 +195,34 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 })();
+
+// --- cookie consent + Google Analytics (loads ONLY after opt-in) ---
+// Analytics cookies are non-essential, so gtag.js is not requested until the
+// visitor clicks Accept (and on later visits if they accepted before). Declining
+// never loads it. Choice is remembered in localStorage.
+(function () {
+  var GA_ID = 'G-V97M01VZNY';
+  var banner = document.getElementById('cookie-banner');
+  function get() { try { return localStorage.getItem('cookie-consent'); } catch (e) { return null; } }
+  function set(v) { try { localStorage.setItem('cookie-consent', v); } catch (e) {} }
+  function hide() { if (banner) banner.classList.add('hidden'); }
+  function loadGA() {
+    if (window.__gaLoaded) return;
+    window.__gaLoaded = true;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag('js', new Date());
+    gtag('config', GA_ID);
+  }
+  var choice = get();
+  if (choice === 'accepted') { loadGA(); }
+  else if (choice !== 'declined' && banner) { banner.classList.remove('hidden'); }
+  var accept = document.getElementById('cookie-accept');
+  var decline = document.getElementById('cookie-decline');
+  if (accept) accept.addEventListener('click', function () { set('accepted'); hide(); loadGA(); });
+  if (decline) decline.addEventListener('click', function () { set('declined'); hide(); });
+})();

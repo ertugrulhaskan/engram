@@ -21,7 +21,8 @@ keeps so it can remember things across sessions.
 > with Tailwind CSS (stock theme only; assets split into `www/css/` and `www/js/`) — run
 > `npm run build:css` and commit the generated `www/css/styles.css` after changing classes
 > (see [CONTRIBUTING.md](CONTRIBUTING.md) "Landing page"). Served at
-> [engram.im](https://engram.im) via Cloudflare Pages.
+> [engram.im](https://engram.im) via Netlify (config in `netlify.toml`); analytics load
+> only after cookie consent, with a [privacy policy](www/privacy.html) at `www/privacy.html`.
 
 ## Why
 

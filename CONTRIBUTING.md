@@ -49,8 +49,9 @@ npm run build:css    # compile www/css/input.css -> www/css/styles.css (minified
 npm run watch:css    # rebuild on change while editing
 ```
 
-`www/css/styles.css` is **committed** (Cloudflare Pages serves `www/` statically with no
-build command), so rebuild and commit it whenever you change classes in `index.html`.
+`www/css/styles.css` is **committed** (Netlify serves `www/` statically with no build
+command — see `netlify.toml`), so rebuild and commit it whenever you change classes in
+`index.html` or `privacy.html`.
 `www/js/main.js` is a plain classic script (no build step) — edit it directly. Keep the
 pre-paint theme guard inline in `<head>` so the right theme paints on the first frame.
 `node_modules/` is gitignored and must never be committed.

@@ -1,0 +1,6 @@
+# Netlify configuration — engram.im landing page.
+# The Tailwind CSS is prebuilt and committed (see CONTRIBUTING "Landing page"),
+# so there is no build step; Netlify just publishes the static www/ directory.
+[build]
+  publish = "www"
+  command = ""

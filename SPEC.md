@@ -440,12 +440,14 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   script, no modules/dependencies); the only inline script is a tiny pre-paint theme
   guard in `<head>` (kept inline to avoid a flash of the wrong theme). It supports
   light / dark / system themes and is keyboard-accessible; it stays in sync with the docs.
-- Served via **Cloudflare Pages** (free tier, builds directly from the private repo —
-  no GitHub Pro required): build command **empty** (CSS is prebuilt & committed), output
-  directory `www`, custom domain `engram.im`.
+- Served via **Netlify** (static hosting): build command **empty** (CSS is prebuilt &
+  committed), publish directory `www`, custom domain `engram.im`. Config is committed in
+  `netlify.toml`. Google Analytics is loaded **only after cookie consent** (see the
+  banner in `index.html` + `main.js`); the [Privacy Policy](../www/privacy.html) is
+  `www/privacy.html`.
 - **Publishing runs at the Phase 3 launch.** Go-live is gated on the `v0.2.0` release
-  being public so the install command and the "available" badge are true. The Cloudflare
-  project, DNS, and release are the maintainer's deliberate steps — don't perform them
+  being public so the install command and the "available" badge are true. The Netlify
+  site, DNS, and release are the maintainer's deliberate steps — don't perform them
   unprompted (see the Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 
 ## 10. Open questions / future
