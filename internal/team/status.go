@@ -13,10 +13,13 @@ import (
 type SyncState int
 
 const (
-	StateNone    SyncState = iota // not shared (personal, or no engram block)
-	StateSynced                   // scope=team, present in the store, content identical
-	StateDiffers                  // scope=team, present in the store, content differs
-	StateMissing                  // scope=team, but no matching id in the store
+	StateNone       SyncState = iota // not shared (personal, or no engram block)
+	StateSynced                      // scope=team, shared content identical to the store
+	StateIncoming                    // scope=team, local at base but the store advanced — safe to take
+	StateLocalAhead                  // scope=team, local advanced but the store is still at base — promote to share
+	StateDiverged                    // scope=team, local and store both advanced past the base — conflict
+	StateDiffers                     // scope=team, content differs but no anchor to name a direction
+	StateMissing                     // scope=team, but no matching id in the store
 )
 
 // SyncStates reports each memory's relationship to the team store, keyed by the
@@ -41,30 +44,63 @@ func SyncStates(mems []memory.Memory) (map[string]SyncState, error) {
 			continue // StateNone — not shared
 		}
 		copies, present := store[meta.ID]
-		switch {
-		case !present:
+		if !present {
 			out[mm.Path] = StateMissing
-		case matchesAny(mm.Raw, copies):
-			out[mm.Path] = StateSynced
-		default:
-			out[mm.Path] = StateDiffers
+			continue
 		}
+		out[mm.Path] = classify(mm.Raw, meta.SyncedHash, copies)
 	}
 	return out, nil
 }
 
-// matchesAny reports whether local matches any of the store copies (line-ending
-// tolerant). A memory's id can appear in the store under more than one scope
-// (re-promoting to a different scope leaves the old copy behind), so "in sync"
-// means the local content matches at least one of them — not whichever the walk
-// happened to index last.
-func matchesAny(local string, copies []string) bool {
+// classify decides a present team memory's state against the store copies of its
+// id. It digests the local copy and every store copy, then defers to relationOf —
+// the one place the direction rule lives (shared with Pull's decidePull).
+func classify(local, base string, copies []string) SyncState {
+	localHash, err := memory.ContentDigest(local)
+	if err != nil {
+		return StateDiffers // can't hash the local copy — don't guess a direction
+	}
+	return relationOf(localHash, base, digestSet(copies))
+}
+
+// relationOf is the single source of the sync-direction rule, shared by SyncStates
+// (which maps it to a badge) and Pull (which maps it to an action). Given the local
+// content digest, the base anchor, and the set of store-copy digests, it returns:
+// Synced (content matches a store copy), Incoming (local at base, store moved),
+// LocalAhead (local moved, store at base), Diverged (both moved), or a
+// direction-less Differs when there is no anchor to reason from.
+func relationOf(localHash, base string, storeHashes map[string]bool) SyncState {
+	if storeHashes[localHash] {
+		return StateSynced // same shared content (bookkeeping may differ)
+	}
+	if base == "" {
+		return StateDiffers // no anchor — can't tell which side moved
+	}
+	localMoved := localHash != base
+	storeAtBase := storeHashes[base] // some store copy still equals the base
+	switch {
+	case !localMoved && !storeAtBase:
+		return StateIncoming // I'm at base, the store advanced past it → take it
+	case localMoved && storeAtBase:
+		return StateLocalAhead // I advanced, the store is still at base → promote
+	case localMoved && !storeAtBase:
+		return StateDiverged // both advanced independently → conflict
+	default:
+		return StateDiffers // local at base yet unmatched — inconsistent; stay conservative
+	}
+}
+
+// digestSet returns the set of content digests for the given store copies, skipping
+// any that fail to hash.
+func digestSet(copies []string) map[string]bool {
+	out := make(map[string]bool, len(copies))
 	for _, c := range copies {
-		if sameContent(local, c) {
-			return true
+		if h, err := memory.ContentDigest(c); err == nil {
+			out[h] = true
 		}
 	}
-	return false
+	return out
 }
 
 // storeIndexByID maps engram.id -> the raw contents of every store memory with

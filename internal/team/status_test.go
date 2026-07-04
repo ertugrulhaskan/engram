@@ -79,6 +79,63 @@ func TestSyncStates(t *testing.T) {
 	}
 }
 
+func TestSyncStatesDirection(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	store := filepath.Join(xdg, "engram", "team")
+	mustMkdir(t, filepath.Join(store, ".git"))
+
+	plain := func(name, body string) string {
+		return "---\nname: " + name + "\n---\n# " + name + "\n\n" + body + "\n"
+	}
+	digest := func(name, body string) string {
+		d, err := memory.ContentDigest(plain(name, body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	anchored := func(name, id, body, anchor string) string {
+		out, err := memory.WriteEngram(plain(name, body), memory.EngramMeta{
+			ID: id, Scope: "team", Project: "global", SyncedHash: anchor,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+
+	// INCOMING: local sits at the base; the store advanced past it.
+	baseIn := digest("in", "base body")
+	writeStore(t, store, "global/in.md", anchored("in", "IN", "advanced body", baseIn))
+	// LOCAL-AHEAD: local advanced; the store is still at the base.
+	baseAhead := digest("ahead", "base body")
+	writeStore(t, store, "global/ahead.md", anchored("ahead", "AHEAD", "base body", baseAhead))
+	// DIVERGED: local and store advanced differently from the same base.
+	baseDiv := digest("div", "base body")
+	writeStore(t, store, "global/div.md", anchored("div", "DIV", "store edit", baseDiv))
+
+	mems := []memory.Memory{
+		{Path: "/l/in.md", Raw: anchored("in", "IN", "base body", baseIn)},
+		{Path: "/l/ahead.md", Raw: anchored("ahead", "AHEAD", "local edit", baseAhead)},
+		{Path: "/l/div.md", Raw: anchored("div", "DIV", "local edit", baseDiv)},
+	}
+	got, err := SyncStates(mems)
+	if err != nil {
+		t.Fatalf("SyncStates: %v", err)
+	}
+	want := map[string]SyncState{
+		"/l/in.md":    StateIncoming,
+		"/l/ahead.md": StateLocalAhead,
+		"/l/div.md":   StateDiverged,
+	}
+	for p, ws := range want {
+		if got[p] != ws {
+			t.Errorf("%s = %v, want %v", p, got[p], ws)
+		}
+	}
+}
+
 func TestSyncStates_CrossScopeDuplicateID(t *testing.T) {
 	xdg := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdg)

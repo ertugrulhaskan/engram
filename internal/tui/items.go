@@ -41,6 +41,7 @@ type Item struct {
 	SyncBadge  string // team-sync pill label (e.g. "✓ synced"); "" = no sync badge on this row
 	SyncColor  string // hex pill background
 	SyncFg     string // hex pill foreground
+	Scope      string // shared-scope chip: "global" / "project"; "" = not shared
 	GroupKey   string // "" = flat (no group headers)
 	GroupLabel string // header text for the first row of a group
 	GroupColor string // header color (hex)
@@ -157,6 +158,18 @@ func (m Model) docItems() []Item {
 
 // memoryItems maps memories into Items, applying the active type filter and
 // grouping (project or type) and resolving badge/group colors from the theme.
+// scopeLabel names a shared memory's scope for the list chip: "global" for the
+// team-wide bucket, "project" for a repo-scoped memory, "" when it isn't shared.
+func scopeLabel(e memory.EngramMeta) string {
+	if e.Scope != "team" {
+		return ""
+	}
+	if e.Project == "global" {
+		return "global"
+	}
+	return "project"
+}
+
 func (m Model) memoryItems() []Item {
 	t := m.theme()
 	tf := typeCycle[m.typeIdx]
@@ -181,10 +194,17 @@ func (m Model) memoryItems() []Item {
 			right = "· " + mm.Project.Name
 		}
 		syncLbl, syncBg, syncFg, _ := syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
+		// Tie the scope chip to the sync pill: only show it when the memory has a
+		// sync state (team-scoped AND the store is initialized), so it never appears
+		// as an orphan chip with no pill beside it.
+		scope := ""
+		if syncLbl != "" {
+			scope = scopeLabel(mm.Shared)
+		}
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg,
+			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope,
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})

@@ -26,6 +26,7 @@ type Memory struct {
 	Path        string    // absolute path on disk
 	Modified    time.Time // file modification time
 	Project     Project
+	Shared      EngramMeta // engram sharing block; zero value when the memory isn't shared
 }
 
 // Project is the Claude Code project a memory belongs to.

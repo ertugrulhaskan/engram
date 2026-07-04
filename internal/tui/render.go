@@ -11,9 +11,15 @@ import (
 func (m Model) listPane() string {
 	t := m.theme()
 	h := m.listRows()
-	badgeW := m.badgeColW()                 // widest type badge in view; computed once per render
-	syncW := m.syncColW()                   // right-aligned sync-pill width (0 when nothing in view is shared)
-	rightCol := m.rightColW(badgeW + syncW) // Right column budget accounts for the badge + pill
+	badgeW := m.badgeColW()                          // widest type badge in view; computed once per render
+	syncW := m.syncColW()                            // right-aligned sync-pill width (0 when nothing in view is shared)
+	scopeW := m.scopeColW()                          // scope chip width (0 when nothing in view is shared)
+	rightCol := m.rightColW(badgeW + scopeW + syncW) // Right column budget accounts for the left/right furniture
+	// On a narrow pane the fixed furniture can crowd out the title and push the sync
+	// pill past the edge (clampFrame would then cut it mid-glyph). Shed the least-
+	// critical columns first — the muted scope chip, then the Right column — so the
+	// color-coded sync pill and a readable title always fit.
+	scopeW, rightCol = m.fitFurniture(badgeW, scopeW, syncW, rightCol)
 	lines := make([]string, 0, h)
 	for i := m.top; i < m.top+h; i++ {
 		switch {
@@ -24,7 +30,7 @@ func (m Model) listPane() string {
 		case m.rows[i].kind == rowHeader:
 			lines = append(lines, m.headerRow(m.rows[i]))
 		default:
-			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, syncW, rightCol))
+			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, scopeW, syncW, rightCol))
 		}
 	}
 	shown := m.shownCount()
@@ -81,6 +87,61 @@ func (m Model) syncColW() int {
 	return w + 2 // one space of pill padding on each side
 }
 
+// scopeColW sizes the muted scope chip ("global" / "project") from the widest
+// scope label in view. Like syncColW it collapses to 0 when nothing shared is in
+// view, so it's invisible outside team sharing. It's dim text, not a filled pill,
+// so it stays secondary to the color-coded sync state next to it.
+func (m Model) scopeColW() int {
+	w := 0
+	for _, r := range m.rows {
+		if r.kind == rowMemory {
+			if l := runewidth.StringWidth(r.item.Scope); l > w {
+				w = l
+			}
+		}
+	}
+	return w
+}
+
+// minTitleW is the least title width a memory row will hold before the renderer
+// starts shedding right-side furniture to make room.
+const minTitleW = 8
+
+// fitFurniture sheds the least-critical right-side columns — the muted scope chip
+// first, then the Right column — until a row's fixed furniture leaves at least
+// minTitleW cells for the title. The furniture sum mirrors memRow's nameW math
+// (indent + padded badge + each column + its leading gap), so the sync pill is
+// never pushed past the pane edge and cut by clampFrame.
+func (m Model) fitFurniture(badgeW, scopeW, syncW, rightCol int) (int, int) {
+	furniture := func() int {
+		w := 2 // indent
+		if badgeW > 0 {
+			w += badgeW + 1
+		}
+		if rightCol > 0 {
+			w += rightCol + 1
+		}
+		if scopeW > 0 {
+			w += scopeW + 1
+		}
+		if syncW > 0 {
+			w += syncW + 1
+		}
+		return w
+	}
+	for m.listW-furniture() < minTitleW {
+		switch {
+		case scopeW > 0:
+			scopeW = 0
+		case rightCol > 0:
+			rightCol = 0
+		default:
+			return scopeW, rightCol // badge + pill alone already fill the pane; memRow floors the title
+		}
+	}
+	return scopeW, rightCol
+}
+
 // rightColW sizes the right-aligned column from the widest Item.Right in view
 // (project name when grouped by type, or the date for plans), collapsing to 0
 // when nothing needs it or it would starve the title. leftCols is the in-view
@@ -118,16 +179,19 @@ func (m Model) headerRow(r row) string {
 	return fg(r.color).Render("▌ ") + fgb(r.color).Render(label) + fg(t.Dim).Render(suffix)
 }
 
-func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) string {
+func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol int) string {
 	t := m.theme()
 
 	badgeCol := 0
 	if it.Badge != "" {
 		badgeCol = badgeW + 1 // padded badge + trailing space
 	}
-	nameW := m.listW - 2 - badgeCol - rightCol - syncW
+	nameW := m.listW - 2 - badgeCol - rightCol - scopeW - syncW
 	if rightCol > 0 {
 		nameW-- // gap before the right column
+	}
+	if scopeW > 0 {
+		nameW-- // gap before the scope chip
 	}
 	if syncW > 0 {
 		nameW-- // gap before the sync pill
@@ -170,6 +234,14 @@ func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) strin
 	if rightCol > 0 {
 		out += st(t.Fg).Render(" ") + st(t.Dim).Render(padLeft(it.Right, rightCol))
 	}
+	if scopeW > 0 {
+		out += st(t.Fg).Render(" ")
+		if it.Scope != "" {
+			out += st(t.Dim).Render(padLeft(it.Scope, scopeW)) // muted context, right-aligned against the pill
+		} else {
+			out += st(t.Fg).Render(padRight("", scopeW)) // blank, keeps the pill edge aligned
+		}
+	}
 	if syncW > 0 {
 		out += st(t.Fg).Render(" ")
 		if it.SyncBadge != "" {
@@ -202,6 +274,9 @@ func (m Model) previewPane() string {
 	}
 	if _, bg, _, word := syncBadge(m.syncStates[it.Path]); word != "" {
 		tok := "team " + word // colored text in the preview, where there's room
+		if it.Scope != "" {
+			tok = "team " + it.Scope + " · " + word // e.g. "team global · synced"
+		}
 		meta += fg(bg).Bold(true).Render(tok) + " "
 		used += runewidth.StringWidth(tok) + 1
 	}

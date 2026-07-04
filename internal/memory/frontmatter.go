@@ -2,6 +2,7 @@ package memory
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,12 @@ type EngramMeta struct {
 	Scope   string `yaml:"scope,omitempty"`   // "personal" | "team"
 	Project string `yaml:"project,omitempty"` // normalized remote key, or "global"
 	Owner   string `yaml:"owner,omitempty"`
+	// SyncedHash is the ContentDigest of the shared content at the last sync
+	// (promote or pull) — the common base engram compares against to tell a clean
+	// fast-forward from a real conflict. Empty on personal memories and on copies
+	// last synced by a pre-anchor engram; callers must treat an absent anchor as
+	// "unknown" and fall back to a direction-less compare.
+	SyncedHash string `yaml:"syncedHash,omitempty"`
 }
 
 // ReadEngram extracts the `engram:` block from a memory file's raw contents. ok is
@@ -60,12 +67,18 @@ func WriteEngram(raw string, meta EngramMeta) (string, error) {
 		return "", err
 	}
 	setMapKey(mapping, "engram", &engramVal)
+	return reserialize(mapping, body)
+}
 
+// reserialize renders a frontmatter mapping node plus a verbatim body back into a
+// memory file with the standard `---` delimiters. Shared by WriteEngram and
+// stripEngramBlock so the digest input and the file written to disk stay
+// byte-identical — if the framing ever changes, both move together.
+func reserialize(mapping *yaml.Node, body string) (string, error) {
 	out, err := yaml.Marshal(mapping)
 	if err != nil {
 		return "", err
 	}
-
 	var b strings.Builder
 	b.WriteString("---\n")
 	b.Write(out) // yaml.Marshal output ends with a newline
@@ -84,6 +97,76 @@ func NewID() (string, error) {
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
 	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
+}
+
+// ContentDigest returns a stable short hex hash of a memory's shared content —
+// its body plus Claude's frontmatter — with engram's own `engram:` block excluded
+// so bookkeeping (the sync anchor, owner, scope, id) never perturbs it, and line
+// endings normalized. Two files that carry the same body and Claude frontmatter
+// digest equal regardless of engram metadata or CRLF/LF. It underpins the sync
+// anchor: a copy's stored SyncedHash is the digest of the content it was last
+// synced to, so a later digest mismatch means that copy's content has moved.
+func ContentDigest(raw string) (string, error) {
+	canon, err := stripEngramBlock(raw)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(strings.ReplaceAll(canon, "\r\n", "\n")))
+	// 8 bytes (64 bits) is ample for a personal/team memory store — accidental
+	// collisions are astronomically unlikely, and a mismatch only ever degrades to a
+	// conservative conflict, never a silent overwrite.
+	return fmt.Sprintf("%x", sum[:8]), nil
+}
+
+// ShareContent returns a memory's shared content — Claude's frontmatter and body
+// with engram's own block removed and the frontmatter canonicalized. It is exactly
+// what ContentDigest hashes and what the conflict editor presents, so a resolution
+// saved from it re-digests consistently against the store copy.
+func ShareContent(raw string) (string, error) { return stripEngramBlock(raw) }
+
+// stripEngramBlock returns raw with the `engram:` frontmatter key removed and the
+// remaining frontmatter re-serialized canonically; the body is preserved verbatim.
+// A file with no frontmatter (or whose frontmatter held only the engram block)
+// collapses to its body. Used only to compute ContentDigest — never written to disk.
+func stripEngramBlock(raw string) (string, error) {
+	fmText, body, has := splitFMVerbatim(raw)
+	if !has || strings.TrimSpace(fmText) == "" {
+		return raw, nil
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(fmText), &root); err != nil {
+		return "", err
+	}
+	mapping, err := topMapping(&root)
+	if err != nil {
+		return "", err
+	}
+	deleteMapKey(mapping, "engram")
+	if len(mapping.Content) == 0 {
+		return body, nil // frontmatter held only the engram block
+	}
+	return reserialize(mapping, body)
+}
+
+// deleteMapKey removes key (and its value) from a mapping node, in place.
+func deleteMapKey(m *yaml.Node, key string) {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			m.Content = append(m.Content[:i], m.Content[i+2:]...)
+			return
+		}
+	}
+}
+
+// SetBody returns raw with its markdown body replaced by newBody, preserving the
+// frontmatter block (delimiters and every key) verbatim. A file with no
+// frontmatter becomes newBody alone.
+func SetBody(raw, newBody string) string {
+	fm, _, has := splitFMVerbatim(raw)
+	if !has {
+		return newBody
+	}
+	return "---\n" + fm + "\n---\n" + newBody
 }
 
 // splitFMVerbatim is like splitFrontmatter but returns the body EXACTLY as it

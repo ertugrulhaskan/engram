@@ -21,6 +21,8 @@ type ProjectTarget struct {
 // PullResult summarizes a Pull.
 type PullResult struct {
 	Placed    int // new team memories written into a matching local project
+	Updated   int // existing local copy fast-forwarded to the store (local was unchanged since sync)
+	Ahead     int // local copy has unshared edits the store lacks — left as-is (↑ ahead)
 	UpToDate  int // already present locally and identical
 	Conflicts int // local copy differs from team — left untouched for the user to resolve
 	Skipped   int // team memories whose project has no local match
@@ -94,13 +96,30 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 			localByID[memDir] = ids
 		}
 
-		// Already present locally (matched by id)? No-op if identical, else conflict.
+		// Already present locally (matched by id)? Identical is a no-op; otherwise
+		// consult the anchor: fast-forward when only the store moved, leave a
+		// local-ahead file alone, and treat a genuine divergence (or an anchor-less
+		// memory) as a conflict — never overwriting the user's change.
 		if meta.ID != "" {
 			if localPath, exists := ids[meta.ID]; exists {
 				localRaw, _ := os.ReadFile(localPath)
 				if sameContent(string(localRaw), string(teamRaw)) {
 					res.UpToDate++
-				} else {
+					return nil
+				}
+				localMeta, _, _ := memory.ReadEngram(string(localRaw))
+				switch decidePull(string(localRaw), string(teamRaw), localMeta.SyncedHash) {
+				case pullUpToDate:
+					res.UpToDate++
+				case pullFastForward:
+					if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
+						return err
+					}
+					res.Updated++
+					touched[memDir] = true
+				case pullLocalAhead:
+					res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
+				default: // pullConflict
 					res.Conflicts++
 				}
 				return nil
@@ -161,6 +180,39 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 		_, _, _ = memory.ReconcileIndex(memDir) // refresh the index; best-effort
 	}
 	return res, nil
+}
+
+// pullAction is what Pull should do with a local team memory that differs from
+// its store copy, decided from the local file's recorded base anchor.
+type pullAction int
+
+const (
+	pullConflict    pullAction = iota // both sides moved, or no anchor to tell — never overwrite
+	pullUpToDate                      // same shared content; only engram bookkeeping differs
+	pullFastForward                   // only the store moved — safe to take the store version
+	pullLocalAhead                    // only local moved — the user's unshared work; leave it
+)
+
+// decidePull classifies a differing (local, store) pair using base — the digest of
+// the content the local copy was last synced to — by mapping the shared relationOf
+// rule onto pull actions. It never proposes overwriting a local change: without an
+// anchor, or when both sides moved, it stays a conflict.
+func decidePull(localRaw, teamRaw, base string) pullAction {
+	lh, err1 := memory.ContentDigest(localRaw)
+	sh, err2 := memory.ContentDigest(teamRaw)
+	if err1 != nil || err2 != nil {
+		return pullConflict // can't hash — don't risk clobbering the local file
+	}
+	switch relationOf(lh, base, map[string]bool{sh: true}) {
+	case StateSynced:
+		return pullUpToDate // shared content already matches; only bookkeeping differs
+	case StateIncoming:
+		return pullFastForward // local at base, store advanced → safe to take
+	case StateLocalAhead:
+		return pullLocalAhead // local advanced, store at base → leave the user's work
+	default: // StateDiverged (both moved) or StateDiffers (no anchor)
+		return pullConflict
+	}
 }
 
 // sameContent compares two memory files ignoring line-ending differences, so a

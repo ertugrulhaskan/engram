@@ -76,6 +76,11 @@ func TestPromote(t *testing.T) {
 	if meta.Owner != "promoter@example.com" {
 		t.Errorf("owner = %q, want promoter@example.com", meta.Owner)
 	}
+	// The sync anchor is stamped and equals the digest of the shared content
+	// (ContentDigest strips the engram block, so it recomputes the same value).
+	if want, _ := memory.ContentDigest(string(raw)); meta.SyncedHash == "" || meta.SyncedHash != want {
+		t.Errorf("syncedHash = %q, want %q", meta.SyncedHash, want)
+	}
 	if !strings.Contains(string(raw), "name: my-note") {
 		t.Errorf("lost Claude key locally:\n%s", raw)
 	}

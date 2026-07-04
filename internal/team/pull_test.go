@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 func TestSameContent(t *testing.T) {
@@ -14,6 +16,97 @@ func TestSameContent(t *testing.T) {
 	}
 	if sameContent("alpha\n", "beta\n") {
 		t.Error("different content should not compare equal")
+	}
+}
+
+func TestPullFastForwardVsDiverge(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = P\n\temail = p@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+
+	key := "github.com/acme/app"
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeMem := func(name, body string) string {
+		p := filepath.Join(localMem, name)
+		raw := "---\nname: " + strings.TrimSuffix(name, ".md") + "\n---\n# " + name + "\n\n" + body + "\n"
+		if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	// Promote two memories: both anchored, both copied into the store at the base.
+	if _, err := Promote(writeMem("ff.md", "v1"), key); err != nil {
+		t.Fatalf("Promote ff: %v", err)
+	}
+	if _, err := Promote(writeMem("div.md", "v1"), key); err != nil {
+		t.Fatalf("Promote div: %v", err)
+	}
+	if _, err := Promote(writeMem("ahead.md", "v1"), key); err != nil {
+		t.Fatalf("Promote ahead: %v", err)
+	}
+	targets := []ProjectTarget{{Key: key, MemoryDir: localMem}}
+
+	// A teammate clones and advances BOTH store copies (restamping the anchor), then pushes.
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	advance := func(name, body string) {
+		p := filepath.Join(mate, "projects", key, name)
+		raw, _ := os.ReadFile(p)
+		m, _, _ := memory.ReadEngram(string(raw))
+		full := "---\nname: " + strings.TrimSuffix(name, ".md") + "\n---\n# " + name + "\n\n" + body + "\n"
+		m.SyncedHash, _ = memory.ContentDigest(full)
+		out, err := memory.WriteEngram(full, m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(out), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	advance("ff.md", "v2 from mate")
+	advance("div.md", "v2 from mate") // ahead.md is deliberately NOT advanced in the store
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "advance both")
+	gitT(t, mate, "push")
+
+	// Locally edit div.md and ahead.md so they move off the base (ff.md stays untouched).
+	for _, name := range []string{"div.md", "ahead.md"} {
+		raw, _ := os.ReadFile(filepath.Join(localMem, name))
+		if err := os.WriteFile(filepath.Join(localMem, name),
+			[]byte(strings.Replace(string(raw), "v1", "my local edit", 1)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := Pull(targets)
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	// ff.md: local untouched, store advanced → fast-forward. div.md: both moved →
+	// conflict. ahead.md: only local moved, store at base → local-ahead (counted, left).
+	if res.Updated != 1 || res.Conflicts != 1 || res.Ahead != 1 {
+		t.Errorf("pull = %+v, want Updated=1 Conflicts=1 Ahead=1", res)
+	}
+	if got, _ := os.ReadFile(filepath.Join(localMem, "ff.md")); !strings.Contains(string(got), "v2 from mate") {
+		t.Errorf("ff.md not fast-forwarded:\n%s", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(localMem, "div.md")); !strings.Contains(string(got), "my local edit") {
+		t.Errorf("div.md conflict was overwritten:\n%s", got)
 	}
 }
 

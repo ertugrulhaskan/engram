@@ -38,6 +38,10 @@ func parseFile(path string, index map[string]indexEntry) (Memory, error) {
 		m.Modified = info.ModTime()
 	}
 
+	if e, ok, _ := ReadEngram(raw); ok {
+		m.Shared = e // engram sharing block, when present
+	}
+
 	fmText, body, hasFM := splitFrontmatter(raw)
 	m.Body = body
 	if hasFM {

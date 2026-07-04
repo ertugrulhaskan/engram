@@ -18,6 +18,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg.Width, msg.Height)
 		return m, nil
 
+	case resolveFinishedMsg:
+		if msg.err != nil {
+			team.AbortConflictResolve(msg.tmpPath)
+			return m, m.setDanger("editor error: " + msg.err.Error())
+		}
+		resolved, err := team.FinishConflictResolve(msg.memPath, msg.tmpPath)
+		if err != nil {
+			return m, m.setDanger("resolve: " + err.Error())
+		}
+		if !resolved {
+			return m, m.setStatus("resolve aborted — nothing changed")
+		}
+		return m, tea.Batch(m.setStatus("conflict resolved"), reloadCmd())
+
 	case editorFinishedMsg:
 		if msg.err != nil {
 			return m, m.setDanger("editor error: " + msg.err.Error())
@@ -86,8 +100,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.setDanger("pull failed: "+msg.err.Error()), reloadCmd())
 		}
 		r := msg.res
-		summary := fmt.Sprintf("pull: %d new · %d up-to-date · %d withdrawn · %d conflict · %d skipped",
-			r.Placed, r.UpToDate, r.Removed, r.Conflicts, r.Skipped)
+		summary := fmt.Sprintf("pull: %d new · %d updated · %d ahead · %d up-to-date · %d withdrawn · %d conflict · %d skipped",
+			r.Placed, r.Updated, r.Ahead, r.UpToDate, r.Removed, r.Conflicts, r.Skipped)
 		if r.Conflicts > 0 {
 			return m, tea.Batch(m.setDanger(summary), reloadCmd())
 		}
@@ -305,6 +319,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
+		if !team.IsInitialized() {
+			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
+		}
 		if m.syncStates[it.Path] == team.StateNone {
 			return m, m.setStatus("not shared — nothing to withdraw")
 		}
@@ -312,6 +329,29 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.withdrawTitle = it.Title
 		m.mode = modeWithdrawConfirm
 		return m, nil
+	case "c":
+		// Resolve a team conflict: open both versions with git-style markers in
+		// $EDITOR. Temporary key — moves to the `>resolve` command palette.
+		if m.srcKind != srcMemories {
+			return m, nil
+		}
+		it, ok := m.selected()
+		if !ok {
+			return m, nil
+		}
+		if !team.IsInitialized() {
+			return m, m.setDanger("no team store — run `engram init-team <git-url>` first")
+		}
+		// Diverged/Differs are conflicts; Incoming is included so global memories —
+		// which `P` (pull) walks past — still have a way to take the store's update.
+		if s := m.syncStates[it.Path]; s != team.StateDiverged && s != team.StateDiffers && s != team.StateIncoming {
+			return m, m.setStatus("nothing to resolve — already in sync")
+		}
+		tmp, err := team.BeginConflictResolve(it.Path)
+		if err != nil {
+			return m, m.setDanger("resolve: " + err.Error())
+		}
+		return m, m.resolveCmd(it.Path, tmp)
 	case "P":
 		// Pull project-scoped team memories into their matching local projects.
 		if m.srcKind != srcMemories {

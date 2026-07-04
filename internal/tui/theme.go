@@ -110,11 +110,13 @@ func cancelStyle() lipgloss.Style {
 // list renders a filled pill (background + contrasting foreground); the glyph is
 // kept alongside the word so the state reads without relying on color.
 const (
-	syncSyncedColor  = "#50c878" // emerald — local matches the team copy
-	syncDiffersColor = "#e0af68" // amber — local differs from the team copy
-	syncMissingColor = "#c0392b" // red — promoted, but no copy in the store
-	syncPillFgDark   = "#0e2118" // dark text, for the green / amber pills
-	syncPillFgLight  = "#ffffff" // light text, for the red pill
+	syncSyncedColor   = "#50c878" // emerald — local matches the team copy
+	syncDiffersColor  = "#e0af68" // amber — local differs / is ahead of the team copy
+	syncIncomingColor = "#7aa2f7" // blue — the store advanced; an update is waiting (safe to take)
+	syncConflictColor = "#db4b4b" // bright red — local and store diverged; needs a manual resolve
+	syncMissingColor  = "#c0392b" // dark red — promoted, but no copy in the store
+	syncPillFgDark    = "#0e2118" // dark text, for the green / amber / blue pills
+	syncPillFgLight   = "#ffffff" // light text, for the red pills
 )
 
 // syncBadge maps a team sync state to its list label, the pill's background and
@@ -125,6 +127,12 @@ func syncBadge(s team.SyncState) (label, bg, fgc, word string) {
 	switch s {
 	case team.StateSynced:
 		return "✓ synced", syncSyncedColor, syncPillFgDark, "synced"
+	case team.StateIncoming:
+		return "↓ incoming", syncIncomingColor, syncPillFgDark, "incoming"
+	case team.StateLocalAhead:
+		return "↑ ahead", syncDiffersColor, syncPillFgDark, "ahead"
+	case team.StateDiverged:
+		return "↕ conflict", syncConflictColor, syncPillFgLight, "conflict"
 	case team.StateDiffers:
 		return "● differs", syncDiffersColor, syncPillFgDark, "differs"
 	case team.StateMissing:

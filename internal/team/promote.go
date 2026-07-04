@@ -59,12 +59,20 @@ func Promote(memPath, placement string) (pushed bool, err error) {
 		}
 	}
 
+	// The sync anchor is the digest of the shared content being promoted; because
+	// ContentDigest excludes the engram block, it is independent of the anchor we're
+	// about to write (no circularity) and identical on the local and store copies.
+	digest, err := memory.ContentDigest(string(raw))
+	if err != nil {
+		return false, fmt.Errorf("hashing memory content: %v", err)
+	}
 	owner, _ := runGitCapture(dir, "config", "user.email") // best-effort
 	stamped, err := memory.WriteEngram(string(raw), memory.EngramMeta{
-		ID:      id,
-		Scope:   "team",
-		Project: placement,
-		Owner:   owner,
+		ID:         id,
+		Scope:      "team",
+		Project:    placement,
+		Owner:      owner,
+		SyncedHash: digest,
 	})
 	if err != nil {
 		return false, err
