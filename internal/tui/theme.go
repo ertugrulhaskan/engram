@@ -106,29 +106,31 @@ func cancelStyle() lipgloss.Style {
 }
 
 // Sync-badge colors. Fixed across themes on purpose (like the status colors
-// above): they signal a memory's relationship to the team store, not brand.
+// above): they signal a memory's relationship to the team store, not brand. The
+// list renders a filled pill (background + contrasting foreground); the glyph is
+// kept alongside the word so the state reads without relying on color.
 const (
 	syncSyncedColor  = "#50c878" // emerald — local matches the team copy
 	syncDiffersColor = "#e0af68" // amber — local differs from the team copy
-	syncMissingColor = "#e05561" // red — promoted, but no copy in the store
+	syncMissingColor = "#c0392b" // red — promoted, but no copy in the store
+	syncPillFgDark   = "#0e2118" // dark text, for the green / amber pills
+	syncPillFgLight  = "#ffffff" // light text, for the red pill
 )
 
-// syncBadge maps a team sync state to a compact list glyph, its color, and a
-// word for the preview meta. The glyphs (✓ ● and ASCII !) are never
-// emoji-presented, so runewidth measures them the same way a terminal renders
-// them and the column stays aligned — unlike ⚠, which many terminals draw
-// emoji-wide (2 cells) while runewidth reports 1. StateNone renders nothing, so
-// personal/unshared memories carry no sync column.
-func syncBadge(s team.SyncState) (glyph, color, word string) {
+// syncBadge maps a team sync state to its list label, the pill's background and
+// foreground colors, and the bare word used (as colored text) in the preview
+// meta. The label pairs a width-1-safe glyph with the word so state reads without
+// color. StateNone returns empty — personal/unshared memories carry no badge.
+func syncBadge(s team.SyncState) (label, bg, fgc, word string) {
 	switch s {
 	case team.StateSynced:
-		return "✓", syncSyncedColor, "synced"
+		return "✓ synced", syncSyncedColor, syncPillFgDark, "synced"
 	case team.StateDiffers:
-		return "●", syncDiffersColor, "differs"
+		return "● differs", syncDiffersColor, syncPillFgDark, "differs"
 	case team.StateMissing:
-		return "!", syncMissingColor, "missing"
+		return "! missing", syncMissingColor, syncPillFgLight, "missing"
 	default:
-		return "", "", ""
+		return "", "", "", ""
 	}
 }
 

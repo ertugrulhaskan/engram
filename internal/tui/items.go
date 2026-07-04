@@ -38,8 +38,9 @@ type Item struct {
 
 	Badge      string // bracket label, e.g. "user"/"project"; "" = no badge column
 	BadgeColor string // hex
-	SyncBadge  string // team-sync glyph (✓/●/!); "" = no sync column for this row
-	SyncColor  string // hex for the sync glyph
+	SyncBadge  string // team-sync pill label (e.g. "✓ synced"); "" = no sync badge on this row
+	SyncColor  string // hex pill background
+	SyncFg     string // hex pill foreground
 	GroupKey   string // "" = flat (no group headers)
 	GroupLabel string // header text for the first row of a group
 	GroupColor string // header color (hex)
@@ -179,11 +180,11 @@ func (m Model) memoryItems() []Item {
 			label, color = typeLabel(mm.Type), t.typeColor(mm.Type)
 			right = "· " + mm.Project.Name
 		}
-		sg, sc, _ := syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
+		syncLbl, syncBg, syncFg, _ := syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			SyncBadge: sg, SyncColor: sc,
+			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg,
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})

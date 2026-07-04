@@ -11,13 +11,9 @@ import (
 func (m Model) listPane() string {
 	t := m.theme()
 	h := m.listRows()
-	badgeW := m.badgeColW() // widest type badge in view; computed once per render
-	syncW := m.syncColW()   // sync-glyph column width (0 when nothing in view is shared)
-	leftCols := badgeW
-	if syncW > 0 {
-		leftCols += syncW + 1
-	}
-	rightCol := m.rightColW(leftCols) // computed once per render, not per row
+	badgeW := m.badgeColW()                 // widest type badge in view; computed once per render
+	syncW := m.syncColW()                   // right-aligned sync-pill width (0 when nothing in view is shared)
+	rightCol := m.rightColW(badgeW + syncW) // Right column budget accounts for the badge + pill
 	lines := make([]string, 0, h)
 	for i := m.top; i < m.top+h; i++ {
 		switch {
@@ -65,9 +61,10 @@ func (m Model) badgeColW() int {
 	return w
 }
 
-// syncColW is the width of the team-sync glyph column: the widest SyncBadge in
-// view, measured with the same runewidth oracle memRow pads with, so the column
-// can't drift. It collapses to 0 when nothing in view carries a sync badge, so
+// syncColW is the width of the right-aligned team-sync pill: the widest SyncBadge
+// label in view plus one cell of padding on each side (so the filled pill has an
+// even margin). Measured with the same runewidth oracle memRow pads with, so the
+// column can't drift. Collapses to 0 when nothing in view carries a sync badge, so
 // the feature is invisible for anyone not using team sharing.
 func (m Model) syncColW() int {
 	w := 0
@@ -78,7 +75,10 @@ func (m Model) syncColW() int {
 			}
 		}
 	}
-	return w
+	if w == 0 {
+		return 0
+	}
+	return w + 2 // one space of pill padding on each side
 }
 
 // rightColW sizes the right-aligned column from the widest Item.Right in view
@@ -125,13 +125,12 @@ func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) strin
 	if it.Badge != "" {
 		badgeCol = badgeW + 1 // padded badge + trailing space
 	}
-	syncCol := 0
-	if syncW > 0 {
-		syncCol = syncW + 1 // reserved for every row so titles stay column-aligned
-	}
-	nameW := m.listW - 2 - badgeCol - syncCol - rightCol
+	nameW := m.listW - 2 - badgeCol - rightCol - syncW
 	if rightCol > 0 {
 		nameW-- // gap before the right column
+	}
+	if syncW > 0 {
+		nameW-- // gap before the sync pill
 	}
 	if nameW < 4 {
 		nameW = 4
@@ -163,13 +162,6 @@ func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) strin
 	if it.Badge != "" {
 		out += st(it.BadgeColor).Render(padRight("["+it.Badge+"]", badgeW)) + st(t.Fg).Render(" ")
 	}
-	if syncW > 0 {
-		if it.SyncBadge != "" {
-			out += st(it.SyncColor).Render(padRight(it.SyncBadge, syncW)) + st(t.Fg).Render(" ")
-		} else {
-			out += st(t.Fg).Render(padRight("", syncW) + " ") // blank column keeps titles aligned
-		}
-	}
 	titleStyle := st(titleColor)
 	if selected {
 		titleStyle = titleStyle.Bold(true)
@@ -177,6 +169,20 @@ func (m Model) memRow(it Item, selected bool, badgeW, syncW, rightCol int) strin
 	out += titleStyle.Render(padRight(it.Title, nameW))
 	if rightCol > 0 {
 		out += st(t.Fg).Render(" ") + st(t.Dim).Render(padLeft(it.Right, rightCol))
+	}
+	if syncW > 0 {
+		out += st(t.Fg).Render(" ")
+		if it.SyncBadge != "" {
+			// A filled pill (its own bg/fg) so it reads as a badge on any row,
+			// selected or not. syncW = label + 2, so " label " fills exactly.
+			inner := padRight(it.SyncBadge, syncW-2)
+			out += lipgloss.NewStyle().
+				Background(lipgloss.Color(it.SyncColor)).
+				Foreground(lipgloss.Color(it.SyncFg)).
+				Render(" " + inner + " ")
+		} else {
+			out += st(t.Fg).Render(padRight("", syncW)) // blank, keeps the right edge aligned
+		}
 	}
 	return out
 }
@@ -194,9 +200,9 @@ func (m Model) previewPane() string {
 		meta = fg(it.BadgeColor).Bold(true).Render(b) + " "
 		used = runewidth.StringWidth(b) + 1
 	}
-	if _, c, word := syncBadge(m.syncStates[it.Path]); word != "" {
-		tok := "team " + word // spelled out here where there's room, unlike the list glyph
-		meta += fg(c).Bold(true).Render(tok) + " "
+	if _, bg, _, word := syncBadge(m.syncStates[it.Path]); word != "" {
+		tok := "team " + word // colored text in the preview, where there's room
+		meta += fg(bg).Bold(true).Render(tok) + " "
 		used += runewidth.StringWidth(tok) + 1
 	}
 	rest := "edited " + humanizeSince(it.Modified)
