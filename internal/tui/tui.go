@@ -23,6 +23,7 @@ const (
 	modePalette
 	modeHelp
 	modePromoteScope // picking team scope (this project / global) for a promote
+	modeSecretWarn   // a promote was blocked because the memory looks like it holds a secret
 )
 
 // srcKind selects which collection is being browsed.

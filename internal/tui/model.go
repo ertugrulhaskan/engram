@@ -12,6 +12,7 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/secrets"
 	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
@@ -62,6 +63,13 @@ type Model struct {
 	promoteTitle  string // its title, for the modal header
 	promoteKey    string // resolved project key, or "" when the project has no remote
 	promoteCursor int    // 0 = this project, 1 = global
+
+	// secret-scan guard on promote
+	scanAction      string            // config policy: block | block-strict | warn | off
+	scanPII         bool              // also flag PII when scanning
+	secretFindings  []secrets.Finding // findings that blocked the pending promote (modeSecretWarn)
+	secretPath      string            // the scanned memory path to promote if the user overrides
+	secretPlacement string            // placement to promote to if the user overrides
 
 	version string // release version for the help/about footer; "" → "dev"
 }
@@ -114,6 +122,8 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 		focus:          focusList,
 		mode:           modeNormal,
 		groupBy:        groupProject,
+		scanAction:     cfg.ScanAction(),
+		scanPII:        cfg.ScanPII(),
 	}
 	m.styleInputs()
 	m.syncStates, _ = team.SyncStates(mems) // best-effort; empty when no team store

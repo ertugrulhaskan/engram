@@ -14,6 +14,27 @@ import (
 type Config struct {
 	Theme  string `json:"theme,omitempty"`  // theme name, e.g. "Nord"
 	Editor string `json:"editor,omitempty"` // optional editor command override, e.g. "code --wait"
+
+	// Secret-scan guard on promote. Empty means the default.
+	SecretScanAction string `json:"secretScanAction,omitempty"` // "block" (default) | "block-strict" | "warn" | "off"
+	SecretScanScope  string `json:"secretScanScope,omitempty"`  // "secrets" (default) | "secrets+pii"
+}
+
+// ScanAction returns the configured promote-time secret-scan action, defaulting
+// to "block" (block with an informed override) for empty or unrecognized values.
+func (c Config) ScanAction() string {
+	switch c.SecretScanAction {
+	case "block-strict", "warn", "off":
+		return c.SecretScanAction
+	default:
+		return "block"
+	}
+}
+
+// ScanPII reports whether the scanner should also flag PII (emails, card-like
+// numbers). Off by default — PII false-positives constantly in real memories.
+func (c Config) ScanPII() bool {
+	return c.SecretScanScope == "secrets+pii"
 }
 
 // Dir returns engram's config directory: $XDG_CONFIG_HOME/engram, falling back

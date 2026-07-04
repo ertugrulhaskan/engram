@@ -32,6 +32,8 @@ func (m Model) View() string {
 		box = m.helpModal()
 	case modePromoteScope:
 		box = m.scopeModal()
+	case modeSecretWarn:
+		box = m.secretModal()
 	}
 	if box != "" {
 		frame = m.overlay(frame, box, top)

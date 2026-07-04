@@ -42,7 +42,10 @@ func (m Model) updatePromoteScope(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.promoteKey != "" && m.promoteCursor == 0 {
 			placement = m.promoteKey
 		}
-		return m, m.promoteCmd(m.promotePath, placement)
+		if m.scanAction == "off" {
+			return m, m.promoteCmd(m.promotePath, placement)
+		}
+		return m, m.scanCmd(m.promotePath, placement) // scan first; policy applied on the result
 	}
 	return m, nil
 }
