@@ -111,3 +111,45 @@ func TestNewID(t *testing.T) {
 		t.Error("ids are not unique")
 	}
 }
+
+func TestWriteEngramRefusesAmbiguousDelimiter(t *testing.T) {
+	// A block scalar whose content contains a line reading "---" would fool a
+	// line-based frontmatter split into truncating the file. WriteEngram must refuse
+	// rather than corrupt it (fail closed — no partial write, no data loss).
+	raw := "---\nname: deploy\ndescription: |-\n  Steps:\n  ---\n  done\nmetadata:\n  type: user\n---\n# Body\n\nkeep me\n"
+	if _, err := WriteEngram(raw, EngramMeta{ID: "x", Scope: "team"}); err == nil {
+		t.Fatal("expected WriteEngram to refuse a frontmatter whose value contains a '---' line")
+	}
+}
+
+func TestWriteEngramAllowsBlockScalarWithoutDelimiter(t *testing.T) {
+	// A multi-line block scalar with no "---" line inside is legitimate and must
+	// round-trip, not trip the ambiguity guard (no false refusal).
+	raw := "---\nname: m\ndescription: |-\n  line one\n  line two\n---\n# M\n\nbody\n"
+	out, err := WriteEngram(raw, EngramMeta{ID: "id", Scope: "team", Project: "global"})
+	if err != nil {
+		t.Fatalf("WriteEngram refused a legit block scalar: %v", err)
+	}
+	if !strings.Contains(out, "line one") || !strings.Contains(out, "line two") {
+		t.Errorf("block scalar content lost:\n%s", out)
+	}
+	if got, ok, _ := ReadEngram(out); !ok || got.ID != "id" {
+		t.Errorf("engram block not written: %+v ok=%v", got, ok)
+	}
+}
+
+func TestWriteEngramKeepsTwoSpaceIndent(t *testing.T) {
+	// Claude writes nested keys at 2-space indent; stamping engram's block must not
+	// reindent them (that would rewrite Claude's fields on every promote).
+	raw := "---\nname: m\nmetadata:\n  type: project\n  origin: sess-1\n---\n# M\n\nbody\n"
+	out, err := WriteEngram(raw, EngramMeta{ID: "id", Scope: "team", Project: "global"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "metadata:\n  type: project") {
+		t.Errorf("Claude's 2-space indent was rewritten:\n%s", out)
+	}
+	if strings.Contains(out, "    type: project") {
+		t.Errorf("nested key reindented to 4 spaces:\n%s", out)
+	}
+}

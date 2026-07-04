@@ -101,6 +101,17 @@ func TestLedger(t *testing.T) {
 	if !readWithdrawn(dir)["B"] {
 		t.Error("remove A must not drop B")
 	}
+
+	// A ledger left without a trailing newline (an external edit or a merged git
+	// conflict) must not fuse the next entry onto the last line and drop it.
+	nl := t.TempDir()
+	if err := os.WriteFile(filepath.Join(nl, withdrawnLedger), []byte("X\tx.md"), 0o644); err != nil { // no trailing \n
+		t.Fatal(err)
+	}
+	addWithdrawn(nl, "Y", "y.md")
+	if w := readWithdrawn(nl); !w["X"] || !w["Y"] {
+		t.Errorf("newline-less ledger fused entries: X=%v Y=%v", w["X"], w["Y"])
+	}
 }
 
 func TestWithdrawOwnerGuard(t *testing.T) {
@@ -179,10 +190,20 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 	mem := func(id, scope string) string {
 		return "---\nname: m\nengram:\n    id: " + id + "\n    scope: " + scope + "\n    project: " + key + "\n---\n# M\n\nbody\n"
 	}
-	write("shared.md", mem("WD-1", "team"))
+	// anchored builds a properly-synced copy: its syncedHash matches its own content,
+	// so withdrawal propagation can prove it's unedited (and, for the owner, demote it).
+	anchored := func(id, scope, owner string) string {
+		base := mem(id, scope)
+		h, _ := memory.ContentDigest(base)
+		s, _ := memory.WriteEngram(base, memory.EngramMeta{ID: id, Scope: scope, Project: key, Owner: owner, SyncedHash: h})
+		return s
+	}
+	write("shared.md", anchored("WD-1", "team", "")) // a synced teammate copy → removed on withdrawal
 	write("mine.md", mem("WD-2", "personal"))
 	write("kept.md", mem("WD-3", "team"))
-	write("global.md", mem("WD-4", "team")) // pulled from this project, but also shared globally
+	write("global.md", mem("WD-4", "team"))                      // pulled from this project, but also shared globally
+	write("legacy.md", mem("WD-5", "team"))                      // anchor-less: can't prove it's unedited → kept, not deleted
+	write("owned.md", anchored("WD-6", "team", "p@example.com")) // the puller's OWN copy → demoted, not deleted
 
 	// All four ids are tombstoned, but WD-3 is still in the store under this project
 	// (re-promoted) and WD-4 is still in the store under global/ (a cross-scope copy).
@@ -190,6 +211,8 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 	addWithdrawn(teamDir, "WD-2", "mine.md")
 	addWithdrawn(teamDir, "WD-3", "kept.md")
 	addWithdrawn(teamDir, "WD-4", "global.md")
+	addWithdrawn(teamDir, "WD-5", "legacy.md")
+	addWithdrawn(teamDir, "WD-6", "owned.md")
 	writeStoreFile := func(rel, body string) {
 		p := filepath.Join(teamDir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -220,5 +243,13 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(memDir, "global.md")); err != nil {
 		t.Error("a memory still shared in the store under another scope must not be removed")
+	}
+	if _, err := os.Stat(filepath.Join(memDir, "legacy.md")); err != nil {
+		t.Error("an anchor-less withdrawn copy must be kept (can't prove it's unedited), not deleted")
+	}
+	if oraw, err := os.ReadFile(filepath.Join(memDir, "owned.md")); err != nil {
+		t.Error("the owner's own withdrawn copy must be demoted, not deleted")
+	} else if om, _, _ := memory.ReadEngram(string(oraw)); om.Scope != "personal" {
+		t.Errorf("the owner's own withdrawn copy should be demoted to personal, got scope=%q", om.Scope)
 	}
 }

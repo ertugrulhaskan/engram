@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,26 @@ func ReadEngram(raw string) (meta EngramMeta, ok bool, err error) {
 	return *doc.Engram, true, nil
 }
 
+// EngramPresent reports, best-effort, whether the frontmatter carries an `engram:`
+// key at all — even when the block is malformed enough that ReadEngram errors (e.g.
+// a non-mapping value like `engram: oops`). It lets a caller tell a genuinely
+// personal memory (no block) from a shared one whose block got corrupted, without
+// guessing a sync direction. Returns false when the frontmatter itself can't be
+// parsed (a wholly-unparseable file is indistinguishable from personal here).
+func EngramPresent(raw string) bool {
+	fmText, _, has := splitFrontmatter(raw)
+	if !has || strings.TrimSpace(fmText) == "" {
+		return false
+	}
+	var doc struct {
+		Engram yaml.Node `yaml:"engram"`
+	}
+	if err := yaml.Unmarshal([]byte(fmText), &doc); err != nil {
+		return false
+	}
+	return doc.Engram.Kind != 0
+}
+
 // WriteEngram returns raw with the `engram:` frontmatter block set to meta. Every
 // other frontmatter key, the key order, and the body are preserved; a file with no
 // frontmatter gains a block containing only engram's keys. Engram never invents or
@@ -53,6 +74,9 @@ func WriteEngram(raw string, meta EngramMeta) (string, error) {
 
 	var root yaml.Node
 	if has && strings.TrimSpace(fmText) != "" {
+		if err := checkFMBoundary(raw, fmText); err != nil {
+			return "", err
+		}
 		if err := yaml.Unmarshal([]byte(fmText), &root); err != nil {
 			return "", err
 		}
@@ -73,18 +97,48 @@ func WriteEngram(raw string, meta EngramMeta) (string, error) {
 // reserialize renders a frontmatter mapping node plus a verbatim body back into a
 // memory file with the standard `---` delimiters. Shared by WriteEngram and
 // stripEngramBlock so the digest input and the file written to disk stay
-// byte-identical — if the framing ever changes, both move together.
+// byte-identical — if the framing ever changes, both move together. It emits
+// 2-space indentation to match Claude Code's own convention, so stamping engram's
+// block doesn't reindent Claude's nested keys (e.g. `metadata:`) on every promote.
 func reserialize(mapping *yaml.Node, body string) (string, error) {
-	out, err := yaml.Marshal(mapping)
-	if err != nil {
+	var fm strings.Builder
+	enc := yaml.NewEncoder(&fm)
+	enc.SetIndent(2)
+	if err := enc.Encode(mapping); err != nil {
+		return "", err
+	}
+	if err := enc.Close(); err != nil {
 		return "", err
 	}
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.Write(out) // yaml.Marshal output ends with a newline
+	b.WriteString(fm.String()) // encoder output ends with a newline
 	b.WriteString("---\n")
 	b.WriteString(body)
 	return b.String(), nil
+}
+
+// checkFMBoundary guards against a frontmatter split fooled by a multi-line value or
+// block scalar that itself contains a line reading "---": the line-based split would
+// mistake that for the closing delimiter and truncate the file. yaml.v3 parses the
+// whole file as a document stream — only a column-0 "---" separates documents — so
+// its first document is the true frontmatter. If the naive split decoded to
+// something different, we refuse to write rather than silently corrupt the memory.
+// (Claude memories use single-line frontmatter, so this only ever triggers on exotic
+// input.) Values are compared, not the raw nodes, so trailing comments or body
+// content picked up by the whole-file decode don't cause a false refusal.
+func checkFMBoundary(raw, fmText string) error {
+	var whole, split map[string]interface{}
+	if err := yaml.NewDecoder(strings.NewReader(raw)).Decode(&whole); err != nil {
+		return fmt.Errorf("frontmatter is not valid YAML: %w", err)
+	}
+	if err := yaml.Unmarshal([]byte(fmText), &split); err != nil {
+		return fmt.Errorf("frontmatter is not valid YAML: %w", err)
+	}
+	if !reflect.DeepEqual(whole, split) {
+		return fmt.Errorf("cannot safely update this memory: its frontmatter contains a line that looks like the closing '---' delimiter (a multi-line value or block scalar); refusing to avoid corrupting the file")
+	}
+	return nil
 }
 
 // NewID returns a random RFC-4122 v4 UUID for engram.id, built from crypto/rand so
@@ -156,17 +210,6 @@ func deleteMapKey(m *yaml.Node, key string) {
 			return
 		}
 	}
-}
-
-// SetBody returns raw with its markdown body replaced by newBody, preserving the
-// frontmatter block (delimiters and every key) verbatim. A file with no
-// frontmatter becomes newBody alone.
-func SetBody(raw, newBody string) string {
-	fm, _, has := splitFMVerbatim(raw)
-	if !has {
-		return newBody
-	}
-	return "---\n" + fm + "\n---\n" + newBody
 }
 
 // splitFMVerbatim is like splitFrontmatter but returns the body EXACTLY as it

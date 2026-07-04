@@ -92,7 +92,14 @@ func Withdraw(memPath string) (pushed bool, err error) {
 	}
 
 	// Reset the local memory to personal, keeping its id for a possible re-promote.
-	stamped, err := memory.WriteEngram(string(raw), memory.EngramMeta{ID: meta.ID, Scope: "personal"})
+	// Re-read the file here rather than reusing the copy read before the (possibly
+	// slow) push, so an edit made to the memory while the push was in flight isn't
+	// clobbered with stale content — only the scope flips, the current body stays.
+	fresh, err := os.ReadFile(memPath)
+	if err != nil {
+		return pushed, fmt.Errorf("re-reading local memory: %v", err)
+	}
+	stamped, err := memory.WriteEngram(string(fresh), memory.EngramMeta{ID: meta.ID, Scope: "personal"})
 	if err != nil {
 		return pushed, err
 	}

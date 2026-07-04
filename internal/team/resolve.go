@@ -149,13 +149,14 @@ func FinishConflictResolve(memPath, tmpPath string) (resolved bool, err error) {
 }
 
 // hasMarkerLine reports whether any line of text is exactly a conflict marker
-// (trimmed of a trailing CR). Whole-line matching keeps prose like "<<<" inline
-// from tripping it; the "=======" check can graze a setext-heading underline, which
-// is a safe false-positive — it blocks the save rather than silently persisting a
-// half-merged file.
+// (trimmed of trailing whitespace and a CR). Whole-line matching keeps prose like
+// "<<<" inline from tripping it; the "=======" check can graze a setext-heading
+// underline, which is a safe false-positive — it blocks the save rather than
+// silently persisting a half-merged file. Trailing whitespace is trimmed so a
+// marker an editor left as ">>>>>>> team " (trailing space) still gets caught.
 func hasMarkerLine(text string) bool {
 	for _, ln := range strings.Split(text, "\n") {
-		switch strings.TrimRight(ln, "\r") {
+		switch strings.TrimRight(ln, " \t\r") {
 		case conflictOurs, conflictMid, conflictEnd:
 			return true
 		}

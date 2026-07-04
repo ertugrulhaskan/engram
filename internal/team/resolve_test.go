@@ -129,14 +129,14 @@ func TestConflictResolve(t *testing.T) {
 	storePath := filepath.Join(teamDir, "global", "note.md")
 	sraw, _ := os.ReadFile(storePath)
 	sm, _, _ := memory.ReadEngram(string(sraw))
-	newStore := memory.SetBody(string(sraw), "# Note\n\nteam body\n")
+	newStore := setBody(string(sraw), "# Note\n\nteam body\n")
 	sm.SyncedHash, _ = memory.ContentDigest(newStore)
 	newStore, _ = memory.WriteEngram(newStore, sm)
 	if err := os.WriteFile(storePath, []byte(newStore), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	lraw, _ := os.ReadFile(memPath)
-	if err := os.WriteFile(memPath, []byte(memory.SetBody(string(lraw), "# Note\n\nmy body\n")), 0o644); err != nil {
+	if err := os.WriteFile(memPath, []byte(setBody(string(lraw), "# Note\n\nmy body\n")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -189,4 +189,14 @@ func TestConflictResolve(t *testing.T) {
 	if st[memPath] != StateSynced {
 		t.Errorf("after taking theirs, state = %v, want StateSynced", st[memPath])
 	}
+}
+
+// setBody swaps a memory file's body while preserving its frontmatter block — a
+// test helper. Production code writes bodies through memory.WriteEngram, so there
+// is no standalone body setter to depend on.
+func setBody(raw, body string) string {
+	if i := strings.Index(raw, "\n---\n"); i >= 0 {
+		return raw[:i+len("\n---\n")] + body
+	}
+	return body
 }

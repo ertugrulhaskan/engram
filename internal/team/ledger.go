@@ -38,12 +38,18 @@ func addWithdrawn(dir, id, slug string) string {
 	if readWithdrawn(dir)[id] {
 		return ""
 	}
-	f, err := os.OpenFile(filepath.Join(dir, withdrawnLedger), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return ""
+	p := filepath.Join(dir, withdrawnLedger)
+	existing, _ := os.ReadFile(p) // absent/unreadable → empty, treated as no prior entries
+	var b strings.Builder
+	b.Write(existing)
+	// A ledger left without a trailing newline (an external edit or a hand-resolved
+	// git merge) must not fuse the previous entry with this one — `strings.Fields`
+	// would then read only the first id and silently drop this withdrawal.
+	if len(existing) > 0 && !strings.HasSuffix(string(existing), "\n") {
+		b.WriteByte('\n')
 	}
-	defer f.Close()
-	if _, err := f.WriteString(id + "\t" + slug + "\n"); err != nil {
+	b.WriteString(id + "\t" + slug + "\n")
+	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
 		return ""
 	}
 	return withdrawnLedger

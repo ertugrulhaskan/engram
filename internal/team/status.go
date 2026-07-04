@@ -40,7 +40,17 @@ func SyncStates(mems []memory.Memory) (map[string]SyncState, error) {
 	store := storeIndexByID(dir)
 	for _, mm := range mems {
 		meta, ok, err := memory.ReadEngram(mm.Raw)
-		if err != nil || !ok || meta.Scope != "team" || meta.ID == "" {
+		if err != nil {
+			// The engram block failed to parse. If a block is nonetheless present
+			// (corrupted by a bad merge or hand-edit), surface it as ● differs so it
+			// doesn't silently masquerade as a personal memory; a file with no block
+			// at all stays StateNone.
+			if memory.EngramPresent(mm.Raw) {
+				out[mm.Path] = StateDiffers
+			}
+			continue
+		}
+		if !ok || meta.Scope != "team" || meta.ID == "" {
 			continue // StateNone — not shared
 		}
 		copies, present := store[meta.ID]
@@ -78,13 +88,26 @@ func relationOf(localHash, base string, storeHashes map[string]bool) SyncState {
 		return StateDiffers // no anchor — can't tell which side moved
 	}
 	localMoved := localHash != base
-	storeAtBase := storeHashes[base] // some store copy still equals the base
+	// Whether the store moved must not be masked by a stale copy under another scope.
+	// An id can live under two scopes (e.g. global/ and projects/<key>/); if the
+	// project copy advanced while the global copy is still at base, "any copy equals
+	// base" would wrongly read as "store unchanged" and downgrade a real conflict to
+	// ↑ ahead. So: the store is at base only when EVERY copy is; if any copy moved
+	// past the base, the store has moved.
+	someStoreMoved := false
+	for h := range storeHashes {
+		if h != base {
+			someStoreMoved = true
+			break
+		}
+	}
+	allStoreAtBase := storeHashes[base] && !someStoreMoved
 	switch {
-	case !localMoved && !storeAtBase:
+	case !localMoved && someStoreMoved:
 		return StateIncoming // I'm at base, the store advanced past it → take it
-	case localMoved && storeAtBase:
-		return StateLocalAhead // I advanced, the store is still at base → promote
-	case localMoved && !storeAtBase:
+	case localMoved && allStoreAtBase:
+		return StateLocalAhead // I advanced, every store copy is still at base → promote
+	case localMoved && someStoreMoved:
 		return StateDiverged // both advanced independently → conflict
 	default:
 		return StateDiffers // local at base yet unmatched — inconsistent; stay conservative

@@ -52,10 +52,10 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 		return res, fmt.Errorf("git pull failed: %s", reason)
 	}
 
-	byKey := make(map[string]string, len(targets))
+	byKey := make(map[string][]string, len(targets))
 	for _, t := range targets {
 		if t.Key != "" && t.MemoryDir != "" {
-			byKey[t.Key] = t.MemoryDir
+			byKey[t.Key] = append(byKey[t.Key], t.MemoryDir) // a repo cloned into >1 local dir syncs every clone
 		}
 	}
 
@@ -63,12 +63,65 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 	touched := map[string]bool{}
 	localByID := map[string]map[string]string{} // memDir -> (engram id -> local path)
 
+	// place applies one store memory to one local project dir: fast-forward when only
+	// the store moved, leave a local-ahead file, flag a genuine divergence (or an
+	// anchor-less memory) as a conflict, or place it fresh — never overwriting the
+	// user's change. Factored out so a repo cloned into more than one local dir syncs
+	// every clone, not just the last-registered one.
+	place := func(memDir string, teamRaw []byte, meta memory.EngramMeta, name string) {
+		ids, ok := localByID[memDir]
+		if !ok {
+			ids = indexByID(memDir)
+			localByID[memDir] = ids
+		}
+		if meta.ID != "" {
+			if localPath, exists := ids[meta.ID]; exists {
+				localRaw, _ := os.ReadFile(localPath)
+				if sameContent(string(localRaw), string(teamRaw)) {
+					res.UpToDate++
+					return
+				}
+				localMeta, _, _ := memory.ReadEngram(string(localRaw))
+				switch decidePull(string(localRaw), string(teamRaw), localMeta.SyncedHash) {
+				case pullUpToDate:
+					res.UpToDate++
+				case pullFastForward:
+					if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
+						return // best-effort: leave this file for the next pull
+					}
+					res.Updated++
+					touched[memDir] = true
+				case pullLocalAhead:
+					res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
+				default: // pullConflict
+					res.Conflicts++
+				}
+				return
+			}
+		}
+		// New to this project — place it, unless the filename is taken by a different
+		// local memory (never clobber a personal file).
+		dest := filepath.Join(memDir, name)
+		if _, err := os.Stat(dest); err == nil {
+			res.Conflicts++
+			return
+		}
+		if err := os.MkdirAll(memDir, 0o755); err != nil {
+			return // best-effort: can't create the local dir — skip
+		}
+		if err := os.WriteFile(dest, teamRaw, 0o644); err != nil {
+			return // best-effort: leave it for the next pull
+		}
+		res.Placed++
+		touched[memDir] = true
+	}
+
 	walkErr := filepath.WalkDir(projectsRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil // no projects/ yet — nothing to pull
+			if d != nil && d.IsDir() {
+				return fs.SkipDir // unreadable subdir — skip it, keep pulling the rest (matches storeIndexByID)
 			}
-			return err
+			return nil // no projects/ yet, or an unreadable entry — skip, don't abort the whole pull
 		}
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
 			return nil
@@ -78,12 +131,11 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 			return nil
 		}
 		key := filepath.ToSlash(filepath.Dir(rel)) // "github.com/acme/app"
-		memDir, ok := byKey[key]
+		memDirs, ok := byKey[key]
 		if !ok {
 			res.Skipped++
 			return nil
 		}
-
 		if containsSymlink(dir, path) {
 			return nil // never read *through* a symlink a teammate committed into the store
 		}
@@ -92,70 +144,22 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 			return nil
 		}
 		meta, _, _ := memory.ReadEngram(string(teamRaw))
-
-		ids, ok := localByID[memDir]
-		if !ok {
-			ids = indexByID(memDir)
-			localByID[memDir] = ids
+		for _, memDir := range memDirs {
+			place(memDir, teamRaw, meta, d.Name())
 		}
-
-		// Already present locally (matched by id)? Identical is a no-op; otherwise
-		// consult the anchor: fast-forward when only the store moved, leave a
-		// local-ahead file alone, and treat a genuine divergence (or an anchor-less
-		// memory) as a conflict — never overwriting the user's change.
-		if meta.ID != "" {
-			if localPath, exists := ids[meta.ID]; exists {
-				localRaw, _ := os.ReadFile(localPath)
-				if sameContent(string(localRaw), string(teamRaw)) {
-					res.UpToDate++
-					return nil
-				}
-				localMeta, _, _ := memory.ReadEngram(string(localRaw))
-				switch decidePull(string(localRaw), string(teamRaw), localMeta.SyncedHash) {
-				case pullUpToDate:
-					res.UpToDate++
-				case pullFastForward:
-					if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
-						return err
-					}
-					res.Updated++
-					touched[memDir] = true
-				case pullLocalAhead:
-					res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
-				default: // pullConflict
-					res.Conflicts++
-				}
-				return nil
-			}
-		}
-
-		// New to this project — place it, unless the filename is taken by a
-		// different local memory (never clobber a personal file).
-		dest := filepath.Join(memDir, d.Name())
-		if _, err := os.Stat(dest); err == nil {
-			res.Conflicts++
-			return nil
-		}
-		if err := os.MkdirAll(memDir, 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(dest, teamRaw, 0o644); err != nil {
-			return err
-		}
-		res.Placed++
-		touched[memDir] = true
 		return nil
 	})
 	if walkErr != nil {
 		return res, walkErr
 	}
 
-	// Propagate withdrawals: delete local team-scoped copies whose id was withdrawn
-	// upstream (tombstoned) and is no longer in the store. A re-promoted id is back
-	// in the store (and its tombstone cleared), so it is not removed. The owner's
-	// own copy was reset to personal by Withdraw, so it is skipped here.
+	// Propagate withdrawals: for each local team-scoped copy whose id was withdrawn
+	// upstream (tombstoned) and is gone from the store, either remove a teammate's
+	// copy or demote the owner's own other-checkout copy back to personal. A
+	// re-promoted id is back in the store (tombstone cleared), so it is left alone.
 	if withdrawn := readWithdrawn(dir); len(withdrawn) > 0 {
 		storeAll := storeIndexByID(dir) // ids present anywhere in the store (any scope)
+		me, _ := runGitCapture(dir, "config", "user.email")
 		for _, t := range targets {
 			if t.Key == "" || t.MemoryDir == "" {
 				continue
@@ -170,17 +174,28 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 				}
 				m, ok, _ := memory.ReadEngram(string(lr))
 				if !ok || m.Scope != "team" {
-					continue // keep personal copies (incl. the owner's withdrawn one)
+					continue // keep personal copies (incl. the owner's already-withdrawn one)
 				}
-				// Never delete a copy the user has edited since it last synced — that
-				// would silently discard unshared work. With an anchor present, keep
-				// the file whenever its content no longer matches it (it shows
-				// `! missing` for the user to handle). An anchor-less legacy copy
-				// can't be checked, so it keeps the prior behavior.
-				if m.SyncedHash != "" {
-					if dig, err := memory.ContentDigest(string(lr)); err != nil || dig != m.SyncedHash {
-						continue
+				// Never discard unshared work. Without an anchor we can't prove the
+				// copy is unedited, so keep it rather than risk deleting local edits
+				// (it surfaces as `! missing` for the user to handle). With an anchor,
+				// keep it too whenever its content has moved off that anchor.
+				if m.SyncedHash == "" {
+					continue
+				}
+				if dig, err := memory.ContentDigest(string(lr)); err != nil || dig != m.SyncedHash {
+					continue
+				}
+				// The owner's own other checkout still says scope:team (Withdraw only
+				// reset the copy on the machine it ran on). Demote it to personal —
+				// keeping the file — rather than deleting the owner's own memory.
+				if m.Owner != "" && me != "" && m.Owner == me {
+					if stamped, err := memory.WriteEngram(string(lr), memory.EngramMeta{ID: m.ID, Scope: "personal"}); err == nil {
+						if os.WriteFile(localPath, []byte(stamped), 0o644) == nil {
+							touched[t.MemoryDir] = true
+						}
 					}
+					continue
 				}
 				if os.Remove(localPath) == nil {
 					res.Removed++
@@ -248,6 +263,9 @@ func indexByID(dir string) map[string]string {
 			continue
 		}
 		p := filepath.Join(dir, e.Name())
+		if containsSymlink(dir, p) {
+			continue // never read *through* a symlinked entry (store hardening; mirrors storeIndexByID/promote/pull)
+		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			continue
