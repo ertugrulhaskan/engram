@@ -80,6 +80,12 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   Claude's keys) and a UUID helper. `NormalizeRemote` and `config.Dir()` landed earlier.
 
 ### Changed
+- **Team commands moved to a `>` command palette.** The single keys `p`/`P`/`w`/`c`
+  are retired; promote / pull / withdraw / resolve — plus **`>init <git-url>`** to set
+  up the store from inside the TUI — now live under `ctrl+p` → `>` (a third prefix
+  beside `/` sources and `@Claude`). Each acts on the selected memory, and the
+  not-initialized guard is centralized with one message pointing at `>init`. Frees the
+  collision-prone `p`/`P` pair and makes the verbs discoverable.
 - **Landing page (`www/`) rebuilt** with Tailwind CSS (stock theme only) compiled to a
   committed `www/css/styles.css` via `npm run build:css`. Consolidated to a shorter layout
   with an interactive terminal demo whose `browse` / `promote` / `pull` view tabs live in

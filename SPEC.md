@@ -153,8 +153,10 @@ a managed local clone and shells out to git for all sync.
 - **Setup is a one-time CLI subcommand:** `engram init-team <git-url>`. It clones
   the team repo to `~/.config/engram/team/` (alongside the existing config), and
   if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
-- **Day-to-day, `promote` and `pull` are in-TUI actions** (keybinds), so engram
-  stays a no-arg TUI for normal use. (init-team is the only subcommand.)
+- **Day-to-day, the team verbs live under the `>` command palette** (`ctrl+p` → `>`:
+  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`), a third prefix beside
+  `/` sources and `@Claude`, so engram stays a no-arg TUI for normal use. `>init` mirrors
+  the `engram init-team` subcommand, which remains for first-run/CLI setup.
 - **No servers and no engram-level auth.** Access is whatever the git host grants
   on the repo; push/pull use the user's existing git credentials (SSH / credential
   helper). engram surfaces a clear error when credentials or the remote are missing.
@@ -214,7 +216,7 @@ filename. The id is assigned once, on the first promote.
   `engram.scope: team`, assign an `engram.id` if absent, commit, push.
   Multi-select supported. A modal picks the scope, defaulting to the current
   project, with a "global" option.
-- **withdraw** *(the reverse of promote; TUI key `w`, owner-only)* — remove the
+- **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove the
   memory's copy from the store (matched by `engram.id`), record its id in a
   `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
   personal (keeping the id). Commit + push both the removal and the tombstone. Only
@@ -236,7 +238,7 @@ filename. The id is assigned once, on the first promote.
   (or no anchor) → left as a conflict, never overwritten. The summary counts new /
   updated / ahead / up-to-date / withdrawn / conflict / skipped. *(Pull walks
   `projects/` only; a local copy of a global memory is updated via `resolve`.)*
-- **resolve** *(TUI key `c`)* — reconcile a `↕ conflict` / `● differs` / incoming-global
+- **resolve** *(`>resolve`)* — reconcile a `↕ conflict` / `● differs` / incoming-global
   memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
   engram block excluded) into a temp file bracketed by git-style markers
   (`<<<<<<< yours … ======= … >>>>>>> team`), opens `$EDITOR`, and on save writes the

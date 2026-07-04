@@ -83,25 +83,25 @@ engram
 | `e`        | edit the selected memory in `$EDITOR`   |
 | `n`        | create a new memory (in the current project) and open it |
 | `d`        | delete the selected item (asks `y`/`n` first) |
-| `p`        | promote the selected memory to the team store (pick this-project / global) |
-| `P`        | pull team memories into their matching local projects |
-| `w`        | withdraw the selected memory from the team store (reverse of promote) |
-| `c`        | resolve a team conflict — merge both versions in `$EDITOR` |
 | `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
 | `1`–`5`    | switch theme                            |
-| `ctrl+p`   | command palette — opens to two guides: type `/` for `/memory`, `/plans`, `/files`, `/settings`, or `@` for `@Claude` |
+| `ctrl+p`   | command palette — three guides: `/` sources (`/memory`, `/plans`, `/files`, `/settings`), `@` for `@Claude`, and **`>` team commands** |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
 
+**Team commands live under `>`** in the command palette (`ctrl+p`, then type `>`):
+`>promote`, `>pull`, `>resolve`, `>withdraw`, and `>init <git-url>`. They act on the
+selected memory and each surface a clear error if the team store isn't set up yet.
+
 The left pane lists every memory found across all your projects, **grouped by
 project** with a colored header per group; the right pane shows the selected
-memory rendered as markdown. The command palette (`ctrl+p`) opens to two guide
-rows — **`/`** for commands and **`@`** for the assistant. Typing `/` switches
-between sources — your memories, your plan-mode plans, and **`/files`** (the
-read-only `CLAUDE.md` / `MEMORY.md` files Claude manages) — or opens the config
-file; typing `@` launches **`@Claude`**.
+memory rendered as markdown. The command palette (`ctrl+p`) opens to three guide
+rows — **`/`** for sources, **`@`** for the assistant, and **`>`** for team commands.
+Typing `/` switches between sources — your memories, your plan-mode plans, and
+**`/files`** (the read-only `CLAUDE.md` / `MEMORY.md` files Claude manages) — or opens
+the config file; typing `@` launches **`@Claude`**; typing `>` runs a team command.
 
 > **`/files`** lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
 > (when its directory resolves on disk), and each project's `MEMORY.md` index. These
@@ -122,8 +122,10 @@ file; typing `@` launches **`@Claude`**.
 
 ## Team sharing setup (Phase 2 — core shipped)
 
-Sharing adds exactly **one** subcommand; normal use stays a no-arg TUI. To set up
-the shared team store (a git repo your team reads and writes):
+Team sharing lives under the **`>` command palette** (`ctrl+p`, then type `>`);
+normal use stays a no-arg TUI. Set up the shared team store (a git repo your team
+reads and writes) with **`>init <git-url>`** (or the equivalent `engram init-team
+<git-url>` subcommand):
 
 ```sh
 engram init-team <git-url>
@@ -134,23 +136,24 @@ scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
 starter layout (a failed push is non-fatal — the local commit is kept, with a
 retry hint).
 
-Inside the TUI, **`p` promotes** the selected memory into the store — a scope
+Then, on the selected memory: **`>promote`** copies it into the store — a scope
 dialog picks *this project* (keyed by its git remote) or *global*. engram stamps
 the memory with an `engram:` frontmatter block (a durable id, scope, project,
 owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
 Before it pushes, engram **scans the memory for secrets** and, by default, blocks
 the promote if it finds one — showing the redacted match with an option to
-override. **`P` pulls** the team's project memories down into their matching local
-projects. When only the store moved and your copy is untouched, pull **fast-forwards**
-it automatically; a copy you edited is left alone, and a genuine divergence is flagged
-as a conflict rather than overwritten. Shared memories carry a **sync-status badge**
-in the list — `✓` synced, `↓` incoming, `↑` ahead, `↕` conflict, `!` missing — plus a
-muted `global`/`project` **scope chip**, so you can see each one's state and bucket at
-a glance. **`c` resolves** a conflict: it opens both versions with git-style markers
-in your `$EDITOR` and writes your merge back, re-anchored so "take theirs" reads as
-synced. **`w` withdraws** a shared memory (after a confirm) — if you're its owner: it
-removes the copy from the store, resets your memory to personal, and, via a tombstone,
-removes it from teammates on their next pull (re-promote with `p` puts it back).
+override. **`>pull`** brings the team's project memories down into their matching
+local projects. When only the store moved and your copy is untouched, pull
+**fast-forwards** it automatically; a copy you edited is left alone, and a genuine
+divergence is flagged as a conflict rather than overwritten. Shared memories carry a
+**sync-status badge** in the list — `✓` synced, `↓` incoming, `↑` ahead, `↕` conflict,
+`!` missing — plus a muted `global`/`project` **scope chip**, so you can see each
+one's state and bucket at a glance. **`>resolve`** opens both versions of a conflict
+with git-style markers in your `$EDITOR` and writes your merge back, re-anchored so
+"take theirs" reads as synced. **`>withdraw`** takes a shared memory back (after a
+confirm) — if you're its owner: it removes the copy from the store, resets your memory
+to personal, and, via a tombstone, removes it from teammates on their next pull
+(`>promote` again puts it back).
 
 The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
 (`block` default · `block-strict` no override · `warn` · `off`) and
