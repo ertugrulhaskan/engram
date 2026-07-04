@@ -127,12 +127,13 @@ func Signature(root string) (string, error) {
 
 // decodeProjectPath turns Claude's encoded project folder name (e.g.
 // "-Users-me-code-app") back into a real path. The encoding is lossy: Claude
-// flattens "/", "." and any literal "-" all to "-", so a single "-" could
-// originally have been any of the three. We recover the real path by walking the
+// flattens "/", ".", "_" and any literal "-" all to "-", so a single "-" could
+// originally have been any of them. We recover the real path by walking the
 // filesystem — at each directory we look for a real child whose name (with its
-// own dots flattened to dashes) matches a leading run of the remaining tokens.
-// This reconstructs multi-separator names like "engram.im" or a domain-style
-// "app.engram.im" that a token-at-a-time probe can't. The walk is still
+// own dots and underscores flattened to dashes) matches a leading run of the
+// remaining tokens. This reconstructs multi-separator names like "engram.im", a
+// domain-style "app.engram.im", or an underscored "_clients" that a
+// token-at-a-time probe can't. The walk is still
 // best-effort and inherently ambiguous: if the real project folder is gone but a
 // flattened-equivalent sibling exists (e.g. "/Users/me.app" when "/Users/me/app"
 // was deleted) it resolves to the sibling. When nothing resolves we fall back to
@@ -167,7 +168,9 @@ func resolveTokens(base string, tokens []string) (string, bool) {
 	}
 	var matches []match
 	for _, e := range entries {
-		parts := strings.Split(strings.ReplaceAll(e.Name(), ".", "-"), "-")
+		// Match a child by flattening the same characters Claude's encoding does
+		// (".", "_", "-" → "-") so names like "engram.im" or "_clients" resolve.
+		parts := strings.Split(flattenSeparators(e.Name()), "-")
 		if tokensHavePrefix(tokens, parts) {
 			matches = append(matches, match{e.Name(), len(parts)})
 		}
@@ -180,6 +183,13 @@ func resolveTokens(base string, tokens []string) (string, bool) {
 	}
 	return "", false
 }
+
+// flattenSeparators maps the characters Claude's project-folder encoding collapses
+// to "-" (".", "_", and "-" itself already is one) so an on-disk folder name can be
+// compared against the encoded tokens.
+var separatorFlattener = strings.NewReplacer(".", "-", "_", "-")
+
+func flattenSeparators(name string) string { return separatorFlattener.Replace(name) }
 
 // tokensHavePrefix reports whether prefix matches the leading elements of tokens.
 func tokensHavePrefix(tokens, prefix []string) bool {

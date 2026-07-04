@@ -45,7 +45,8 @@ func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 // round-trips it by walking the filesystem.
 func encodeForTest(dir string) string {
 	s := strings.ReplaceAll(filepath.ToSlash(dir), "/", "-")
-	return strings.ReplaceAll(s, ".", "-")
+	// Claude collapses ".", "_" and "-" all to "-"; mirror that here.
+	return strings.NewReplacer(".", "-", "_", "-").Replace(s)
 }
 
 func TestDiscoverDocs(t *testing.T) {
@@ -96,12 +97,14 @@ func TestDecodeProjectPathDots(t *testing.T) {
 	home := t.TempDir()
 
 	cases := []string{
-		filepath.Join(home, "code", "engram.im"),           // single dot in the basename
-		filepath.Join(home, "work", "acme.dev"),         // dot in a different segment
-		filepath.Join(home, "x", "a.b.c"),                  // multiple dots in one name
-		filepath.Join(home, "y", "work-acme.io"),       // dot and literal dash together
-		filepath.Join(home, "z", "app.engram.im"),          // multi-label, domain-style name
-		filepath.Join(home, "w", "work-bigco"), // literal dash, no dot
+		filepath.Join(home, "code", "engram.im"),    // single dot in the basename
+		filepath.Join(home, "work", "acme.dev"),     // dot in a different segment
+		filepath.Join(home, "x", "a.b.c"),           // multiple dots in one name
+		filepath.Join(home, "y", "work-acme.io"),    // dot and literal dash together
+		filepath.Join(home, "z", "app.engram.im"),   // multi-label, domain-style name
+		filepath.Join(home, "w", "work-bigco"),      // literal dash, no dot
+		filepath.Join(home, "_clients", "acme-app"), // leading underscore + dashed child
+		filepath.Join(home, "u", "svc_app.v2"),      // underscore and dot together
 	}
 	for _, dir := range cases {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
