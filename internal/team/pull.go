@@ -24,6 +24,7 @@ type PullResult struct {
 	UpToDate  int // already present locally and identical
 	Conflicts int // local copy differs from team — left untouched for the user to resolve
 	Skipped   int // team memories whose project has no local match
+	Removed   int // local team copies deleted because they were withdrawn upstream (tombstoned)
 }
 
 // Pull fetches the team store and copies project-scoped team memories into the
@@ -125,6 +126,35 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 	})
 	if walkErr != nil {
 		return res, walkErr
+	}
+
+	// Propagate withdrawals: delete local team-scoped copies whose id was withdrawn
+	// upstream (tombstoned) and is no longer in the store. A re-promoted id is back
+	// in the store (and its tombstone cleared), so it is not removed. The owner's
+	// own copy was reset to personal by Withdraw, so it is skipped here.
+	if withdrawn := readWithdrawn(dir); len(withdrawn) > 0 {
+		storeAll := storeIndexByID(dir) // ids present anywhere in the store (any scope)
+		for _, t := range targets {
+			if t.Key == "" || t.MemoryDir == "" {
+				continue
+			}
+			for id, localPath := range indexByID(t.MemoryDir) {
+				if !withdrawn[id] || len(storeAll[id]) > 0 {
+					continue // not withdrawn, or still shared somewhere in the store
+				}
+				lr, err := os.ReadFile(localPath)
+				if err != nil {
+					continue
+				}
+				if m, ok, _ := memory.ReadEngram(string(lr)); !ok || m.Scope != "team" {
+					continue // keep personal copies (incl. the owner's withdrawn one)
+				}
+				if os.Remove(localPath) == nil {
+					res.Removed++
+					touched[t.MemoryDir] = true
+				}
+			}
+		}
 	}
 
 	for memDir := range touched {

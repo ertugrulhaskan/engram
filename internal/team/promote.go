@@ -87,6 +87,13 @@ func Promote(memPath, placement string) (pushed bool, err error) {
 	if _, err := runGitCapture(dir, "add", "--", rel); err != nil {
 		return false, fmt.Errorf("staging team copy: %v", err)
 	}
+	// Re-promoting a previously-withdrawn id clears its tombstone, so a teammate's
+	// pull won't delete the re-shared copy.
+	if ledgerRel := removeWithdrawn(dir, id); ledgerRel != "" {
+		if _, err := runGitCapture(dir, "add", "--", ledgerRel); err != nil {
+			return false, fmt.Errorf("staging tombstone update: %v", err)
+		}
+	}
 	if _, err := runGitCapture(dir, "diff", "--cached", "--quiet"); err != nil {
 		// non-zero exit ⇒ staged changes present ⇒ commit them
 		if _, err := runGitCapture(dir, "commit", "-m", "Promote "+filepath.Base(memPath)); err != nil {

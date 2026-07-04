@@ -9,16 +9,15 @@ import (
 
 // withdrawFinishedMsg reports the outcome of a background Withdraw.
 type withdrawFinishedMsg struct {
-	removed bool
-	pushed  bool
-	err     error
+	pushed bool
+	err    error
 }
 
 // withdrawCmd runs team.Withdraw off the UI thread (captured git output, like promote).
 func (m Model) withdrawCmd(path string) tea.Cmd {
 	return func() tea.Msg {
-		removed, pushed, err := team.Withdraw(path)
-		return withdrawFinishedMsg{removed: removed, pushed: pushed, err: err}
+		pushed, err := team.Withdraw(path)
+		return withdrawFinishedMsg{pushed: pushed, err: err}
 	}
 }
 

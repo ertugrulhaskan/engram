@@ -32,10 +32,12 @@ piece (see **Known gaps**). See [ROADMAP.md](ROADMAP.md) and [SPEC.md](SPEC.md) 
   to resolve), no-ops identical ones, and skips projects with no local match.
   Global-scoped team memories stay in the store (browse / promote-on-demand).
 - **Withdraw from team (`w`)** — the reverse of promote: after a confirm, remove the
-  selected memory's shared copy from the team store (matched by id), reset it to
-  personal (keeping its id for a later re-promote), and commit + push the removal.
-  Teammates who already pulled keep their copy — withdraw stops future sharing, it
-  doesn't recall existing copies.
+  selected memory's shared copy from the team store, reset it to personal (keeping
+  its id), and commit + push. **Only the owner can withdraw** (an advisory
+  guardrail). The removal is recorded in a `.engram-withdrawn` tombstone, so on a
+  teammate's next **pull** their local team copy is removed too — a withdrawal
+  *propagates*. Re-promoting clears the tombstone; personal files are never removed.
+  Pull's summary now includes a *withdrawn* count.
 - **Sync-status badges** — team-scoped memories carry a compact glyph in the list
   showing their state against the team store, recomputed on launch and every reload:
   `✓` synced (matches the store), `●` differs (local and store diverge — no direction

@@ -59,14 +59,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case withdrawFinishedMsg:
 		m.driftDir = ""
 		switch {
-		case msg.err != nil && msg.removed:
-			// The team copy was removed, but the local scope reset failed — say so
-			// rather than reporting a flat failure.
-			return m, tea.Batch(m.setDanger("removed from team, but the local update failed: "+msg.err.Error()), reloadCmd())
 		case msg.err != nil:
 			return m, tea.Batch(m.setDanger("withdraw failed: "+msg.err.Error()), reloadCmd())
-		case !msg.removed:
-			return m, tea.Batch(m.setStatus("withdrawn — was not in the team store"), reloadCmd())
 		case !msg.pushed:
 			return m, tea.Batch(m.setDanger("withdrawn locally; push failed — check your git remote/creds"), reloadCmd())
 		default:
@@ -92,8 +86,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.setDanger("pull failed: "+msg.err.Error()), reloadCmd())
 		}
 		r := msg.res
-		summary := fmt.Sprintf("pull: %d new · %d up-to-date · %d conflict · %d skipped",
-			r.Placed, r.UpToDate, r.Conflicts, r.Skipped)
+		summary := fmt.Sprintf("pull: %d new · %d up-to-date · %d withdrawn · %d conflict · %d skipped",
+			r.Placed, r.UpToDate, r.Removed, r.Conflicts, r.Skipped)
 		if r.Conflicts > 0 {
 			return m, tea.Batch(m.setDanger(summary), reloadCmd())
 		}

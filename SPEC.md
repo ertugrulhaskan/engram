@@ -202,14 +202,23 @@ filename. The id is assigned once, on the first promote.
   `engram.scope: team`, assign an `engram.id` if absent, commit, push.
   Multi-select supported. A modal picks the scope, defaulting to the current
   project, with a "global" option.
-- **withdraw** *(the reverse of promote; TUI key `w`)* — remove the memory's copy
-  from the store (matched by `engram.id` within its scope dir), reset the local
-  `engram.scope` to personal (keeping the id for a later re-promote), commit, push.
-  Teammates who already pulled keep their local copy (pull never deletes), so
-  withdraw stops *future* sharing rather than recalling existing copies. Named
-  `withdraw`, not "unpromote"/"demote".
+- **withdraw** *(the reverse of promote; TUI key `w`, owner-only)* — remove the
+  memory's copy from the store (matched by `engram.id`), record its id in a
+  `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
+  personal (keeping the id). Commit + push both the removal and the tombstone. Only
+  the `owner` (the promoter's git email) may withdraw — an **advisory guardrail**,
+  not enforcement, since anyone with push access can bypass it. On a teammate's next
+  **pull**, the tombstone removes their local team-scoped copy too, so a withdrawal
+  **propagates** — this is the one case where pull deletes a local file, and it
+  deletes *only* a tombstoned `scope: team` copy that is no longer anywhere in the
+  store; a personal file (including the owner's own reset copy) is never removed.
+  **Re-promoting clears the tombstone** (so a re-shared memory isn't deleted), and a
+  memory still shared under another scope is kept. Named `withdraw`, not
+  "unpromote"/"demote". *(Ledger entries are append-only; garbage-collecting old
+  tombstones once every clone has synced is a later refinement.)*
 - **pull** — `git pull` the clone, then place team files where Claude reads them
-  (matching project, or global) and refresh the relevant `MEMORY.md`.
+  (matching project, or global), remove any local team copy whose id was withdrawn
+  upstream (see **withdraw**), and refresh the relevant `MEMORY.md`.
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
   and engram never auto-pulls. On launch it does a cheap check against the team
   repo and badges memories that have updates (`[team ↓]`); files are only placed

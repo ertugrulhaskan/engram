@@ -143,9 +143,10 @@ override. **`P` pulls** the team's project memories down into their matching loc
 projects (it never overwrites a file you've changed — that's flagged as a conflict).
 Shared memories then carry a **sync-status badge** in the list — `✓` synced, `●`
 differs, `!` missing — so you can see each one's state against the team store at a
-glance. **`w` withdraws** a shared memory (after a confirm): it removes the copy from
-the store and resets the memory to personal — the reverse of promote. Guided conflict
-resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
+glance. **`w` withdraws** a shared memory (after a confirm) — if you're its owner: it removes
+the copy from the store, resets your memory to personal, and, via a tombstone,
+removes it from teammates on their next pull (re-promote with `p` puts it back).
+Guided conflict resolution is still landing — see [ROADMAP.md](ROADMAP.md) Phase 2.
 
 The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
 (`block` default · `block-strict` no override · `warn` · `off`) and
