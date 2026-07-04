@@ -205,7 +205,11 @@
   var banner = document.getElementById('cookie-banner');
   function get() { try { return localStorage.getItem('cookie-consent'); } catch (e) { return null; } }
   function set(v) { try { localStorage.setItem('cookie-consent', v); } catch (e) {} }
-  function hide() { if (banner) banner.classList.add('hidden'); }
+  // The banner is fixed to the bottom; reserve equal space on the body so it never
+  // overlaps the footer (re-measured on resize since it wraps on small screens).
+  function pad() { document.body.style.paddingBottom = (banner && !banner.classList.contains('hidden')) ? banner.offsetHeight + 'px' : ''; }
+  function show() { if (banner) { banner.classList.remove('hidden'); pad(); } }
+  function hide() { if (banner) banner.classList.add('hidden'); document.body.style.paddingBottom = ''; }
   function loadGA() {
     if (window.__gaLoaded) return;
     window.__gaLoaded = true;
@@ -220,9 +224,31 @@
   }
   var choice = get();
   if (choice === 'accepted') { loadGA(); }
-  else if (choice !== 'declined' && banner) { banner.classList.remove('hidden'); }
+  else if (choice !== 'declined' && banner) { show(); }
   var accept = document.getElementById('cookie-accept');
   var decline = document.getElementById('cookie-decline');
   if (accept) accept.addEventListener('click', function () { set('accepted'); hide(); loadGA(); });
   if (decline) decline.addEventListener('click', function () { set('declined'); hide(); });
+  window.addEventListener('resize', pad);
+})();
+
+// --- install method switcher (Homebrew / Go tabs over one command box) ---
+(function () {
+  var onCls = ['bg-neutral-200', 'dark:bg-neutral-800', 'text-neutral-800', 'dark:text-neutral-200'];
+  var offCls = ['text-neutral-500', 'dark:text-neutral-400', 'hover:text-neutral-800', 'dark:hover:text-neutral-200'];
+  document.querySelectorAll('[data-install]').forEach(function (box) {
+    var tabs = Array.prototype.slice.call(box.querySelectorAll('[data-install-tab]'));
+    var code = box.querySelector('[data-install-code]');
+    if (!tabs.length || !code) return;
+    function select(tab) {
+      code.textContent = tab.getAttribute('data-cmd');
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute('aria-pressed', on ? 'true' : 'false');
+        onCls.forEach(function (c) { t.classList.toggle(c, on); });
+        offCls.forEach(function (c) { t.classList.toggle(c, !on); });
+      });
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { select(t); }); });
+  });
 })();
