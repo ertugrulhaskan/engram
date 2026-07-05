@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **README screenshot** (`docs/tui.png`) — a real capture of the TUI over staged,
+  fictional demo data (an imaginary AI app). Regenerable after UI changes via the
+  vhs tape and fixtures in `docs/demo/`.
+
+### Changed
+- **README restructured for readability** — status/website-build blockquotes replaced
+  with a one-line status (build details now pointed at CONTRIBUTING.md), team sharing
+  broken out per command, badge/palette explanations deduplicated into single homes,
+  and previously undocumented surface documented: `engram version` / `help` CLI
+  commands, the `theme` / `editor` config keys, the palette's bare-text fuzzy jump,
+  and auto-reload on disk changes.
+
 ## [0.2.1] - 2026-07-04
 
 ### Fixed
@@ -267,7 +280,9 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ertugrulhaskan/engram/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/ertugrulhaskan/engram/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/ertugrulhaskan/engram/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ertugrulhaskan/engram/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ertugrulhaskan/engram/releases/tag/v0.1.0

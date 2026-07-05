@@ -11,19 +11,11 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** **live and installable** — Phase 1 (local browsing) + Phase 1.5 (assisted
-> maintenance) shipped in `v0.1.0`; Phase 2 (team sharing over git) shipped in `v0.2.0`
-> (latest: **`v0.2.1`**) — `init-team`, `promote` / `pull` / `withdraw` / `resolve`,
-> direction-aware sync badges, and a secret-scan guard, all under the `>` command palette.
-> Public on GitHub, open source (MIT), with the site live at [engram.im](https://engram.im).
-> See [ROADMAP.md](ROADMAP.md) for what's next; design details live in [SPEC.md](SPEC.md).
->
-> **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
-> with Tailwind CSS (stock theme only; assets split into `www/css/` and `www/js/`) — run
-> `npm run build:css` and commit the generated `www/css/styles.css` after changing classes
-> (see [CONTRIBUTING.md](CONTRIBUTING.md) "Landing page"). Served at
-> [engram.im](https://engram.im) via Netlify (config in `netlify.toml`); analytics load
-> only after cookie consent, with a [privacy policy](www/privacy.html) at `www/privacy.html`.
+**Latest release: `v0.2.1`** · open source ([MIT](LICENSE)) · website:
+[engram.im](https://engram.im) · what's next: [ROADMAP.md](ROADMAP.md) ·
+design: [SPEC.md](SPEC.md)
+
+![The engram TUI — memories grouped by project on the left, the selected memory rendered as markdown on the right](docs/tui.png)
 
 ## Why
 
@@ -37,9 +29,6 @@ the gap that can't: cross-project memories, personal-vs-team layering, and a
 proper UI.
 
 ## Install
-
-The quickest path on any platform is **Go**; macOS users can use the **Homebrew**
-cask, and prebuilt **binaries** are attached to each release.
 
 **Homebrew** (macOS — installs the latest release):
 
@@ -56,7 +45,7 @@ go install github.com/ertugrulhaskan/engram@latest
 **Prebuilt binaries** for macOS / Linux / Windows (amd64 + arm64) are attached to
 each [release](https://github.com/ertugrulhaskan/engram/releases).
 
-Or build from a clone:
+**From source:**
 
 ```sh
 git clone https://github.com/ertugrulhaskan/engram.git && cd engram
@@ -73,6 +62,10 @@ Just run it:
 engram
 ```
 
+The left pane lists every memory found across all your projects, grouped under
+colored headers; the right pane shows the selected memory rendered as markdown.
+The list reloads automatically when memory files change on disk.
+
 | Key        | Action                                  |
 |------------|-----------------------------------------|
 | `↑`/`↓` `j`/`k` | move through the list              |
@@ -80,54 +73,96 @@ engram
 | `/`        | filter / search the list                |
 | `tab`      | switch focus between list and preview   |
 | `e`        | edit the selected memory in `$EDITOR`   |
-| `n`        | create a new memory (in the current project) and open it |
+| `n`        | create a new memory in the current project and open it in `$EDITOR` |
 | `d`        | delete the selected item (asks `y`/`n` first) |
-| `t`        | cycle the type filter (all → user → feedback → project → reference → unknown) |
+| `t`        | cycle the type filter                   |
 | `g`        | toggle grouping: by project ⇄ by type   |
-| `R`        | reconcile the project's `MEMORY.md` index with its files (shown when out of sync) |
+| `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
 | `1`–`5`    | switch theme                            |
-| `ctrl+p`   | command palette — three guides: `/` sources (`/memory`, `/plans`, `/files`, `/settings`), `@` for `@Claude`, and **`>` team commands** |
+| `ctrl+p`   | open the command palette (see below)    |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
 
-**Team commands live under `>`** in the command palette (`ctrl+p`, then type `>`):
-`>promote`, `>pull`, `>resolve`, `>withdraw`, and `>init <git-url>`. They act on the
-selected memory and each surface a clear error if the team store isn't set up yet.
+`n`, `d`, and `e` keep the project's `MEMORY.md` index in sync, so Claude Code
+picks up the changes. When an index drifts anyway — files added without an index
+line, or entries left behind by a deleted or renamed file — the warning names the
+cause and `R` reconciles it.
 
-The left pane lists every memory found across all your projects, **grouped by
-project** with a colored header per group; the right pane shows the selected
-memory rendered as markdown. The command palette (`ctrl+p`) opens to three guide
-rows — **`/`** for sources, **`@`** for the assistant, and **`>`** for team commands.
-Typing `/` switches between sources — your memories, your plan-mode plans, and
-**`/files`** (the read-only `CLAUDE.md` / `MEMORY.md` files Claude manages) — or opens
-the config file; typing `@` launches **`@Claude`**; typing `>` runs a team command.
+### The command palette (`ctrl+p`)
 
-> **`/files`** lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
-> (when its directory resolves on disk), and each project's `MEMORY.md` index. These
-> are **view-only** — `e`/`d` point you at `@Claude` instead of editing them directly,
-> so the index and your instructions don't get hand-corrupted.
+The palette opens to three guide rows; what you type decides what it does:
 
-> `new`, `delete`, and `edit` keep the project's `MEMORY.md` index in sync, so
-> Claude Code picks up the changes. When an index drifts, the warning names the
-> cause — files added without an index line, and/or entries left by a deleted or
-> renamed file — and `R` reconciles it.
+- **`/` — sources.** Switch what the list shows: `/memory` (the default),
+  `/plans` (your plan-mode plans, grouped by recency), `/files` (see below),
+  or `/settings` (opens engram's config file in your `$EDITOR`).
+- **`@` — assistant.** `@Claude` hands off to an interactive
+  [Claude Code](https://claude.com/claude-code) session, seeded with the selected
+  project's memory/plan health, to fix what `R` can't (malformed frontmatter,
+  broken `[[links]]`, memories stranded by a renamed project folder) and to
+  create, rewrite, or merge memories on request. engram reloads when the session
+  exits. Requires the `claude` CLI on `PATH`; without it the palette action shows
+  a one-line hint.
+- **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
+  `>withdraw` — covered in [Team sharing](#team-sharing) below.
+- **Anything else — jump.** Plain text (no prefix) fuzzy-matches memory and plan
+  titles and jumps straight to the match.
 
-> **`@Claude`** (palette → type `@`) hands off to an interactive
-> [Claude Code](https://claude.com/claude-code) session, seeded with the selected
-> project's memory/plan health, to fix what `R` can't (malformed frontmatter, broken
-> `[[links]]`, memories stranded by a renamed project folder) and to create, rewrite,
-> or merge memories on request. engram reloads when the session exits. Requires the
-> `claude` CLI on `PATH`; without it the palette action shows a one-line hint.
+### `/files` — read-only view of Claude's own files
 
-## Team sharing setup (Phase 2 — shipped)
+`/files` lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
+(when its directory resolves on disk), and each project's `MEMORY.md` index.
+These are **view-only** — `e`/`d` point you at `@Claude` instead of editing them
+directly, so the index and your instructions don't get hand-corrupted.
+
+## Reading the list
+
+- **Grouping.** Rows sit under a colored `▌ Group (N)` header with a count. For
+  memories, `g` toggles between grouping **by project** and **by type**; plans
+  group **by recency** (Today / This week / Older). The selected row is marked
+  with a `›` cursor.
+- **Type badge.** Each memory shows a colored badge for its type, taken from
+  Claude's `metadata.type`:
+
+  | Badge | Color | Meaning |
+  |-------|-------|---------|
+  | `[user]` | blue | a fact about you (role, preferences) |
+  | `[feedback]` | orange | guidance on how to work |
+  | `[project]` | green | something specific to that codebase |
+  | `[reference]` | purple | a pointer to an external resource |
+  | `[other]` | gray | no type recorded (the `t` filter calls this `unknown`) |
+
+  `t` cycles the type filter through exactly this order:
+  all → user → feedback → project → reference → unknown.
+
+- **Sync badge.** Once you share, a team-scoped memory shows a filled pill for
+  its state against the team store. A **sync anchor** (a content digest recorded
+  when you last promoted or pulled) lets engram name a direction:
+
+  | Badge | State | What to do |
+  |-------|-------|------------|
+  | `✓` | synced | nothing |
+  | `↓` | incoming — the store advanced, your copy is untouched | `>pull` (or `>resolve`) |
+  | `↑` | ahead — you have unshared edits | `>promote` |
+  | `↕` | conflict — both sides moved | `>resolve` |
+  | `!` | missing — promoted but not in the store | `>promote` |
+  | `●` | differs — shared before the anchor existed, so no direction | `>resolve` |
+
+  Personal memories show no pill, and the column vanishes until you set up a
+  team store.
+- **Scope chip.** A color-coded `global` (teal) / `project` (azure) chip sits
+  beside the sync pill, showing whether a shared memory is team-wide or tied to
+  one project — the choice you make when you promote.
+
+## Team sharing
 
 Team sharing lives under the **`>` command palette** (`ctrl+p`, then type `>`);
-normal use stays a no-arg TUI. Set up the shared team store (a git repo your team
-reads and writes) with **`>init <git-url>`** (or the equivalent `engram init-team
-<git-url>` subcommand):
+normal use stays a no-arg TUI. The team store is a git repo your team reads and
+writes.
+
+### Setup
 
 ```sh
-engram init-team <git-url>
+engram init-team <git-url>   # or >init <git-url> in the palette
 ```
 
 This clones the team repo to `~/.config/engram/team/` and, if the repo is empty,
@@ -135,58 +170,57 @@ scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
 starter layout (a failed push is non-fatal — the local commit is kept, with a
 retry hint).
 
-Then, on the selected memory: **`>promote`** copies it into the store — a scope
-dialog picks *this project* (keyed by its git remote) or *global*. engram stamps
-the memory with an `engram:` frontmatter block (a durable id, scope, project,
-owner — leaving Claude's own keys untouched) and commits + pushes the shared copy.
-Before it pushes, engram **scans the memory for secrets** and, by default, blocks
-the promote if it finds one — showing the redacted match with an option to
-override. **`>pull`** brings the team's project memories down into their matching
-local projects. When only the store moved and your copy is untouched, pull
-**fast-forwards** it automatically; a copy you edited is left alone, and a genuine
-divergence is flagged as a conflict rather than overwritten. Shared memories carry a
-**sync-status badge** in the list — `✓` synced, `↓` incoming, `↑` ahead, `↕` conflict,
-`!` missing — plus a color-coded `global`/`project` **scope chip**, so you can see each
-one's state and bucket at a glance. **`>resolve`** opens both versions of a conflict
-with git-style markers in your `$EDITOR` and writes your merge back, re-anchored so
-"take theirs" reads as synced. **`>withdraw`** takes a shared memory back (after a
-confirm) — if you're its owner: it removes the copy from the store, resets your memory
-to personal, and, via a tombstone, removes it from teammates on their next pull
-(`>promote` again puts it back).
+### The commands
 
-The secret scan is tunable in `~/.config/engram/config.json`: `secretScanAction`
-(`block` default · `block-strict` no override · `warn` · `off`) and
-`secretScanScope` (`secrets` default · `secrets+pii`). It uses a curated rule set —
-a guard, not a guarantee, so treat the override as a real decision.
+`>promote`, `>resolve`, and `>withdraw` act on the selected memory; `>pull`
+applies store-wide. Each surfaces a clear error if the team store isn't set
+up yet:
 
-## Understanding the list
+- **`>promote`** — copies the memory into the store. A scope dialog picks *this
+  project* (keyed by its git remote) or *global*. engram stamps the shared copy
+  with an `engram:` frontmatter block (a durable id, scope, project, owner —
+  leaving Claude's own keys untouched) and commits + pushes. Before pushing,
+  engram **scans the memory for secrets** and by default blocks the promote on a
+  hit, showing the redacted match with an option to override (tunable — see
+  [Configuration](#configuration)).
+- **`>pull`** — brings the team's **project-scoped** memories down into their
+  matching local projects. When only the store moved and your copy is untouched,
+  pull **fast-forwards** it automatically; a copy you edited is left alone, and a
+  genuine divergence is flagged as a conflict rather than overwritten. Pull walks
+  past *global* memories — take an incoming global memory with `>resolve`.
+- **`>resolve`** — opens both versions of a conflict with git-style markers in
+  your `$EDITOR` and writes your merge back, re-anchored so "take theirs" reads
+  as synced.
+- **`>withdraw`** — takes a shared memory back (after a confirm), if you're its
+  owner: it removes the copy from the store, resets your memory to personal,
+  and, via a tombstone, removes it from teammates on their next pull.
+  `>promote` again puts it back.
 
-- **Grouping.** Rows are grouped under a colored `▌ Group (N)` header with a
-  count. For memories, press `g` to toggle between grouping **by project** (which
-  Claude project a memory belongs to) and **by type**. Plans group **by recency**
-  (Today / This week / Older). The selected row is marked with a `❯` cursor.
-- **Color-coded badge = kind.** Each memory shows a colored badge for its type,
-  taken from Claude's `metadata.type`:
-  - `[user]` (blue) — a fact about you (role, preferences)
-  - `[feedback]` (orange) — guidance on how to work
-  - `[project]` (green) — something specific to that codebase
-  - `[reference]` (purple) — a pointer to an external resource
-  - `[other]` (gray) — no type recorded
-- **Sync badge = team state.** Once you share, a team-scoped memory shows a filled
-  pill for its state against the store. Thanks to a **sync anchor** (a content
-  digest recorded when you last promoted/pulled), engram names a direction: `✓`
-  synced, `↓` incoming (the store advanced, your copy is untouched — take it with
-  `>pull` or `>resolve`), `↑` ahead (you have unshared edits — `>promote` to share),
-  `↕` conflict (both sides moved — `>resolve`), `!` missing (promoted but not in the
-  store). A memory shared before the anchor existed has no anchor and shows a direction-less `●`
-  differs. Personal memories show no pill, and the column vanishes until you set up a
-  team store.
-- **Scope chip = which bucket.** A color-coded `global` (teal) / `project` (azure)
-  chip sits beside the sync pill so you can see whether a shared memory is team-wide
-  (**global**) or tied
-  to **this project** (keyed by its git remote) — the choice you make when you
-  promote. Your user-wide rules in `~/.claude/CLAUDE.md` show up read-only under
-  `/files`, alongside per-project `CLAUDE.md` and `MEMORY.md`.
+## Configuration
+
+engram's config lives at `~/.config/engram/config.json` (open it with
+`/settings` in the palette):
+
+| Key | Values | Default |
+|-----|--------|---------|
+| `theme` | theme name, e.g. `"Nord"` — saved automatically when you press `1`–`5` | Dracula |
+| `editor` | editor command override, e.g. `"code --wait"` — when unset, `$VISUAL` / `$EDITOR` apply | — |
+| `secretScanAction` | `block` · `block-strict` (no override) · `warn` · `off` | `block` |
+| `secretScanScope` | `secrets` · `secrets+pii` | `secrets` |
+
+The secret scan uses a curated rule set — a guard, not a guarantee, so treat the
+override as a real decision.
+
+## CLI
+
+`engram` is a no-arg TUI; the few subcommands are:
+
+```sh
+engram                       # launch the TUI
+engram init-team <git-url>   # set up the team store (same as >init)
+engram version               # print the version (also --version / -v)
+engram help                  # print usage (also --help / -h)
+```
 
 ## How it works
 
@@ -213,8 +247,10 @@ Files are never modified except when you explicitly edit one. See
 Contributions welcome! The codebase is small and deliberately layered:
 `internal/memory` (discovery + parsing + file mutation, no UI) and `internal/tui`
 (Bubble Tea UI, no file logic). See [CONTRIBUTING.md](CONTRIBUTING.md) for build
-and test instructions, and [SPEC.md](SPEC.md) for the design. By participating
-you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+and test instructions — including the "Landing page" section for working on the
+[engram.im](https://engram.im) site under [`www/`](www/) — and [SPEC.md](SPEC.md)
+for the design. By participating you agree to the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
