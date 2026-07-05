@@ -58,17 +58,15 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
 - [ ] Auto-pull for global-scoped memories *(today `>pull` walks `projects/` only; global updates are taken via `>resolve`)*
 
-## Phase 3 — Release / go public
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` + `v0.2.1` released)*
 
-Goal: ship engram publicly — flip the repo public and make it installable. The
-release tooling (GoReleaser + CI + tag workflow) is already built; this phase runs
-it. Gated on an explicit go-ahead — nothing here happens automatically.
+Goal: ship engram publicly — flip the repo public and make it installable.
 
-- [ ] Make the GitHub repo public
-- [ ] Push the `v0.2.0` tag to trigger the GoReleaser publish workflow
-- [ ] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
-- [ ] Deploy the landing page to [engram.im](https://engram.im) (Netlify)
-- [ ] Verify install paths end-to-end (Homebrew, `go install`, prebuilt binaries)
+- [x] Make the GitHub repo public
+- [x] Push the release tag to trigger the GoReleaser publish workflow (`v0.2.0`, then `v0.2.1`)
+- [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
+- [ ] Deploy the landing page to [engram.im](https://engram.im) (Netlify) — *DNS in progress*
+- [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
 ## Phase 4 — Other assistants
 

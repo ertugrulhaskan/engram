@@ -102,10 +102,11 @@ To cut a release:
 
 1. Update [`CHANGELOG.md`](CHANGELOG.md): move `[Unreleased]` items into a new
    dated version section and refresh the compare/tag links.
-2. Tag and push:
+2. Tag and push **the specific tag** (never `git push --tags` — that would also push
+   any un-pushed local tags and fire stray releases):
    ```sh
-   git tag v0.2.0
-   git push --tags
+   git tag -a vX.Y.Z -m "engram vX.Y.Z"
+   git push origin vX.Y.Z
    ```
 3. The `release` workflow runs GoReleaser, which builds cross-platform binaries
    (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
@@ -118,10 +119,10 @@ goreleaser check
 goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
 ```
 
-**One-time setup** (before the first public release): create the
-`ertugrulhaskan/homebrew-tap` repo and add a `HOMEBREW_TAP_TOKEN` Actions secret
-— a PAT with write access to that tap repo (the built-in `GITHUB_TOKEN` can't
-push to a separate repository).
+**Tap + token (already configured):** the `ertugrulhaskan/homebrew-tap` repo exists
+and the engram repo carries a `HOMEBREW_TAP_TOKEN` Actions secret with write access
+to it (the built-in `GITHUB_TOKEN` can't push to a separate repository). For tighter
+security, scope that secret to a fine-grained PAT limited to the `homebrew-tap` repo.
 
 ## Code of conduct
 
