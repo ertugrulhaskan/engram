@@ -219,7 +219,11 @@ filename. The id is assigned once, on the first promote.
 - **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove the
   memory's copy from the store (matched by `engram.id`), record its id in a
   `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
-  personal (keeping the id). Commit + push both the removal and the tombstone. Only
+  personal (keeping the id). It **pre-checks that the local reset can be written before
+  touching the store** — if the frontmatter can't be safely rewritten, withdraw refuses
+  up front and leaves the memory fully shared, rather than removing the store copy and
+  then failing the reset (which would strand the memory as `! missing`). Commit + push
+  both the removal and the tombstone. Only
   the `owner` (the promoter's git email) may withdraw — an **advisory guardrail**,
   not enforcement, since anyone with push access can bypass it. On a teammate's next
   **pull**, the tombstone removes their local team-scoped copy too, so a withdrawal

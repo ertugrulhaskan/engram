@@ -47,6 +47,15 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		return false, fmt.Errorf("only %s can withdraw this memory (you are %s)", meta.Owner, me)
 	}
 
+	// Pre-flight: confirm we can rewrite the local file back to personal BEFORE we
+	// remove anything from the store. Otherwise the store removal would commit + push
+	// and then the local reset could fail (e.g. frontmatter engram can't safely edit),
+	// leaving the memory "shared but no longer in the store" — the `! missing` state.
+	// Refusing here keeps the memory fully shared and untouched instead.
+	if _, err := memory.WriteEngram(string(raw), memory.EngramMeta{ID: meta.ID, Scope: "personal"}); err != nil {
+		return false, fmt.Errorf("can't withdraw — this memory's frontmatter can't be safely updated: %v", err)
+	}
+
 	// Find the store copy by engram.id within its scope dir (robust to a local
 	// rename, since the store filename could differ from the current local one).
 	scopeDir := filepath.Join(dir, "global")

@@ -253,3 +253,65 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 		t.Errorf("the owner's own withdrawn copy should be demoted to personal, got scope=%q", om.Scope)
 	}
 }
+
+// A team-scoped memory whose frontmatter is ambiguous to the line-based split (a
+// bare "---" inside a block scalar after the engram block): ReadEngram still sees it
+// as shared, but WriteEngram refuses to rewrite it. Withdraw must refuse up front and
+// leave the store copy intact, rather than remove it and then fail the local reset —
+// which would leave the memory stuck as `! missing`.
+func TestWithdrawRefusesUnsafeFrontmatterKeepsStore(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = W\n\temail = w@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	teamDir, _ := Dir()
+
+	key := "github.com/acme/app"
+	unsafe := "---\nname: m\nengram:\n  id: WD-X\n  scope: team\n  project: " + key +
+		"\ndescription: |-\n  a\n  ---\n  b\n---\n# M\n\nbody\n"
+
+	// Preconditions: it reads as team-scoped, but WriteEngram refuses it.
+	if m, ok, _ := memory.ReadEngram(unsafe); !ok || m.Scope != "team" || m.ID != "WD-X" {
+		t.Fatalf("precondition: want team-scoped WD-X, got %+v ok=%v", m, ok)
+	}
+	if _, err := memory.WriteEngram(unsafe, memory.EngramMeta{ID: "WD-X", Scope: "personal"}); err == nil {
+		t.Fatal("precondition: WriteEngram should refuse the ambiguous frontmatter")
+	}
+
+	memDir := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(memDir, "note.md")
+	if err := os.WriteFile(memPath, []byte(unsafe), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	storePath := filepath.Join(teamDir, "projects", key, "note.md")
+	if err := os.MkdirAll(filepath.Dir(storePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(storePath, []byte(unsafe), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Withdraw(memPath); err == nil {
+		t.Error("expected Withdraw to refuse a memory it can't reset to personal")
+	}
+	if _, err := os.Stat(storePath); err != nil {
+		t.Errorf("store copy must be left intact when withdraw refuses (no ! missing half-state), stat err=%v", err)
+	}
+	if lr, _ := os.ReadFile(memPath); string(lr) != unsafe {
+		t.Error("local file should be untouched when withdraw refuses")
+	}
+}

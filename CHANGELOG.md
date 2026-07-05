@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-04
+
+### Fixed
+- **Withdraw no longer leaves a memory stuck as `! missing`.** `>withdraw` now
+  verifies it can reset the local memory back to personal **before** removing the
+  shared copy from the store. Previously, if that local rewrite failed — e.g. a memory
+  whose frontmatter can't be safely edited — the store copy was already removed and
+  pushed while the local copy stayed team-scoped, leaving it flagged `! missing`.
+  Withdraw now refuses up front and leaves the memory fully shared and untouched.
+
 ## [0.2.0] - 2026-07-04
 
 **Phase 2 — team sharing over git.** Share memories across a team through a plain
