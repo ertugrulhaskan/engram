@@ -11,11 +11,12 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-> **Status:** Phase 1 (local browsing) + Phase 1.5 (assisted maintenance) shipped as
-> `v0.1.0`; Phase 2 (team sharing over git) shipped as `v0.2.0` — `init-team`,
-> `promote` / `pull` / `withdraw` / `resolve`, direction-aware sync badges, and a
-> secret-scan guard, all under the `>` command palette. Open source (MIT). See
-> [ROADMAP.md](ROADMAP.md) for what's next; design details live in [SPEC.md](SPEC.md).
+> **Status:** **live and installable** — Phase 1 (local browsing) + Phase 1.5 (assisted
+> maintenance) shipped in `v0.1.0`; Phase 2 (team sharing over git) shipped in `v0.2.0`
+> (latest: **`v0.2.1`**) — `init-team`, `promote` / `pull` / `withdraw` / `resolve`,
+> direction-aware sync badges, and a secret-scan guard, all under the `>` command palette.
+> Public on GitHub, open source (MIT), with the site live at [engram.im](https://engram.im).
+> See [ROADMAP.md](ROADMAP.md) for what's next; design details live in [SPEC.md](SPEC.md).
 >
 > **Website:** the landing page lives in-repo at [`www/index.html`](www/index.html), styled
 > with Tailwind CSS (stock theme only; assets split into `www/css/` and `www/js/`) — run
@@ -40,7 +41,7 @@ proper UI.
 The quickest path on any platform is **Go**; macOS users can use the **Homebrew**
 cask, and prebuilt **binaries** are attached to each release.
 
-**Homebrew** (macOS, from the `v0.2.0` release):
+**Homebrew** (macOS — installs the latest release):
 
 ```sh
 brew install ertugrulhaskan/tap/engram
@@ -204,7 +205,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
-- **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im)
+- **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
 - **Phase 4** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing

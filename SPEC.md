@@ -449,9 +449,9 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   `netlify.toml`. Google Analytics is loaded **only after cookie consent** (see the
   banner in `index.html` + `main.js`); the [Privacy Policy](../www/privacy.html) is
   `www/privacy.html`.
-- **Publishing runs at the Phase 3 launch.** Go-live is gated on the `v0.2.0` release
-  being public so the install command and the "available" badge are true. The Netlify
-  site, DNS, and release are the maintainer's deliberate steps — don't perform them
+- **Published (Phase 3 done).** The repo is public, `v0.2.0`/`v0.2.1` are released, and the
+  site is **live at engram.im on Netlify** with SSL. For any *future* release, the tag push,
+  visibility, and deploy stay the maintainer's deliberate steps — don't perform them
   unprompted (see the Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 
 ## 10. Open questions / future

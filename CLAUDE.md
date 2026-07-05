@@ -51,10 +51,10 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-Phase 3 (going public) is **done**: the repo is public and `v0.2.0` + `v0.2.1` are
-released (binaries + Homebrew tap live; the landing-page deploy to engram.im on Netlify
-is the last piece — DNS in progress). **For any future release, don't run the publish
-steps unprompted** — pushing a `v*` tag fires the GoReleaser workflow and cuts a public
-release (push the *specific* tag, never `git push --tags`), so do it only when the
-maintainer explicitly asks. Mechanics: SPEC §9 and the "Releasing" section of
+Phase 3 (going public) is **done**: the repo is public, `v0.2.0` + `v0.2.1` are released
+(binaries + Homebrew tap live), and the site is **live at engram.im on Netlify** (SSL).
+**For any future release, don't run the publish steps unprompted** — pushing a `v*` tag
+fires the GoReleaser workflow and cuts a public release (push the *specific* tag, never
+`git push --tags`), so do it only when the maintainer explicitly asks. Mechanics: SPEC §9
+and the "Releasing" section of
 CONTRIBUTING.md.
