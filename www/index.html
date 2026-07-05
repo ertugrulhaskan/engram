@@ -132,22 +132,21 @@
       <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" tabindex="0" data-tabview class="focus-visible:outline-none">
         <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
           <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-            <p class="mb-2 text-green-700 dark:text-green-500">▌ engram (3)</p>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-800 dark:text-neutral-200">Bubble Tea model…</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Prefer concise commits</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-600 dark:text-neutral-400">Use lipgloss for styling</span></div>
-            <p class="mb-2 mt-4 text-sky-700 dark:text-sky-400">▌ payments-api (2)</p>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-purple-700 dark:text-purple-400">[reference]</span><span class="text-neutral-600 dark:text-neutral-400">Stripe webhook secret…</span></div>
+            <p class="mb-2 text-green-700 dark:text-green-500">▌ support-agent (3)</p>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-800 dark:text-neutral-200">Model config in agent.yaml</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Keep prompts under 300 words</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
+            <p class="mb-2 mt-4 text-sky-700 dark:text-sky-400">▌ rag-index (2)</p>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Cite sources in answers</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-purple-700 dark:text-purple-400">[reference]</span><span class="text-neutral-600 dark:text-neutral-400">Vector DB URL in .env</span></div>
           </div>
           <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-green-700 dark:text-green-500">[project]</span> engram · edited yesterday</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Bubble Tea model lives in internal/tui</p>
-            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">All UI state is one <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">model</span> struct. It holds <b>no file logic</b> — mutations go through <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">internal/memory</span>.</p>
-            <pre class="m-0 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs text-neutral-800 dark:border-neutral-700 dark:bg-black dark:text-neutral-300"><span class="text-sky-700 dark:text-sky-400">type</span> <span class="text-teal-700 dark:text-teal-400">model</span> <span class="text-sky-700 dark:text-sky-400">struct</span> {
-    memories []memory.<span class="text-teal-700 dark:text-teal-400">Memory</span>
-    cursor   <span class="text-teal-700 dark:text-teal-400">int</span>
-}</pre>
+            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-green-700 dark:text-green-500">[project]</span> support-agent · edited yesterday</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Model + limits live in agent.yaml</p>
+            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Every call reads its model and limits from one <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">agent.yaml</span> — no IDs hard-coded, so switching to <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">claude-sonnet-5</span> is a one-line change.</p>
+            <pre class="m-0 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs text-neutral-800 dark:border-neutral-700 dark:bg-black dark:text-neutral-300"><span class="text-sky-700 dark:text-sky-400">model:</span>      <span class="text-teal-700 dark:text-teal-400">claude-sonnet-5</span>
+<span class="text-sky-700 dark:text-sky-400">max_tokens:</span> 1024
+<span class="text-sky-700 dark:text-sky-400">stream:</span>     true</pre>
           </div>
         </div>
         <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> filter · <span class="text-blue-700 dark:text-blue-400">e</span> edit · <span class="text-blue-700 dark:text-blue-400">n</span> new · <span class="text-blue-700 dark:text-blue-400">g</span> group · <span class="text-blue-700 dark:text-blue-400">t</span> type</div>
@@ -157,20 +156,20 @@
       <div id="panel-promote" role="tabpanel" aria-labelledby="tab-promote" tabindex="0" data-tabview class="hidden focus-visible:outline-none">
         <div class="relative grid grid-cols-1 font-mono text-sm md:grid-cols-2">
           <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-            <p class="mb-2 text-green-700 dark:text-green-500">▌ payments-api (4)</p>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs" aria-hidden="true"> </span><span class="text-neutral-800 dark:text-neutral-200">Stripe webhook flow</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-amber-700 dark:text-amber-300">●</span><span class="text-neutral-600 dark:text-neutral-400">Retry / backoff policy</span></div>
+            <p class="mb-2 text-green-700 dark:text-green-500">▌ support-agent (4)</p>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Redact PII before logging</span></div>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs" aria-hidden="true"> </span><span class="text-neutral-800 dark:text-neutral-200">System prompt is versioned</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-amber-700 dark:text-amber-300">●</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
             <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs" aria-hidden="true"> </span><span class="text-neutral-600 dark:text-neutral-400">Editor is nvim</span></div>
           </div>
           <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400">payments-api · personal — not yet shared</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Stripe webhook flow</p>
-            <p class="text-xs leading-normal text-neutral-700 dark:text-neutral-300">Verify the signature before parsing. Treat <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">charge.succeeded</span> as the source of truth.</p>
+            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400">support-agent · personal — not yet shared</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">System prompt is versioned</p>
+            <p class="text-xs leading-normal text-neutral-700 dark:text-neutral-300">One Markdown file per agent under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">prompts/</span>. Loaded at boot — never inline prompt strings in code.</p>
           </div>
           <div class="absolute bottom-3 left-1/2 w-11/12 max-w-md -translate-x-1/2 rounded-lg border border-blue-500 bg-neutral-100 px-4 py-3.5 font-mono text-xs shadow-xl dark:border-blue-400 dark:bg-neutral-800">
-            <p class="mb-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Promote “Stripe webhook flow” →</p>
-            <p class="my-1.5 text-neutral-800 dark:text-neutral-200"><span class="text-blue-700 dark:text-blue-400" aria-hidden="true">◉</span> this project &nbsp;<span class="text-neutral-600 dark:text-neutral-400">github.com/acme/payments-api</span></p>
+            <p class="mb-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Promote “System prompt is versioned” →</p>
+            <p class="my-1.5 text-neutral-800 dark:text-neutral-200"><span class="text-blue-700 dark:text-blue-400" aria-hidden="true">◉</span> this project &nbsp;<span class="text-neutral-600 dark:text-neutral-400">github.com/acme/support-agent</span></p>
             <p class="my-1.5 text-neutral-600 dark:text-neutral-400"><span aria-hidden="true">○</span> global &nbsp;shared team-wide</p>
             <p class="mt-3 text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">enter</span> promote · commit + push</p>
           </div>
@@ -183,14 +182,14 @@
         <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
           <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
             <p class="mb-2 text-neutral-600 dark:text-neutral-400">team <span class="text-blue-700 dark:text-blue-400">acme/memory</span> · pulled just now</p>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-800 dark:text-neutral-200">Idempotency keys</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Webhook retry policy</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Never log full PANs</span></div>
+            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-800 dark:text-neutral-200">Prompt versioning</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
+            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Redact PII before logging</span></div>
           </div>
           <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-green-700 dark:text-green-500">team synced · payments-api</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Idempotency keys</p>
-            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Send an <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">Idempotency-Key</span> on every POST. <b class="font-semibold text-neutral-800 dark:text-neutral-200">pull</b> lands it under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">~/.claude</span> where Claude reads it.</p>
+            <p class="mb-2 text-xs text-green-700 dark:text-green-500">team synced · support-agent</p>
+            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Prompt versioning</p>
+            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Each prompt file starts with a <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400"># v3</span> header — bump it on any wording change so evals can diff. <b class="font-semibold text-neutral-800 dark:text-neutral-200">pull</b> lands it under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">~/.claude</span> where Claude reads it.</p>
             <p class="text-xs text-green-700 dark:text-green-500">✓ git pull · 2 files updated</p>
           </div>
         </div>
