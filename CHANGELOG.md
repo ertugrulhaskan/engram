@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   vhs tape and fixtures in `docs/demo/`.
 
 ### Changed
+- **Phase 4 roadmap reframed in two honest tiers** (ROADMAP, SPEC §10, README, and
+  the engram.im roadmap card): local instruction-file sources first (`AGENTS.md`,
+  `GEMINI.md`, `.github/copilot-instructions.md`, Cursor rules — files on disk, no
+  API needed), then server-side memories (Claude.ai / ChatGPT / Gemini app) via
+  export/import, since none of them exposes a memory API today. The site's
+  comparison table now says "Gemini app" to distinguish it from the Gemini CLI,
+  whose `GEMINI.md` memory lives locally.
 - **README restructured for readability** — status/website-build blockquotes replaced
   with a one-line status (build details now pointed at CONTRIBUTING.md), team sharing
   broken out per command, badge/palette explanations deduplicated into single homes,

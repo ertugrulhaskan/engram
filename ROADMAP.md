@@ -70,11 +70,15 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 
 ## Phase 4 — Other assistants
 
-Goal: one place for memories beyond Claude Code — as each product allows.
+Goal: one place for AI context beyond Claude Code — local files first, server-side
+memories as each product allows.
 
 - [ ] Pluggable "source" abstraction (Claude Code is the first source)
-- [ ] Claude.ai memory (export/import until/unless an API exists)
-- [ ] ChatGPT / Gemini memory (export/import)
+- [ ] Local instruction-file sources — `AGENTS.md` (Codex / cross-tool standard),
+      `GEMINI.md` (Gemini CLI), `.github/copilot-instructions.md`, Cursor rules
+      (`.cursor/rules/*.mdc`): files on disk, so no API is needed
+- [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
+      since none of them exposes a memory API today (until/unless that changes)
 - [ ] Read-only at first; editing/sharing per source as feasible
 
 ---

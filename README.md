@@ -240,7 +240,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
-- **Phase 4** — other assistants' memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md`, …), then server-side memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing
 

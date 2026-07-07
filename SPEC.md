@@ -459,5 +459,7 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 - Inline diff view for `>resolve` (it currently opens both versions with git-style
   markers in `$EDITOR`; conflict resolution itself shipped in Phase 2).
 - Promoting whole *types* at once (e.g. "all feedback"); multi-select promote.
-- Phase 4: ingesting Claude.ai / ChatGPT / Gemini memories — blocked on those
-  products exposing programmatic access; likely export/import at first.
+- Phase 4: other assistants, in two tiers (source list in ROADMAP Phase 4). Local
+  instruction files first — files on disk, no API needed. Server-side memories
+  (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing
+  programmatic access; likely export/import at first.
