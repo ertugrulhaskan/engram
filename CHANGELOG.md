@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   vhs tape and fixtures in `docs/demo/`.
 
 ### Changed
+- **Landing-page terminal mockups now render the real TUI design** (`www/`): the demo
+  (browse / promote / pull), sync badges, and command palette mirror the actual frames —
+  top bar, group headers, type badges, selection chevron + highlight, sync pills, scope
+  chips, keybinding bottom bar, and the promote/palette dialogs — with colors from a new
+  `.term` token palette (dark = the TUI's Dracula theme from `internal/tui/theme.go`;
+  light = a GitHub Light mapping). The demo's tab panels now stack in one grid cell and
+  toggle visibility, so the auto-advancing switcher no longer reflows the page while
+  reading.
 - **Phase 4 roadmap reframed in two honest tiers** (ROADMAP, SPEC §10, README, and
   the engram.im roadmap card): local instruction-file sources first (`AGENTS.md`,
   `GEMINI.md`, `.github/copilot-instructions.md`, Cursor rules — files on disk, no

@@ -1,10 +1,85 @@
 @import "tailwindcss";
 
-/* Class-based dark mode so the light/dark/system toggle works (stock mechanism —
-   no custom colors/values/breakpoints; only stock `dark:` utilities are used). */
+/* Class-based dark mode so the light/dark/system toggle works (stock mechanism). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Stock theme only — no customization. Scan the pages for class names.
+/* Stock theme, plus the terminal-mockup tokens below. Scan the pages for class names.
    Paths are relative to this stylesheet (www/css/), so the pages are one level up. */
 @source "../index.html";
 @source "../privacy.html";
+
+/* Terminal-mockup palette (`.term` scope) — consumed as `text-t-*` / `bg-t-*`
+   utilities via the inline theme tokens below. Values derive from the product:
+   dark = the TUI's default Dracula theme, verbatim from internal/tui/theme.go;
+   light = a GitHub Light mapping (site design choice — the TUI ships no light
+   theme, so page copy must never claim one). */
+@theme inline {
+  --color-t-bg: var(--t-bg);
+  --color-t-bar: var(--t-bar);
+  --color-t-fg: var(--t-fg);
+  --color-t-dim: var(--t-dim);
+  --color-t-border: var(--t-border);
+  --color-t-accent: var(--t-accent);
+  --color-t-sel: var(--t-sel);
+  --color-t-user: var(--t-user);
+  --color-t-feedback: var(--t-feedback);
+  --color-t-project: var(--t-project);
+  --color-t-reference: var(--t-reference);
+  --color-t-g1: var(--t-g1);
+  --color-t-g2: var(--t-g2);
+  /* Sync-pill backgrounds + foregrounds are fixed across themes on purpose,
+     mirroring theme.go's constants (they signal state, not brand). Dark text on
+     the colored pills stays legible on both site themes. */
+  --color-t-sync-ok: #50c878;
+  --color-t-sync-warn: #e0af68;
+  --color-t-sync-in: #7aa2f7;
+  --color-t-sync-conflict: #db4b4b;
+  --color-t-sync-missing: #c0392b;
+  --color-t-pill-dark: #0e2118;
+  --color-t-pill-light: #ffffff;
+  /* Bare colored *text* (scope chips, the preview's sync word) can't stay fixed:
+     the TUI only ever renders on dark terminals, but the site's light mapping is
+     white — so these two get per-theme values that keep the hue readable. */
+  --color-t-scope-project: var(--t-scope-project);
+  --color-t-sync-ok-text: var(--t-sync-ok-text);
+}
+
+.term {
+  /* GitHub Light (Primer) mapping for the site's light mode. */
+  --t-bg: #ffffff;
+  --t-bar: #f6f8fa;
+  --t-fg: #1f2328;
+  --t-dim: #59636e;
+  --t-border: #d1d9e0;
+  --t-accent: #8250df;
+  --t-sel: #eaeef2;
+  --t-user: #1b7c83;
+  --t-feedback: #bc4c00;
+  --t-project: #1a7f37;
+  --t-reference: #8250df;
+  --t-g1: #1a7f37;
+  --t-g2: #1b7c83;
+  --t-scope-project: #0969da;
+  --t-sync-ok-text: #1a7f37;
+}
+
+.dark .term {
+  /* Dracula — internal/tui/theme.go (Accent/Fg/Dim/BarBg/SelBg/Border, type
+     colors, Groups). --t-bg is the terminal background from docs/tui.png; the
+     TUI itself draws over the terminal's own background. */
+  --t-bg: #1d1e29;
+  --t-bar: #21222c;
+  --t-fg: #f8f8f2;
+  --t-dim: #6272a4;
+  --t-border: #44475a;
+  --t-accent: #bd93f9;
+  --t-sel: #44475a;
+  --t-user: #8be9fd;
+  --t-feedback: #ffb86c;
+  --t-project: #50fa7b;
+  --t-reference: #bd93f9;
+  --t-g1: #50fa7b;
+  --t-g2: #8be9fd;
+  --t-scope-project: #4a9eff; /* theme.go scopeProjectColor */
+  --t-sync-ok-text: #50c878; /* theme.go syncSyncedColor */
+}

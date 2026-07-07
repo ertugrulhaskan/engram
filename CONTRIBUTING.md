@@ -29,9 +29,16 @@ The TUI needs a real terminal — run it in your own terminal, not through a pip
 ## Landing page (`www/`)
 
 The site at [www/index.html](www/index.html) is styled with **Tailwind CSS, stock theme
-only** — no custom colors, arbitrary values (`[...]`), or custom breakpoints; map any
-color to its nearest stock Tailwind shade. It supports light / dark / system themes and
-is keyboard-accessible. Assets are split into subfolders:
+plus one exception**: the terminal mockups use the `.term` token palette defined in
+`www/css/input.css` (`t-*` utilities via `@theme inline`), whose values derive from the
+product — dark is the TUI's Dracula theme verbatim from `internal/tui/theme.go`, light
+is a GitHub Light mapping. Keep those hexes in sync with `theme.go`, and never claim the
+light palette is a TUI theme (it isn't — all five TUI themes are dark). Everything
+*outside* the terminal mockups stays stock: no custom colors or breakpoints there; map
+page colors to their nearest stock Tailwind shade. Character-cell widths in the mockups
+(`w-[12ch]`-style arbitrary values) are allowed — they model terminal columns. The site
+supports light / dark / system themes and is keyboard-accessible. Assets are split into
+subfolders:
 
 ```
 www/

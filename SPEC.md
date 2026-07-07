@@ -437,8 +437,11 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 
 - Domain: **engram.im**. The landing page is `www/index.html`, with assets split into
   subfolders: `www/css/` (Tailwind) and `www/js/` (behavior). Styled with **Tailwind
-  CSS (stock theme only — no custom colors/values/breakpoints)** compiled to
-  `www/css/styles.css`. Input is `www/css/input.css`; rebuild with `npm run build:css`
+  CSS — stock theme plus one custom token block**: the `.term` terminal-mockup palette
+  in `www/css/input.css` (dark = the TUI's Dracula theme verbatim from
+  `internal/tui/theme.go`; light = a GitHub Light mapping, a site design choice — the
+  TUI ships no light theme). Everything outside the terminal mockups stays stock.
+  Compiled to `www/css/styles.css`. Input is `www/css/input.css`; rebuild with `npm run build:css`
   (see CONTRIBUTING "Landing page"). The built CSS is **committed**, so there is no
   deploy-time build. Page behavior lives in `www/js/main.js` (a plain classic deferred
   script, no modules/dependencies); the only inline script is a tiny pre-paint theme

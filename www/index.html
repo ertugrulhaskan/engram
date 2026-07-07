@@ -117,7 +117,7 @@
 
   <!-- demo: themed terminal with the view switcher in its title bar -->
   <section id="demo" class="pt-10">
-    <div id="term" class="overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+    <div id="term" class="term overflow-hidden rounded-xl border border-neutral-200 text-left shadow-2xl dark:border-neutral-700">
       <div class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2 dark:border-neutral-700 dark:bg-neutral-950">
         <span class="flex shrink-0 gap-2" aria-hidden="true"><span class="h-3 w-3 rounded-full bg-red-500"></span><span class="h-3 w-3 rounded-full bg-amber-400"></span><span class="h-3 w-3 rounded-full bg-green-500"></span></span>
         <!-- view switcher: lives in the terminal chrome, auto-advances until you pick another tab -->
@@ -128,72 +128,116 @@
         </div>
       </div>
 
-      <!-- browse -->
-      <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" tabindex="0" data-tabview class="focus-visible:outline-none">
-        <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
-          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-            <p class="mb-2 text-green-700 dark:text-green-500">▌ support-agent (3)</p>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-800 dark:text-neutral-200">Model config in agent.yaml</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Keep prompts under 300 words</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-green-700 dark:text-green-500">[project]</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
-            <p class="mb-2 mt-4 text-sky-700 dark:text-sky-400">▌ rag-index (2)</p>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-orange-700 dark:text-orange-300">[feedback]</span><span class="text-neutral-600 dark:text-neutral-400">Cite sources in answers</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="text-xs text-purple-700 dark:text-purple-400">[reference]</span><span class="text-neutral-600 dark:text-neutral-400">Vector DB URL in .env</span></div>
+      <!-- The three panels stack in one grid cell so the demo keeps the height of the
+           tallest view — the auto-advancing switcher must never reflow the page under
+           a reader. main.js toggles `invisible` (not `hidden`) for the same reason.
+           The panels' top bars and bottom hint bars are deliberate mirrors of each
+           other (and of the real TUI's view.go bars) — change them together. -->
+      <div class="grid">
+      <!-- browse — mirrors the real TUI frame: top bar, focus underline, list ▸ preview, bottom bar -->
+      <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" tabindex="0" data-tabview class="col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 5 memories · 2 projects</span></p>
+          <p class="hidden shrink-0 sm:block"><span class="text-t-dim">grouped by </span><span class="font-bold text-t-accent">project</span><span class="text-t-dim">&nbsp;&nbsp; type </span><span class="font-bold text-t-accent">all</span></p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2" aria-hidden="true"><span class="h-px bg-t-accent"></span><span class="hidden h-px bg-t-border md:block"></span></div>
+        <div class="grid flex-1 grid-cols-1 bg-t-bg font-mono text-sm md:grid-cols-2">
+          <div class="flex flex-col border-b border-t-border px-2 py-3 md:border-b-0 md:border-r">
+            <p class="mb-1 px-1"><span class="font-bold text-t-g1">▌ support-agent</span><span class="text-t-dim"> (3)</span></p>
+            <div class="flex items-baseline bg-t-sel px-1 py-0.5"><span class="w-[2ch] shrink-0 font-bold text-t-accent" aria-hidden="true">›</span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate font-bold text-t-accent">Model + limits live in agent.yaml</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate text-t-fg">Retry on 429 with backoff</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-feedback">[feedback]</span><span class="min-w-0 flex-1 truncate text-t-fg">Keep prompts under 300 words</span></div>
+            <p class="mb-1 mt-3 px-1"><span class="font-bold text-t-g2">▌ rag-index</span><span class="text-t-dim"> (2)</span></p>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-feedback">[feedback]</span><span class="min-w-0 flex-1 truncate text-t-fg">Cite sources in answers</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-reference">[reference]</span><span class="min-w-0 flex-1 truncate text-t-fg">Vector DB URL in .env</span></div>
+            <p class="mt-auto px-1 pt-3 text-xs text-t-dim">5 of 5 shown</p>
           </div>
-          <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-green-700 dark:text-green-500">[project]</span> support-agent · edited yesterday</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Model + limits live in agent.yaml</p>
-            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Every call reads its model and limits from one <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">agent.yaml</span> — no IDs hard-coded, so switching to <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">claude-sonnet-5</span> is a one-line change.</p>
-            <pre class="m-0 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs text-neutral-800 dark:border-neutral-700 dark:bg-black dark:text-neutral-300"><span class="text-sky-700 dark:text-sky-400">model:</span>      <span class="text-teal-700 dark:text-teal-400">claude-sonnet-5</span>
-<span class="text-sky-700 dark:text-sky-400">max_tokens:</span> 1024
-<span class="text-sky-700 dark:text-sky-400">stream:</span>     true</pre>
+          <div class="px-4 py-3">
+            <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> support-agent · edited yesterday</span></p>
+            <p class="mb-3 truncate font-bold text-t-accent">Model + limits live in agent.yaml</p>
+            <p class="mb-3 text-xs leading-relaxed text-t-fg">Every call reads its model and limits from one <span class="bg-t-sel px-1">agent.yaml</span> — no IDs hard-coded, so switching to <span class="bg-t-sel px-1">claude-sonnet-5</span> is a one-line change.</p>
+            <pre class="m-0 overflow-x-auto rounded bg-t-bar px-3 py-2.5 text-xs leading-relaxed text-t-fg"><span class="text-t-user">model:</span>      claude-sonnet-5
+<span class="text-t-user">max_tokens:</span> 1024
+<span class="text-t-user">stream:</span>     true</pre>
           </div>
         </div>
-        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> filter · <span class="text-blue-700 dark:text-blue-400">e</span> edit · <span class="text-blue-700 dark:text-blue-400">n</span> new · <span class="text-blue-700 dark:text-blue-400">g</span> group · <span class="text-blue-700 dark:text-blue-400">t</span> type</div>
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate">
+            <span class="text-t-fg">↑↓/jk</span><span class="text-t-dim"> move&nbsp; </span><span class="text-t-fg">/</span><span class="text-t-dim"> filter&nbsp; </span><span class="hidden sm:inline"><span class="text-t-fg">⇥</span><span class="text-t-dim"> focus&nbsp; </span><span class="text-t-fg">e</span><span class="text-t-dim"> edit&nbsp; </span><span class="text-t-fg">n</span><span class="text-t-dim"> new&nbsp; </span></span><span class="hidden lg:inline"><span class="text-t-fg">d</span><span class="text-t-dim"> delete&nbsp; </span><span class="text-t-fg">t</span><span class="text-t-dim"> type&nbsp; </span><span class="text-t-fg">g</span><span class="text-t-dim"> group&nbsp; </span></span><span class="text-t-fg">^P</span><span class="text-t-dim"> palette</span>
+          </p>
+          <p class="hidden shrink-0 md:block"><span class="text-t-dim">theme </span><span class="font-bold text-t-accent">Dracula</span><span class="text-t-dim"> · 1–5 to switch</span></p>
+        </div>
       </div>
 
-      <!-- promote -->
-      <div id="panel-promote" role="tabpanel" aria-labelledby="tab-promote" tabindex="0" data-tabview class="hidden focus-visible:outline-none">
-        <div class="relative grid grid-cols-1 font-mono text-sm md:grid-cols-2">
-          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-            <p class="mb-2 text-green-700 dark:text-green-500">▌ support-agent (4)</p>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Redact PII before logging</span></div>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs" aria-hidden="true"> </span><span class="text-neutral-800 dark:text-neutral-200">System prompt is versioned</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-amber-700 dark:text-amber-300">●</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs" aria-hidden="true"> </span><span class="text-neutral-600 dark:text-neutral-400">Editor is nvim</span></div>
+      <!-- promote — the real >promote scope dialog floating over the list -->
+      <div id="panel-promote" role="tabpanel" aria-labelledby="tab-promote" tabindex="0" data-tabview class="invisible col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 4 memories · 1 project</span></p>
+          <p class="hidden shrink-0 sm:block"><span class="text-t-dim">grouped by </span><span class="font-bold text-t-accent">project</span><span class="text-t-dim">&nbsp;&nbsp; type </span><span class="font-bold text-t-accent">all</span></p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2" aria-hidden="true"><span class="h-px bg-t-accent"></span><span class="hidden h-px bg-t-border md:block"></span></div>
+        <div class="relative grid flex-1 grid-cols-1 bg-t-bg font-mono text-sm md:grid-cols-2">
+          <div class="flex flex-col border-b border-t-border px-2 py-3 md:border-b-0 md:border-r">
+            <p class="mb-1 px-1"><span class="font-bold text-t-g1">▌ support-agent</span><span class="text-t-dim"> (4)</span></p>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate text-t-fg">Redact PII before logging</span><span class="ml-2 hidden shrink-0 text-t-scope-project sm:inline">project</span><span class="ml-2 shrink-0 bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate text-t-fg">Retry on 429 with backoff</span><span class="ml-2 hidden shrink-0 text-t-scope-project sm:inline">project</span><span class="ml-2 shrink-0 bg-t-sync-warn px-1 text-t-pill-dark">● differs</span></div>
+            <div class="flex items-baseline bg-t-sel px-1 py-0.5"><span class="w-[2ch] shrink-0 font-bold text-t-accent" aria-hidden="true">›</span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate font-bold text-t-accent">System prompt is versioned</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-user">[user]</span><span class="min-w-0 flex-1 truncate text-t-fg">Editor is nvim</span></div>
+            <p class="mt-auto px-1 pt-3 text-xs text-t-dim">4 of 4 shown</p>
           </div>
-          <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-neutral-600 dark:text-neutral-400">support-agent · personal — not yet shared</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">System prompt is versioned</p>
-            <p class="text-xs leading-normal text-neutral-700 dark:text-neutral-300">One Markdown file per agent under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">prompts/</span>. Loaded at boot — never inline prompt strings in code.</p>
+          <div class="px-4 py-3 pb-36 md:pb-3">
+            <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> support-agent · edited just now</span></p>
+            <p class="mb-3 truncate font-bold text-t-accent">System prompt is versioned</p>
+            <p class="text-xs leading-relaxed text-t-fg">One Markdown file per agent under <span class="bg-t-sel px-1">prompts/</span>. Loaded at boot — never inline prompt strings in code.</p>
           </div>
-          <div class="absolute bottom-3 left-1/2 w-11/12 max-w-md -translate-x-1/2 rounded-lg border border-blue-500 bg-neutral-100 px-4 py-3.5 font-mono text-xs shadow-xl dark:border-blue-400 dark:bg-neutral-800">
-            <p class="mb-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Promote “System prompt is versioned” →</p>
-            <p class="my-1.5 text-neutral-800 dark:text-neutral-200"><span class="text-blue-700 dark:text-blue-400" aria-hidden="true">◉</span> this project &nbsp;<span class="text-neutral-600 dark:text-neutral-400">github.com/acme/support-agent</span></p>
-            <p class="my-1.5 text-neutral-600 dark:text-neutral-400"><span aria-hidden="true">○</span> global &nbsp;shared team-wide</p>
-            <p class="mt-3 text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">enter</span> promote · commit + push</p>
+          <div class="absolute bottom-3 left-1/2 w-11/12 max-w-md -translate-x-1/2 overflow-hidden rounded-lg border border-t-accent bg-t-bg font-mono text-xs shadow-2xl">
+            <p class="truncate px-3 py-2 font-bold text-t-accent">Promote “System prompt is versioned”</p>
+            <div class="h-px bg-t-border" aria-hidden="true"></div>
+            <div class="bg-t-accent px-2 py-1.5 text-t-bar">
+              <p class="truncate"><span class="font-bold" aria-hidden="true">◆</span>&nbsp; <span class="font-bold">This project</span></p>
+              <p class="truncate pl-[3ch]">github.com/acme/support-agent</p>
+            </div>
+            <div class="px-2 py-1.5">
+              <p class="truncate"><span class="font-bold text-t-accent" aria-hidden="true">◆</span>&nbsp; <span class="font-bold text-t-fg">Global</span></p>
+              <p class="truncate pl-[3ch] text-t-dim">shared across all projects</p>
+            </div>
+            <p class="px-3 pb-2 pt-1 text-t-dim">↑↓ choose&nbsp;&nbsp; <span class="font-bold text-t-accent">↵</span> promote&nbsp;&nbsp; <span class="font-bold text-t-fg">esc</span> cancel</p>
           </div>
         </div>
-        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> › <span class="text-blue-700 dark:text-blue-400">&gt;promote</span> · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate">
+            <span class="text-t-fg">↑↓/jk</span><span class="text-t-dim"> move&nbsp; </span><span class="text-t-fg">/</span><span class="text-t-dim"> filter&nbsp; </span><span class="hidden sm:inline"><span class="text-t-fg">⇥</span><span class="text-t-dim"> focus&nbsp; </span><span class="text-t-fg">e</span><span class="text-t-dim"> edit&nbsp; </span><span class="text-t-fg">n</span><span class="text-t-dim"> new&nbsp; </span></span><span class="hidden lg:inline"><span class="text-t-fg">d</span><span class="text-t-dim"> delete&nbsp; </span><span class="text-t-fg">t</span><span class="text-t-dim"> type&nbsp; </span><span class="text-t-fg">g</span><span class="text-t-dim"> group&nbsp; </span></span><span class="text-t-fg">^P</span><span class="text-t-dim"> palette</span>
+          </p>
+          <p class="hidden shrink-0 md:block"><span class="text-t-dim">theme </span><span class="font-bold text-t-accent">Dracula</span><span class="text-t-dim"> · 1–5 to switch</span></p>
+        </div>
       </div>
 
-      <!-- pull -->
-      <div id="panel-pull" role="tabpanel" aria-labelledby="tab-pull" tabindex="0" data-tabview class="hidden focus-visible:outline-none">
-        <div class="grid grid-cols-1 font-mono text-sm md:grid-cols-2">
-          <div class="border-b border-neutral-200 px-3 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-            <p class="mb-2 text-neutral-600 dark:text-neutral-400">team <span class="text-blue-700 dark:text-blue-400">acme/memory</span> · pulled just now</p>
-            <div class="flex items-baseline gap-2 rounded bg-neutral-100 px-1 py-1 dark:bg-neutral-800"><span class="w-2.5 text-blue-700 dark:text-blue-400" aria-hidden="true">❯</span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-800 dark:text-neutral-200">Prompt versioning</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Retry on 429 with backoff</span></div>
-            <div class="flex items-baseline gap-2 px-1 py-1"><span class="w-2.5" aria-hidden="true"> </span><span class="w-5 text-xs text-green-700 dark:text-green-500">✓</span><span class="text-neutral-600 dark:text-neutral-400">Redact PII before logging</span></div>
+      <!-- pull — after >pull: everything synced, the pull summary in the status footer -->
+      <div id="panel-pull" role="tabpanel" aria-labelledby="tab-pull" tabindex="0" data-tabview class="invisible col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 3 memories · 1 project</span></p>
+          <p class="hidden shrink-0 sm:block"><span class="text-t-dim">grouped by </span><span class="font-bold text-t-accent">project</span><span class="text-t-dim">&nbsp;&nbsp; type </span><span class="font-bold text-t-accent">all</span></p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2" aria-hidden="true"><span class="h-px bg-t-accent"></span><span class="hidden h-px bg-t-border md:block"></span></div>
+        <div class="grid flex-1 grid-cols-1 bg-t-bg font-mono text-sm md:grid-cols-2">
+          <div class="flex flex-col border-b border-t-border px-2 py-3 md:border-b-0 md:border-r">
+            <p class="mb-1 px-1"><span class="font-bold text-t-g1">▌ support-agent</span><span class="text-t-dim"> (3)</span></p>
+            <div class="flex items-baseline bg-t-sel px-1 py-0.5"><span class="w-[2ch] shrink-0 font-bold text-t-accent" aria-hidden="true">›</span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate font-bold text-t-accent">Prompt versioning</span><span class="ml-2 hidden shrink-0 text-t-scope-project sm:inline">project</span><span class="ml-2 shrink-0 bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate text-t-fg">Redact PII before logging</span><span class="ml-2 hidden shrink-0 text-t-scope-project sm:inline">project</span><span class="ml-2 shrink-0 bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></div>
+            <div class="flex items-baseline px-1 py-0.5"><span class="w-[2ch] shrink-0"></span><span class="w-[12ch] shrink-0 text-t-project">[project]</span><span class="min-w-0 flex-1 truncate text-t-fg">Retry on 429 with backoff</span><span class="ml-2 hidden shrink-0 text-t-scope-project sm:inline">project</span><span class="ml-2 shrink-0 bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></div>
+            <p class="mt-auto px-1 pt-3 text-xs text-t-dim">3 of 3 shown</p>
           </div>
-          <div class="px-4 py-4">
-            <p class="mb-2 text-xs text-green-700 dark:text-green-500">team synced · support-agent</p>
-            <p class="mb-2.5 font-mono text-sm font-semibold text-neutral-800 dark:text-neutral-200">Prompt versioning</p>
-            <p class="mb-3 text-xs leading-normal text-neutral-700 dark:text-neutral-300">Each prompt file starts with a <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400"># v3</span> header — bump it on any wording change so evals can diff. <b class="font-semibold text-neutral-800 dark:text-neutral-200">pull</b> lands it under <span class="rounded bg-neutral-100 px-1 text-teal-700 dark:bg-neutral-800 dark:text-teal-400">~/.claude</span> where Claude reads it.</p>
-            <p class="text-xs text-green-700 dark:text-green-500">✓ git pull · 2 files updated</p>
+          <div class="px-4 py-3">
+            <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> team </span><span class="font-bold text-t-scope-project">project</span><span class="text-t-dim"> · </span><span class="font-bold text-t-sync-ok-text">synced</span><span class="text-t-dim"> support-agent · edited just now</span></p>
+            <p class="mb-3 truncate font-bold text-t-accent">Prompt versioning</p>
+            <p class="text-xs leading-relaxed text-t-fg">Each prompt file starts with a <span class="bg-t-sel px-1"># v3</span> header — bump it on any wording change so evals can diff. <b class="font-bold">pull</b> lands it under <span class="bg-t-sel px-1">~/.claude</span> where Claude reads it.</p>
           </div>
         </div>
-        <div class="border-t border-neutral-200 bg-neutral-100 px-4 py-2 font-mono text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> › <span class="text-blue-700 dark:text-blue-400">&gt;pull</span> · <span class="text-blue-700 dark:text-blue-400">enter</span> open · <span class="text-blue-700 dark:text-blue-400">q</span> quit</div>
+        <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
+          <p class="min-w-0 truncate text-t-fg">pull: 1 new · 2 updated<span class="hidden sm:inline"> · 0 ahead · 0 conflict</span></p>
+          <p class="hidden shrink-0 md:block"><span class="text-t-dim">theme </span><span class="font-bold text-t-accent">Dracula</span><span class="text-t-dim"> · 1–5 to switch</span></p>
+        </div>
+      </div>
       </div>
     </div>
   </section>
@@ -262,17 +306,17 @@
       <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
       <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> — lands where Claude reads</div>
     </div>
-    <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-5 font-mono text-xs dark:border-neutral-700 dark:bg-black">
-      <p class="mb-3 text-neutral-600 dark:text-neutral-400">sync-status badges — engram checks on launch and names where each shared memory stands</p>
+    <div class="term rounded-xl border border-neutral-200 bg-t-bg p-5 font-mono text-xs dark:border-neutral-700">
+      <p class="mb-3 text-t-dim">sync-status badges — engram checks on launch and names where each shared memory stands</p>
       <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-green-700 dark:text-green-500">✓ synced</span><span class="text-neutral-600 dark:text-neutral-400">matches the team copy</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">↓ incoming</span><span class="text-neutral-600 dark:text-neutral-400">the store advanced — safe to take</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-amber-700 dark:text-amber-300">↑ ahead</span><span class="text-neutral-600 dark:text-neutral-400">your unshared edits — promote to share</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-red-700 dark:text-red-400">↕ conflict</span><span class="text-neutral-600 dark:text-neutral-400">both moved — resolve in your editor</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-red-700 dark:text-red-400">! missing</span><span class="text-neutral-600 dark:text-neutral-400">promoted, but not in the store</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-amber-700 dark:text-amber-300">● differs</span><span class="text-neutral-600 dark:text-neutral-400">changed, no anchor to name a direction</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></span><span class="text-t-dim">matches the team copy</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-in px-1 text-t-pill-dark">↓ incoming</span></span><span class="text-t-dim">the store advanced — safe to take</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">↑ ahead</span></span><span class="text-t-dim">your unshared edits — promote to share</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-conflict px-1 text-t-pill-light">↕ conflict</span></span><span class="text-t-dim">both moved — resolve in your editor</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-missing px-1 text-t-pill-light">! missing</span></span><span class="text-t-dim">promoted, but not in the store</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">● differs</span></span><span class="text-t-dim">changed, no anchor to name a direction</span></div>
       </div>
-      <p class="mt-3 text-neutral-500 dark:text-neutral-400">Personal memories carry no badge — they never leave your disk. A conflict opens both versions with git-style markers in your <code class="text-neutral-700 dark:text-neutral-300">$EDITOR</code> via <span class="text-blue-700 dark:text-blue-400">&gt;resolve</span>.</p>
+      <p class="mt-3 text-t-dim">Personal memories carry no badge — they never leave your disk. A conflict opens both versions with git-style markers in your <code class="text-t-fg">$EDITOR</code> via <span class="text-t-accent">&gt;resolve</span>.</p>
     </div>
   </section>
 
@@ -281,29 +325,52 @@
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// command palette</span>
     <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">One palette, three prefixes: / @ &gt;</h2>
     <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400"><code class="font-mono text-neutral-800 dark:text-neutral-300">ctrl+p</code> opens it. Type <code class="font-mono text-neutral-800 dark:text-neutral-300">/</code> to jump around engram, <code class="font-mono text-neutral-800 dark:text-neutral-300">@</code> to hand the work to Claude, or <code class="font-mono text-neutral-800 dark:text-neutral-300">&gt;</code> to run team sharing.</p>
-    <div class="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 font-mono text-sm dark:border-neutral-700 dark:bg-black">
-      <div class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">ctrl+p</span> type <span class="text-neutral-800 dark:text-neutral-200">/</span> commands · <span class="text-neutral-800 dark:text-neutral-200">@</span> Claude · <span class="text-neutral-800 dark:text-neutral-200">&gt;</span> team</div>
-      <div class="grid grid-cols-1 md:grid-cols-3">
-        <div class="border-b border-neutral-200 px-5 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> &nbsp; jump around engram</p>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/memory</span><span class="text-neutral-600 dark:text-neutral-400">browse memories</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/plans</span><span class="text-neutral-600 dark:text-neutral-400">plan-mode plans</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/files</span><span class="text-neutral-600 dark:text-neutral-400"><code class="text-neutral-800 dark:text-neutral-300">CLAUDE.md</code> · read-only</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/settings</span><span class="text-neutral-600 dark:text-neutral-400">theme, editor</span></div>
-        </div>
-        <div class="border-b border-neutral-200 px-5 py-4 md:border-b-0 md:border-r dark:border-neutral-700">
-          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-teal-700 dark:text-teal-400">@</span> &nbsp; hand off to Claude</p>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-neutral-600 dark:text-neutral-400">fix &amp; edit memories</span></div>
-          <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code> there. engram reloads when it exits.</p>
-        </div>
-        <div class="px-5 py-4">
-          <p class="mb-3 text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">&gt;</span> &nbsp; team sharing</p>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;promote</span><span class="text-neutral-600 dark:text-neutral-400">share the selected memory</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;pull</span><span class="text-neutral-600 dark:text-neutral-400">fetch teammates' memories</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;resolve</span><span class="text-neutral-600 dark:text-neutral-400">merge a conflict in <code class="text-neutral-800 dark:text-neutral-300">$EDITOR</code></span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;withdraw</span><span class="text-neutral-600 dark:text-neutral-400">take a shared memory back</span></div>
-          <div class="flex items-baseline gap-3 py-1"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;init</span><span class="text-neutral-600 dark:text-neutral-400">set up the team store</span></div>
-        </div>
+    <!-- the real palette dialog, as it renders after typing ">" -->
+    <div class="term mx-auto max-w-2xl overflow-hidden rounded-lg border border-t-accent bg-t-bg font-mono text-sm shadow-2xl">
+      <p class="bg-t-sel px-3 py-2"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim">:&nbsp; </span><span class="text-t-fg">&gt;</span><span class="motion-safe:animate-pulse text-t-accent" aria-hidden="true">▍</span></p>
+      <div class="h-px bg-t-border" aria-hidden="true"></div>
+      <div class="bg-t-accent px-2 py-1.5 text-t-bar">
+        <p class="flex"><span class="w-[4ch] shrink-0 pl-[1ch] font-bold" aria-hidden="true">↑</span><span class="min-w-0 flex-1 truncate font-bold">promote</span><span class="shrink-0 pr-1">&gt;promote</span></p>
+        <p class="truncate pl-[5ch]">Share the selected memory with the team</p>
+      </div>
+      <div class="px-2 py-1.5">
+        <p class="flex"><span class="w-[4ch] shrink-0 pl-[1ch] font-bold text-t-reference" aria-hidden="true">↓</span><span class="min-w-0 flex-1 truncate font-bold text-t-fg">pull</span><span class="shrink-0 pr-1 text-t-dim">&gt;pull</span></p>
+        <p class="truncate pl-[5ch] text-t-dim">Bring team memories into their matching projects</p>
+      </div>
+      <div class="px-2 py-1.5">
+        <p class="flex"><span class="w-[4ch] shrink-0 pl-[1ch] font-bold text-t-feedback" aria-hidden="true">↕</span><span class="min-w-0 flex-1 truncate font-bold text-t-fg">resolve</span><span class="shrink-0 pr-1 text-t-dim">&gt;resolve</span></p>
+        <p class="truncate pl-[5ch] text-t-dim">Merge a conflicting memory in $EDITOR</p>
+      </div>
+      <div class="px-2 py-1.5">
+        <p class="flex"><span class="w-[4ch] shrink-0 pl-[1ch] font-bold text-t-user" aria-hidden="true">◆</span><span class="min-w-0 flex-1 truncate font-bold text-t-fg">withdraw</span><span class="shrink-0 pr-1 text-t-dim">&gt;withdraw</span></p>
+        <p class="truncate pl-[5ch] text-t-dim">Take a promoted memory back from the team</p>
+      </div>
+      <div class="px-2 py-1.5">
+        <p class="flex"><span class="w-[4ch] shrink-0 pl-[1ch] font-bold text-t-accent" aria-hidden="true">⊕</span><span class="min-w-0 flex-1 truncate font-bold text-t-fg">init</span><span class="shrink-0 pr-1 text-t-dim">&gt;init</span></p>
+        <p class="truncate pl-[5ch] text-t-dim">Set up the team store — type: &gt;init &lt;git-url&gt;</p>
+      </div>
+    </div>
+    <!-- the three prefixes, explained -->
+    <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
+        <p class="mb-3 font-mono text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">/</span> &nbsp; jump around engram</p>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/memory</span><span class="text-xs text-neutral-600 dark:text-neutral-400">browse memories</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/plans</span><span class="text-xs text-neutral-600 dark:text-neutral-400">plan-mode plans</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/files</span><span class="text-xs text-neutral-600 dark:text-neutral-400"><code class="text-neutral-800 dark:text-neutral-300">CLAUDE.md</code> · read-only</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">/settings</span><span class="text-xs text-neutral-600 dark:text-neutral-400">theme, editor</span></div>
+      </div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
+        <p class="mb-3 font-mono text-xs text-neutral-600 dark:text-neutral-400"><span class="text-teal-700 dark:text-teal-400">@</span> &nbsp; hand off to Claude</p>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-xs text-neutral-600 dark:text-neutral-400">fix &amp; edit memories</span></div>
+        <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code> there. engram reloads when it exits.</p>
+      </div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
+        <p class="mb-3 font-mono text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">&gt;</span> &nbsp; team sharing</p>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;promote</span><span class="text-xs text-neutral-600 dark:text-neutral-400">share the selected memory</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;pull</span><span class="text-xs text-neutral-600 dark:text-neutral-400">fetch teammates' memories</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;resolve</span><span class="text-xs text-neutral-600 dark:text-neutral-400">merge a conflict in <code class="text-neutral-800 dark:text-neutral-300">$EDITOR</code></span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;withdraw</span><span class="text-xs text-neutral-600 dark:text-neutral-400">take a shared memory back</span></div>
+        <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-blue-700 dark:text-blue-400">&gt;init</span><span class="text-xs text-neutral-600 dark:text-neutral-400">set up the team store</span></div>
       </div>
     </div>
   </section>

@@ -109,7 +109,10 @@
   update();
 })();
 
-// --- demo view tabs (under the terminal): auto-advance until the user picks another tab ---
+// --- demo view tabs (in the terminal's title bar): auto-advance until the user picks another tab ---
+// Panels stack in one grid cell and toggle `invisible` (not `hidden`) so the demo
+// keeps the tallest panel's height — auto-advancing must never reflow the page
+// under a reader.
 (function () {
   var panels = Array.prototype.slice.call(document.querySelectorAll('[data-tabview]'));
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
@@ -119,7 +122,7 @@
   var offCls = ['text-neutral-600', 'dark:text-neutral-400'];
   function render(n, focusTab) {
     cur = n;
-    panels.forEach(function (p, i) { p.classList.toggle('hidden', i !== n); });
+    panels.forEach(function (p, i) { p.classList.toggle('invisible', i !== n); });
     tabs.forEach(function (t, i) {
       var on = i === n;
       t.setAttribute('aria-selected', on ? 'true' : 'false');
