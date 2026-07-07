@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export/import, since none of them exposes a memory API today. The site's
   comparison table now says "Gemini app" to distinguish it from the Gemini CLI,
   whose `GEMINI.md` memory lives locally.
+- **README no longer implies engram runs natively on Windows** — Windows binaries
+  still ship with releases but are marked untested (two known Unix assumptions:
+  project-path decoding resolves from `/`, and the editor fallback is `vi`); WSL
+  is the supported route on Windows. Tracked in SPEC §10.
 - **README restructured for readability** — status/website-build blockquotes replaced
   with a one-line status (build details now pointed at CONTRIBUTING.md), team sharing
   broken out per command, badge/palette explanations deduplicated into single homes,

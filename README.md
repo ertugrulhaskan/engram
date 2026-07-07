@@ -36,14 +36,16 @@ proper UI.
 brew install ertugrulhaskan/tap/engram
 ```
 
-**Go** (requires [Go](https://go.dev/dl/) 1.23+; works on Linux/Windows too):
+**Go** (requires [Go](https://go.dev/dl/) 1.23+; Linux too):
 
 ```sh
 go install github.com/ertugrulhaskan/engram@latest
 ```
 
-**Prebuilt binaries** for macOS / Linux / Windows (amd64 + arm64) are attached to
-each [release](https://github.com/ertugrulhaskan/engram/releases).
+**Prebuilt binaries** for macOS / Linux (amd64 + arm64) are attached to each
+[release](https://github.com/ertugrulhaskan/engram/releases). Windows binaries
+are published as well but **untested** — engram targets macOS/Linux today; on
+Windows, use WSL.
 
 **From source:**
 

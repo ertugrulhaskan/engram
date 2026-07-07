@@ -466,3 +466,9 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   instruction files first — files on disk, no API needed. Server-side memories
   (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing
   programmatic access; likely export/import at first.
+- Native Windows support. Binaries cross-compile and ship, but two Unix
+  assumptions are known to break natively: `decodeProjectPath` resolves from `/`
+  (Windows encodings carry a drive letter and fail the leading-`-` check), and
+  the editor chain falls back to `vi`. WSL works (it's a Linux environment).
+  Until these are fixed and tested on a real Windows machine, public copy says
+  macOS/Linux only.
