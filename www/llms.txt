@@ -1,0 +1,23 @@
+# engram
+
+> A single-binary terminal UI for the memories Claude Code writes to `~/.claude`,
+> with team sharing over plain git. Free and open source under the MIT License.
+
+Claude Code writes notes to itself as you work: what a project does, how you like
+things, decisions you've made. They land as Markdown under `~/.claude`, one folder per project.
+engram browses all of them in one two-pane TUI, and promotes the team-useful ones into a
+git repository your teammates already have access to. No servers, no accounts, no signup:
+your git host is the auth.
+
+- Install (Homebrew): `brew install ertugrulhaskan/tap/engram`
+- Install (Go): `go install github.com/ertugrulhaskan/engram@latest`
+- Platforms: macOS and Linux. Windows binaries ship but are untested; use WSL.
+- Assistants: Claude Code today. `AGENTS.md` and `GEMINI.md` are next. No assistant
+  exposes a memory API, so other sources arrive as local files first, export/import later.
+
+## Docs
+
+- [README](https://github.com/ertugrulhaskan/engram#readme): install, keybindings, usage
+- [Roadmap](https://github.com/ertugrulhaskan/engram/blob/main/ROADMAP.md): shipped and planned work
+- [Source](https://github.com/ertugrulhaskan/engram): MIT-licensed Go
+- [Privacy](https://engram.im/privacy.html): the site's analytics policy

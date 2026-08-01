@@ -43,12 +43,30 @@ subfolders:
 ```
 www/
     index.html       # markup + a tiny inline pre-paint theme guard in <head>
+    privacy.html     # privacy policy
+    robots.txt       # crawler policy — nothing disallowed, AI agents named explicitly
+    sitemap.xml      # 2 URLs, hand-maintained <lastmod>
+    llms.txt         # plain-text site summary for LLMs
     css/
         input.css    # Tailwind entry (@source "../index.html")
         styles.css   # generated, committed
     js/
         main.js      # page behavior — plain classic deferred script, no modules/deps
 ```
+
+`robots.txt`, `sitemap.xml`, and `llms.txt` restate content that lives in `index.html`,
+so they drift silently — when the page's pitch, install commands, or platform support
+change, update them in the same commit (and bump the sitemap's `<lastmod>`). The two
+`application/ld+json` blocks in `index.html` are subject to the same rule: the `FAQPage`
+answers must stay **word-for-word identical** to the visible FAQ cards, since mismatched
+FAQ markup is a Google structured-data policy violation. Keep `operatingSystem` in the
+`SoftwareApplication` block at `"macOS, Linux"` until native Windows is actually verified
+(SPEC §10) — it is a machine-readable support claim.
+
+A note on `llms.txt`: it is included by maintainer preference, not evidence. Measurements
+in 2026 found ~97% of `llms.txt` files are never fetched, AI crawlers read the HTML
+directly, and no major vendor has committed to consuming it. Treat it as a cheap hedge,
+and don't let it grow into a second source of truth.
 
 ```sh
 npm install          # first time only — installs the Tailwind CLI (devDependency)
@@ -59,6 +77,17 @@ npm run watch:css    # rebuild on change while editing
 `www/css/styles.css` is **committed** (Netlify serves `www/` statically with no build
 command — see `netlify.toml`), so rebuild and commit it whenever you change classes in
 `index.html` or `privacy.html`.
+
+**Sources are registered explicitly.** `input.css` imports Tailwind with
+`source(none)`, so the only scanned files are the three `@source` lines: the two HTML
+pages and `www/js/main.js`. Without `source(none)`, Tailwind's automatic detection also
+scans the whole repo — every Go file and Markdown doc — and harvests ordinary English
+words as class candidates, silently emitting junk utilities (`.grow`, `.table`,
+`.static`, `.visible`…) into the shipped stylesheet; writing the word "grow" in a
+sentence here was enough to change the CSS. **If you add a file that references Tailwind
+classes, add an `@source` line for it** — `main.js` needs one because it toggles class
+names as string literals (`bg-blue-600`, `dark:text-green-400`, `invisible`,
+`translate-x-full`), and those exist nowhere in the HTML.
 `www/js/main.js` is a plain classic script (no build step) — edit it directly. Keep the
 pre-paint theme guard inline in `<head>` so the right theme paints on the first frame.
 `node_modules/` is gitignored and must never be committed.

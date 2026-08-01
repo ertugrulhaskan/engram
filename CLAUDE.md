@@ -33,6 +33,10 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
   when types, packages, or behavior change.
 - **README.md** — keep the keybinding table, install steps, and feature list matching
   the actual TUI.
+- **The site's derived files** (`www/robots.txt`, `www/sitemap.xml`, `www/llms.txt`, and
+  the two `application/ld+json` blocks in `www/index.html`) — these restate what's on the
+  landing page, so a pitch/install/platform change must update them too. The `FAQPage`
+  answers must stay word-for-word identical to the visible FAQ cards.
 - **Memories** (the project's `~/.claude/.../memory/` files) — when a project decision
   changes, update the relevant memory and its `MEMORY.md` line.
 

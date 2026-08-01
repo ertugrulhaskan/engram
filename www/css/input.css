@@ -1,4 +1,9 @@
-@import "tailwindcss";
+/* `source(none)` turns OFF Tailwind's automatic source detection, which otherwise scans
+   the whole repo (Go files, Markdown docs, everything not gitignored) *in addition* to
+   the @source lines below. Without it, an ordinary English word in a doc — "grow",
+   "hidden", "container" — is picked up as a class candidate and silently emitted into
+   the shipped stylesheet. The two pages below are the only real sources. */
+@import "tailwindcss" source(none);
 
 /* Class-based dark mode so the light/dark/system toggle works (stock mechanism). */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -7,6 +12,17 @@
    Paths are relative to this stylesheet (www/css/), so the pages are one level up. */
 @source "../index.html";
 @source "../privacy.html";
+/* main.js toggles class names as string literals (bg-blue-600, invisible,
+   translate-x-full, …), so it is a real source too — without this line those
+   runtime-only classes are never generated and the toggles silently do nothing. */
+@source "../js/main.js";
+
+/* FAQ accordion rows use their own +/× affordance, so hide the native disclosure
+   triangle. `list-none` on the <summary> covers Firefox and Chrome; Safari needs this
+   ::-webkit-details-marker rule as well, and it has no Tailwind utility. */
+summary::-webkit-details-marker {
+  display: none;
+}
 
 /* Terminal-mockup palette (`.term` scope) — consumed as `text-t-*` / `bg-t-*`
    utilities via the inline theme tokens below. Values derive from the product:

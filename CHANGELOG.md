@@ -11,11 +11,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Landing-page search and AI-answer surface** (`www/`) — the site now ships
+  `robots.txt` (nothing disallowed; AI answer agents such as `OAI-SearchBot`,
+  `Claude-SearchBot` and `PerplexityBot` named explicitly, since they are separate
+  user-agents from the training crawlers), `sitemap.xml`, and `llms.txt`. `index.html`
+  gained `SoftwareApplication` and `FAQPage` structured data plus a visible **FAQ
+  section** answering the six questions people actually ask — where Claude Code stores
+  memories, how team sharing works, whether anything leaves the machine, how it differs
+  from Claude's server-side team memory, cost, and other assistants. The page title and
+  description now lead with "Claude Code memory" rather than burying it, and
+  `privacy.html` gained the Open Graph and Twitter card tags it was missing.
+- **Landing-page CSS no longer scans the whole repo** (`www/css/input.css`) — Tailwind is
+  now imported with `source(none)` and three explicit `@source` entries (the two pages
+  plus `www/js/main.js`, which toggles class names as string literals). Previously the
+  `@source` lines *added to* automatic detection rather than replacing it, so every Go
+  file and Markdown doc was scanned and ordinary English words were harvested as class
+  candidates — the shipped stylesheet carried junk utilities (`.grow`, `.table`,
+  `.static`, `.visible`, `.h-1`, …). Removes 12 unused rules; no class used by the pages
+  or by `main.js` changed.
 - **README screenshot** (`docs/tui.png`) — a real capture of the TUI over staged,
   fictional demo data (an imaginary AI app). Regenerable after UI changes via the
   vhs tape and fixtures in `docs/demo/`.
 
 ### Changed
+- **Landing-page copy rewritten in a plainer voice** (`www/index.html`, `www/privacy.html`,
+  `www/llms.txt`): every em dash is gone from user-visible site copy, and the sentences it
+  was holding together are now periods, colons, or the `·` separator the page already uses.
+  Two overclaims went with it, "your team in one keystroke" (promoting, pushing, and a
+  teammate pulling is not one keystroke) and "the answer for repos that can't leave your
+  own walls"; the `● differs` badge no longer explains itself as "no anchor to name a
+  direction". The one remaining em dash is inside the palette mockup, where the string is
+  copied verbatim from `internal/tui/palette.go` and must stay character-for-character
+  identical to what the TUI renders.
+- **The FAQ is now an accordion, one answer open at a time** (`www/index.html`,
+  `www/js/main.js`, `www/css/input.css`): the six cards became native `<details>`/`<summary>`
+  rows, so every answer is still readable with JavaScript off and stays in the DOM for the
+  `FAQPage` schema; `main.js` only adds the "opening one closes the others" behavior. The
+  first row is open by default. `summary::-webkit-details-marker` is hidden for Safari,
+  which `list-none` alone does not cover.
+- **The FAQ is reachable from the nav** (`www/index.html`) — the new section was linked
+  only from the footer, so it was missing from the header nav and the mobile drawer, and
+  the scroll-spy (which pins the *last* nav id active once the page bottom is reached)
+  left "roadmap" highlighted while the reader was in the FAQ. The header nav tightens to
+  `gap-4` until `lg` so five items still fit on one line at the `md` breakpoint.
 - **Landing-page terminal mockups now render the real TUI design** (`www/`): the demo
   (browse / promote / pull), sync badges, and command palette mirror the actual frames —
   top bar, group headers, type badges, selection chevron + highlight, sync pills, scope

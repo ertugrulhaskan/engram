@@ -1,0 +1,46 @@
+# engram.im: everything here is public documentation for an open-source tool.
+# Nothing is disallowed. The named groups below exist to state that intent
+# explicitly, so a future edit can't disallow a crawler by accident.
+
+User-agent: *
+Allow: /
+
+# --- AI answer engines (fetch live to answer a question, and cite the source) ---
+# These are separate user-agents from the training crawlers below and must be
+# listed on their own; blocking one costs citations in that engine's answers.
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# --- AI training crawlers ---
+# Allowed deliberately: engram is MIT-licensed and fully public on GitHub, so
+# there is nothing here to withhold, and being in the corpus helps people find it.
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://engram.im/sitemap.xml

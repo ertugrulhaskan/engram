@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>engram — your team's AI memory, in the terminal</title>
-<meta name="description" content="engram brings every memory Claude Code keeps — across all your projects — into one fast terminal UI, and shares the team-useful ones over plain git. Single Go binary, no servers, no signup." />
+<title>engram · Claude Code memory, in one terminal UI</title>
+<meta name="description" content="A free terminal UI for the memories Claude Code writes to ~/.claude. Browse every project in one place, share the team-useful ones over plain git." />
 <meta name="author" content="Ertugrul Haskan" />
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
@@ -12,21 +12,51 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
 <!-- Open Graph (Facebook / Slack / LinkedIn) -->
-<meta property="og:title" content="engram — your team's AI memory, in the terminal" />
-<meta property="og:description" content="Browse, promote, and pull the memories Claude Code keeps — and share the team-useful ones over plain git. Single binary, no servers, no signup." />
+<meta property="og:title" content="engram · Claude Code memory, in one terminal UI" />
+<meta property="og:description" content="A free terminal UI for the memories Claude Code writes to ~/.claude. Browse every project in one place, share the team-useful ones over plain git." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://engram.im/" />
 <meta property="og:site_name" content="engram" />
+<meta property="og:locale" content="en_US" />
 <meta property="og:image" content="https://engram.im/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="engram — your AI's memory, in one terminal" />
+<meta property="og:image:alt" content="engram · Claude Code memory, in one terminal UI" />
 
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="engram — your team's AI memory, in the terminal" />
-<meta name="twitter:description" content="Browse, promote, and pull the memories Claude Code keeps — and share the team-useful ones over plain git. Single binary, no servers." />
+<meta name="twitter:title" content="engram · Claude Code memory, in one terminal UI" />
+<meta name="twitter:description" content="A free terminal UI for the memories Claude Code writes to ~/.claude. Browse every project in one place, share the team-useful ones over plain git." />
 <meta name="twitter:image" content="https://engram.im/og.png" />
+<meta name="twitter:image:alt" content="engram · Claude Code memory, in one terminal UI" />
+
+<!-- Structured data. No softwareVersion (it would go stale on every release) and no
+     aggregateRating (engram has no ratings; inventing one is a policy violation). -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "engram",
+  "description": "A single-binary terminal UI for the memories Claude Code writes to ~/.claude, with team sharing over plain git.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux",
+  "url": "https://engram.im/",
+  "image": "https://engram.im/og.png",
+  "sameAs": "https://github.com/ertugrulhaskan/engram",
+  "downloadUrl": "https://github.com/ertugrulhaskan/engram/releases",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Ertugrul Haskan"
+  }
+}
+</script>
 
 <script>
   (function () {
@@ -39,18 +69,19 @@
   })();
 </script>
 <link rel="stylesheet" href="css/styles.css" />
-<!-- Google Analytics loads only after cookie consent — see js/main.js -->
+<!-- Google Analytics loads only after cookie consent; see js/main.js -->
 </head>
 <body class="bg-white text-neutral-800 font-sans leading-relaxed antialiased dark:bg-neutral-950 dark:text-neutral-300">
 
 <header class="sticky top-0 z-50 border-b border-neutral-200 bg-white/70 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/70">
   <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 md:grid md:grid-cols-3">
     <div class="justify-self-start font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram</div>
-    <nav aria-label="Primary" class="hidden justify-self-center font-mono text-xs uppercase tracking-wider md:flex md:items-center md:gap-6">
+    <nav aria-label="Primary" class="hidden justify-self-center whitespace-nowrap font-mono text-xs uppercase tracking-wider md:flex md:items-center md:gap-4 lg:gap-6">
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#moat">the moat</a>
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#sharing">sharing</a>
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#palette">palette</a>
       <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#roadmap">roadmap</a>
+      <a data-nav class="text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="#faq">faq</a>
     </nav>
     <div class="flex items-center gap-1 justify-self-end">
       <div id="thm" class="relative">
@@ -89,6 +120,7 @@
       <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#sharing">sharing</a>
       <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#palette">palette</a>
       <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#roadmap">roadmap</a>
+      <a data-drawer-link class="rounded-md px-3 py-3 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800" href="#faq">faq</a>
     </nav>
     <a class="mt-4 rounded-lg border border-neutral-200 px-3 py-3 text-center text-sm text-neutral-900 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-200 dark:hover:border-blue-400" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
   </aside>
@@ -100,7 +132,7 @@
   <section class="pt-12 pb-2 text-center">
     <span class="mb-6 inline-block rounded-full border border-neutral-200 bg-neutral-100 px-4 py-1.5 font-mono text-xs text-green-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-green-500"><span class="motion-safe:animate-pulse" aria-hidden="true">●</span> your team's AI memory, in one place</span>
     <h1 class="mx-auto mb-5 max-w-3xl font-mono text-4xl font-extrabold leading-tight tracking-tight text-neutral-900 md:text-6xl dark:text-white">Your AI's memory, in one terminal.</h1>
-    <p class="mx-auto mb-7 max-w-xl text-base text-neutral-600 md:text-lg dark:text-neutral-400">Claude Code writes memories to disk, one folder per project. engram brings them into one fast TUI — and shares the best with your team over plain git.</p>
+    <p class="mx-auto mb-7 max-w-xl text-base text-neutral-600 md:text-lg dark:text-neutral-400">Claude Code writes memories to disk, one folder per project. engram puts them all in one fast TUI and shares the best with your team over plain git.</p>
     <div class="mx-auto w-full max-w-xl" data-install>
       <div role="group" aria-label="Install method" class="mb-2.5 flex justify-center gap-1.5 font-mono text-xs">
         <button type="button" data-install-tab aria-pressed="true" data-cmd="brew install ertugrulhaskan/tap/engram" class="cursor-pointer rounded-md bg-neutral-200 px-3 py-1 text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-neutral-800 dark:text-neutral-200">Homebrew</button>
@@ -129,12 +161,12 @@
       </div>
 
       <!-- The three panels stack in one grid cell so the demo keeps the height of the
-           tallest view — the auto-advancing switcher must never reflow the page under
+           tallest view: the auto-advancing switcher must never reflow the page under
            a reader. main.js toggles `invisible` (not `hidden`) for the same reason.
            The panels' top bars and bottom hint bars are deliberate mirrors of each
-           other (and of the real TUI's view.go bars) — change them together. -->
+           other (and of the real TUI's view.go bars), so change them together. -->
       <div class="grid">
-      <!-- browse — mirrors the real TUI frame: top bar, focus underline, list ▸ preview, bottom bar -->
+      <!-- browse: mirrors the real TUI frame (top bar, focus underline, list ▸ preview, bottom bar) -->
       <div id="panel-browse" role="tabpanel" aria-labelledby="tab-browse" tabindex="0" data-tabview class="col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
         <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
           <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 5 memories · 2 projects</span></p>
@@ -155,7 +187,7 @@
           <div class="px-4 py-3">
             <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> support-agent · edited yesterday</span></p>
             <p class="mb-3 truncate font-bold text-t-accent">Model + limits live in agent.yaml</p>
-            <p class="mb-3 text-xs leading-relaxed text-t-fg">Every call reads its model and limits from one <span class="bg-t-sel px-1">agent.yaml</span> — no IDs hard-coded, so switching to <span class="bg-t-sel px-1">claude-sonnet-5</span> is a one-line change.</p>
+            <p class="mb-3 text-xs leading-relaxed text-t-fg">Every call reads its model and limits from one <span class="bg-t-sel px-1">agent.yaml</span>. No IDs hard-coded, so switching to <span class="bg-t-sel px-1">claude-sonnet-5</span> is a one-line change.</p>
             <pre class="m-0 overflow-x-auto rounded bg-t-bar px-3 py-2.5 text-xs leading-relaxed text-t-fg"><span class="text-t-user">model:</span>      claude-sonnet-5
 <span class="text-t-user">max_tokens:</span> 1024
 <span class="text-t-user">stream:</span>     true</pre>
@@ -169,7 +201,7 @@
         </div>
       </div>
 
-      <!-- promote — the real >promote scope dialog floating over the list -->
+      <!-- promote: the real >promote scope dialog floating over the list -->
       <div id="panel-promote" role="tabpanel" aria-labelledby="tab-promote" tabindex="0" data-tabview class="invisible col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
         <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
           <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 4 memories · 1 project</span></p>
@@ -188,7 +220,7 @@
           <div class="px-4 py-3 pb-36 md:pb-3">
             <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> support-agent · edited just now</span></p>
             <p class="mb-3 truncate font-bold text-t-accent">System prompt is versioned</p>
-            <p class="text-xs leading-relaxed text-t-fg">One Markdown file per agent under <span class="bg-t-sel px-1">prompts/</span>. Loaded at boot — never inline prompt strings in code.</p>
+            <p class="text-xs leading-relaxed text-t-fg">One Markdown file per agent under <span class="bg-t-sel px-1">prompts/</span>, loaded at boot. Never inline prompt strings in code.</p>
           </div>
           <div class="absolute bottom-3 left-1/2 w-11/12 max-w-md -translate-x-1/2 overflow-hidden rounded-lg border border-t-accent bg-t-bg font-mono text-xs shadow-2xl">
             <p class="truncate px-3 py-2 font-bold text-t-accent">Promote “System prompt is versioned”</p>
@@ -212,7 +244,7 @@
         </div>
       </div>
 
-      <!-- pull — after >pull: everything synced, the pull summary in the status footer -->
+      <!-- pull: after >pull everything is synced, with the pull summary in the status footer -->
       <div id="panel-pull" role="tabpanel" aria-labelledby="tab-pull" tabindex="0" data-tabview class="invisible col-start-1 row-start-1 flex flex-col focus-visible:outline-none">
         <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
           <p class="min-w-0 truncate"><span class="font-bold text-t-accent">engram</span><span class="text-t-dim"> 3 memories · 1 project</span></p>
@@ -230,7 +262,7 @@
           <div class="px-4 py-3">
             <p class="mb-3 truncate text-xs"><span class="font-bold text-t-project">[project]</span><span class="text-t-dim"> team </span><span class="font-bold text-t-scope-project">project</span><span class="text-t-dim"> · </span><span class="font-bold text-t-sync-ok-text">synced</span><span class="text-t-dim"> support-agent · edited just now</span></p>
             <p class="mb-3 truncate font-bold text-t-accent">Prompt versioning</p>
-            <p class="text-xs leading-relaxed text-t-fg">Each prompt file starts with a <span class="bg-t-sel px-1"># v3</span> header — bump it on any wording change so evals can diff. <b class="font-bold">pull</b> lands it under <span class="bg-t-sel px-1">~/.claude</span> where Claude reads it.</p>
+            <p class="text-xs leading-relaxed text-t-fg">Each prompt file starts with a <span class="bg-t-sel px-1"># v3</span> header. Bump it on any wording change so evals can diff. <b class="font-bold">pull</b> lands it under <span class="bg-t-sel px-1">~/.claude</span> where Claude reads it.</p>
           </div>
         </div>
         <div class="flex items-center justify-between gap-3 bg-t-bar px-3 py-1.5 font-mono text-xs">
@@ -246,11 +278,11 @@
   <section class="pt-20">
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// what engram is</span>
     <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Your AI already takes notes. engram is where you read them.</h2>
-    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">As you work, Claude Code quietly writes notes to itself — what a project does, how you like things, decisions you've made — as Markdown scattered under <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code>. You rarely open those files, they drift out of date, and there's no clean way to fix or share them. engram is the window: everything your AI remembers in one place — yours to correct, and to hand to your team.</p>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">As you work, Claude Code quietly writes notes to itself: what a project does, how you like things, decisions you've made. They pile up as Markdown scattered under <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code>. You rarely open those files, they drift out of date, and there's no clean way to fix or share them. engram opens that folder up: everything your AI remembers in one place, yours to correct and to hand to your team.</p>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-sky-600 dark:text-sky-400" aria-hidden="true">◧</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Every memory, one place</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">One searchable two-pane TUI across all your projects. No more grepping <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code> by hand.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-blue-600 dark:text-blue-400" aria-hidden="true">⤴</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Share over plain git</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Promote a memory; teammates pull it. No servers, no account — your git host is the auth.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-green-600 dark:text-green-500" aria-hidden="true">✓</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Safe by default</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Read-only until you act. engram only <b class="font-semibold text-neutral-900 dark:text-neutral-200">adds</b> its own frontmatter — never rewrites Claude's — and scans for secrets before anything reaches your shared repo.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-blue-600 dark:text-blue-400" aria-hidden="true">⤴</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Share over plain git</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Promote a memory; teammates pull it. No servers, no accounts: your git host is the auth.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3.5 font-mono text-lg text-green-600 dark:text-green-500" aria-hidden="true">✓</div><h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Safe by default</h3><p class="text-sm text-neutral-600 dark:text-neutral-400">Read-only until you act. engram only <b class="font-semibold text-neutral-900 dark:text-neutral-200">adds</b> its own frontmatter and never rewrites Claude's. It scans for secrets before anything reaches your shared repo.</p></div>
     </div>
   </section>
 
@@ -258,33 +290,33 @@
   <section id="moat" class="scroll-mt-20 pt-20">
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// the moat</span>
     <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Your memory, not their server.</h2>
-    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">Every assistant keeps a memory of how you work. The real question is where it lives — and whether you can read, move, and version it.</p>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">Every assistant keeps a memory of how you work. What matters is where it lives, and whether you can read, move, and version it.</p>
     <div class="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 font-mono text-sm dark:border-neutral-700 dark:bg-black">
       <div class="hidden grid-cols-12 gap-3.5 bg-neutral-100 px-5 py-3 text-xs text-neutral-600 md:grid dark:bg-neutral-800 dark:text-neutral-400"><span class="col-span-3">auto-learned memory</span><span class="col-span-4">where it lives</span><span class="col-span-5">yours to move?</span></div>
-      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 bg-white px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700 dark:bg-neutral-900"><span class="font-semibold text-blue-700 md:col-span-3 dark:text-blue-400">Claude Code <span class="font-normal text-neutral-600 dark:text-neutral-400">+ engram</span></span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">your disk · plain Markdown</span><span class="text-green-700 md:col-span-5 dark:text-green-500">yes — it's just files in git</span></div>
-      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Gemini app</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">Google account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
-      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Grok</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">xAI account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
-      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Copilot</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">GitHub account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no — vendor-locked</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 bg-white px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700 dark:bg-neutral-900"><span class="font-semibold text-blue-700 md:col-span-3 dark:text-blue-400">Claude Code <span class="font-normal text-neutral-600 dark:text-neutral-400">+ engram</span></span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">your disk · plain Markdown</span><span class="text-green-700 md:col-span-5 dark:text-green-500">yes, it's just files in git</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Gemini app</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">Google account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no, vendor-locked</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Grok</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">xAI account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no, vendor-locked</span></div>
+      <div class="grid grid-cols-1 gap-1 border-t border-neutral-200 px-5 py-3 md:grid-cols-12 md:gap-3.5 dark:border-neutral-700"><span class="text-neutral-800 md:col-span-3 dark:text-neutral-200">Copilot</span><span class="text-neutral-600 md:col-span-4 dark:text-neutral-400">GitHub account · server</span><span class="text-neutral-600 md:col-span-5 dark:text-neutral-400">no, vendor-locked</span></div>
     </div>
-    <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Claude Code is the outlier — it writes memory to <code class="font-mono text-neutral-800 dark:text-neutral-300">~/.claude</code> as Markdown you own. engram adds the fast UI and the git layer, so your team's context stays portable and never trapped behind a login.</p>
+    <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Claude Code is the outlier: it writes memory to <code class="font-mono text-neutral-800 dark:text-neutral-300">~/.claude</code> as Markdown you own. engram adds the fast UI and the git layer, so what your team knows stays portable instead of locked behind a login.</p>
     <div class="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-900">
       <p class="mb-1.5 font-mono text-xs text-neutral-500 dark:text-neutral-400">// what about Claude's own team memory?</p>
-      <p class="text-sm text-neutral-600 dark:text-neutral-400">Claude Code now syncs <b class="font-semibold text-neutral-900 dark:text-neutral-200">team</b> memory too — through Anthropic's servers. engram does the same job through <b class="font-semibold text-neutral-900 dark:text-neutral-200">your</b> git remote: the same memories, on infrastructure you already control. The answer for repos that can't leave your own walls.</p>
+      <p class="text-sm text-neutral-600 dark:text-neutral-400">Claude Code now syncs <b class="font-semibold text-neutral-900 dark:text-neutral-200">team</b> memory too, through Anthropic's servers. engram does the same job through <b class="font-semibold text-neutral-900 dark:text-neutral-200">your</b> git remote, so the same memories sit on infrastructure you already run. Useful when your repos can't leave your own network.</p>
     </div>
   </section>
 
   <!-- team sharing -->
   <section id="sharing" class="scroll-mt-20 pt-20">
     <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// team sharing</span>
-    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Every memory is personal — until you promote it.</h2>
-    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">Promote asks one thing: who is this for? Your answer decides where the memory lives — and engram keys it all to your git remote, with no server in the middle.</p>
+    <h2 class="mb-2 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Every memory is personal until you promote it.</h2>
+    <p class="mb-7 max-w-2xl text-base text-neutral-600 dark:text-neutral-400">Promote asks one thing: who is this for? Your answer decides where the memory lives, and engram keys it to your git remote, with no server in between.</p>
 
     <!-- the three scopes -->
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <div class="mb-3 font-mono text-xs text-neutral-500 dark:text-neutral-400">default</div>
         <h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Personal</h3>
-        <p class="text-sm text-neutral-600 dark:text-neutral-400">Stays on your disk. Never synced, never leaves — no badge, just yours.</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">Stays on your disk. Never synced, never shared. No badge, just yours.</p>
       </div>
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <div class="mb-3 font-mono text-xs text-blue-700 dark:text-blue-400">team · this project</div>
@@ -294,29 +326,29 @@
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <div class="mb-3 font-mono text-xs text-blue-700 dark:text-blue-400">team · global</div>
         <h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Shared team-wide</h3>
-        <p class="text-sm text-neutral-600 dark:text-neutral-400">Tied to no repo. Lives in the team store for anyone to browse and pull into whichever project they choose.</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">Tied to no repo. It lives in the team store, and anyone can browse it and pull it into whichever project they like.</p>
       </div>
     </div>
-    <p class="mb-7 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">engram keys sharing to your git remote — <b class="font-semibold text-neutral-900 dark:text-neutral-200">project</b> memories follow the repo, <b class="font-semibold text-neutral-900 dark:text-neutral-200">global</b> memories follow the team.</p>
+    <p class="mb-7 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">engram keys sharing to your git remote: <b class="font-semibold text-neutral-900 dark:text-neutral-200">project</b> memories follow the repo, <b class="font-semibold text-neutral-900 dark:text-neutral-200">global</b> memories follow the team.</p>
 
     <div class="mb-4 flex flex-col items-stretch md:flex-row">
       <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">1 · once</span><code class="font-semibold text-blue-700 dark:text-blue-400">engram init-team &lt;git-url&gt;</code></div>
       <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
-      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">2 · in the TUI</span>select &amp; <b class="font-semibold text-blue-700 dark:text-blue-400">promote</b> — commit + push</div>
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">2 · in the TUI</span>select &amp; <b class="font-semibold text-blue-700 dark:text-blue-400">promote</b> · commit + push</div>
       <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
-      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> — lands where Claude reads</div>
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> · lands where Claude reads</div>
     </div>
     <div class="term rounded-xl border border-neutral-200 bg-t-bg p-5 font-mono text-xs dark:border-neutral-700">
-      <p class="mb-3 text-t-dim">sync-status badges — engram checks on launch and names where each shared memory stands</p>
+      <p class="mb-3 text-t-dim">sync-status badges · engram checks on launch and tells you where each shared memory stands</p>
       <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-ok px-1 text-t-pill-dark">✓ synced</span></span><span class="text-t-dim">matches the team copy</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-in px-1 text-t-pill-dark">↓ incoming</span></span><span class="text-t-dim">the store advanced — safe to take</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">↑ ahead</span></span><span class="text-t-dim">your unshared edits — promote to share</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-conflict px-1 text-t-pill-light">↕ conflict</span></span><span class="text-t-dim">both moved — resolve in your editor</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-in px-1 text-t-pill-dark">↓ incoming</span></span><span class="text-t-dim">the store moved ahead, safe to take</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">↑ ahead</span></span><span class="text-t-dim">your edits aren't shared yet, promote to share</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-conflict px-1 text-t-pill-light">↕ conflict</span></span><span class="text-t-dim">both sides moved, resolve in your editor</span></div>
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-missing px-1 text-t-pill-light">! missing</span></span><span class="text-t-dim">promoted, but not in the store</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">● differs</span></span><span class="text-t-dim">changed, no anchor to name a direction</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0"><span class="bg-t-sync-warn px-1 text-t-pill-dark">● differs</span></span><span class="text-t-dim">changed, but there's no anchor to say which way</span></div>
       </div>
-      <p class="mt-3 text-t-dim">Personal memories carry no badge — they never leave your disk. A conflict opens both versions with git-style markers in your <code class="text-t-fg">$EDITOR</code> via <span class="text-t-accent">&gt;resolve</span>.</p>
+      <p class="mt-3 text-t-dim">Personal memories carry no badge; they never leave your disk. A conflict opens both versions with git-style markers in your <code class="text-t-fg">$EDITOR</code> via <span class="text-t-accent">&gt;resolve</span>.</p>
     </div>
   </section>
 
@@ -362,7 +394,7 @@
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <p class="mb-3 font-mono text-xs text-neutral-600 dark:text-neutral-400"><span class="text-teal-700 dark:text-teal-400">@</span> &nbsp; hand off to Claude</p>
         <div class="flex items-baseline gap-3 py-1 font-mono text-sm"><span class="w-24 shrink-0 text-teal-700 dark:text-teal-400">@Claude</span><span class="text-xs text-neutral-600 dark:text-neutral-400">fix &amp; edit memories</span></div>
-        <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Launches an interactive Claude Code session in the right folder — run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code> there. engram reloads when it exits.</p>
+        <p class="mt-3 text-xs leading-normal text-neutral-600 dark:text-neutral-400">Opens a Claude Code session in the right folder, so you can run <span class="text-neutral-800 dark:text-neutral-200">Claude's own</span> <code class="text-neutral-800 dark:text-neutral-300">/memory</code> there. engram reloads when it exits.</p>
       </div>
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <p class="mb-3 font-mono text-xs text-neutral-600 dark:text-neutral-400"><span class="text-blue-700 dark:text-blue-400">&gt;</span> &nbsp; team sharing</p>
@@ -382,14 +414,125 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Local browsing</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Discover, search, edit, themes, plans, the @Claude assistant.</p></div>
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Promote, pull, resolve &amp; withdraw, direction-aware badges, secret-scan on the way out.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">next</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Pluggable sources — AGENTS.md &amp; GEMINI.md first; ChatGPT &amp; Gemini app via export/import.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">next</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Pluggable sources. AGENTS.md and GEMINI.md first; ChatGPT and Gemini app via export/import.</p></div>
     </div>
   </section>
+
+  <!-- faq -->
+  <section id="faq" class="scroll-mt-20 pt-20">
+    <span class="mb-2.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">// faq</span>
+    <h2 class="mb-7 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">Questions we get asked.</h2>
+    <!-- Native <details> so the answers are readable with JS off (and stay in the DOM for
+         the FAQPage schema). main.js only adds the "one open at a time" behavior. -->
+    <div class="flex flex-col gap-3">
+      <details data-faq open class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">Where does Claude Code store its memories?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">In <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">~/.claude</code>, as Markdown files, one folder per project. Claude writes them as you work; engram is the UI over that folder.</p>
+      </details>
+      <details data-faq class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">How do I share Claude Code memory with my team?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">Run <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">engram init-team &lt;git-url&gt;</code> once, then promote a memory in the TUI and push. Teammates pull and it lands in their memory folder, where Claude reads it. There's no server in between.</p>
+      </details>
+      <details data-faq class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">Does engram send my memories anywhere?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">No. It's a single local binary. Nothing leaves your machine unless you explicitly promote a memory to a git remote you chose, and engram scans for secrets before anything reaches a shared repo.</p>
+      </details>
+      <details data-faq class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">How is this different from Claude Code's built-in team memory?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">Claude Code syncs team memory through Anthropic's servers. engram does the same job through your own git remote, so the memories sit on infrastructure you already run. Useful when your repos can't leave your network.</p>
+      </details>
+      <details data-faq class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">Is engram free?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">Yes, free and open source under the MIT License. Install it with <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">brew install ertugrulhaskan/tap/engram</code> or <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">go install</code>. macOS and Linux.</p>
+      </details>
+      <details data-faq class="group rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl p-6 group-open:pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+          <h3 class="text-base text-neutral-900 dark:text-neutral-200">Does it work with ChatGPT, Gemini, or Copilot?</h3>
+          <span aria-hidden="true" class="flex-none font-mono text-lg leading-none text-blue-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-45 dark:text-blue-400">+</span>
+        </summary>
+        <p class="px-6 pb-6 text-sm text-neutral-600 dark:text-neutral-400">Not yet. engram reads Claude Code's memories today. Local instruction files like <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">AGENTS.md</code> and <code class="rounded bg-neutral-200 px-1 font-mono text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">GEMINI.md</code> are next. No assistant exposes a memory API, so server-side memories can only arrive by export and import, never a live bridge.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- FAQPage schema. The text below must stay word-for-word identical to the
+       answers rendered above; mismatched FAQ markup is a policy violation. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Where does Claude Code store its memories?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "In ~/.claude, as Markdown files, one folder per project. Claude writes them as you work; engram is the UI over that folder."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I share Claude Code memory with my team?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Run engram init-team <git-url> once, then promote a memory in the TUI and push. Teammates pull and it lands in their memory folder, where Claude reads it. There's no server in between."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does engram send my memories anywhere?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. It's a single local binary. Nothing leaves your machine unless you explicitly promote a memory to a git remote you chose, and engram scans for secrets before anything reaches a shared repo."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is this different from Claude Code's built-in team memory?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Claude Code syncs team memory through Anthropic's servers. engram does the same job through your own git remote, so the memories sit on infrastructure you already run. Useful when your repos can't leave your network."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is engram free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, free and open source under the MIT License. Install it with brew install ertugrulhaskan/tap/engram or go install. macOS and Linux."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work with ChatGPT, Gemini, or Copilot?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Not yet. engram reads Claude Code's memories today. Local instruction files like AGENTS.md and GEMINI.md are next. No assistant exposes a memory API, so server-side memories can only arrive by export and import, never a live bridge."
+        }
+      }
+    ]
+  }
+  </script>
 
   <!-- final cta -->
   <section class="pt-24 pb-2 text-center">
     <h2 class="mb-3 font-mono text-3xl font-extrabold tracking-tight text-neutral-900 md:text-4xl dark:text-white">Stop grepping your memory files.</h2>
-    <p class="mb-7 text-neutral-600 dark:text-neutral-400">One binary. No servers. No signup — yours today, your team in one keystroke.</p>
+    <p class="mb-7 text-neutral-600 dark:text-neutral-400">One binary. No servers. No signup. Yours today, your team as soon as you promote.</p>
     <div class="mx-auto w-full max-w-xl" data-install>
       <div role="group" aria-label="Install method" class="mb-2.5 flex justify-center gap-1.5 font-mono text-xs">
         <button type="button" data-install-tab aria-pressed="true" data-cmd="brew install ertugrulhaskan/tap/engram" class="cursor-pointer rounded-md bg-neutral-200 px-3 py-1 text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-neutral-800 dark:text-neutral-200">Homebrew</button>
@@ -407,22 +550,23 @@
 
 <footer class="mt-20 border-t border-neutral-200 py-6 pb-12 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
   <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6">
-    <span class="text-base">engram <span class="font-normal text-neutral-500">memory for Claude Code — personal and team</span></span>
+    <span class="text-base">engram <span class="font-normal text-neutral-500">memory for Claude Code, personal and team</span></span>
     <span>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram">GitHub</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram#readme">Docs</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram/blob/main/ROADMAP.md">Roadmap</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram/blob/main/LICENSE">License</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="#faq">FAQ</a>
       <a class="ml-5 text-neutral-600 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:text-neutral-200" href="privacy.html">Privacy</a>
     </span>
   </div>
-  <div class="mx-auto mt-3 max-w-5xl px-6 text-xs text-neutral-500 dark:text-neutral-500">Open source under the MIT License — provided “as is”, with no warranty.</div>
+  <div class="mx-auto mt-3 max-w-5xl px-6 text-xs text-neutral-500 dark:text-neutral-500">Open source under the MIT License, provided “as is” with no warranty.</div>
 </footer>
 
 <!-- cookie consent (Google Analytics loads only after Accept) -->
 <div id="cookie-banner" class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-neutral-200 bg-white/95 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/95">
   <div class="mx-auto flex max-w-5xl flex-col gap-3 px-6 py-4 text-sm text-neutral-700 sm:flex-row sm:items-center sm:justify-between dark:text-neutral-300">
-    <p class="max-w-2xl">We use <b class="font-semibold text-neutral-900 dark:text-neutral-200">Google Analytics</b> cookies to see how the site is used — only if you agree. See the <a class="underline decoration-neutral-400 underline-offset-2 hover:text-neutral-900 dark:hover:text-neutral-100" href="privacy.html">Privacy Policy</a>.</p>
+    <p class="max-w-2xl"><b class="font-semibold text-neutral-900 dark:text-neutral-200">Google Analytics</b> cookies help us see how the site is used, but only if you agree. See the <a class="underline decoration-neutral-400 underline-offset-2 hover:text-neutral-900 dark:hover:text-neutral-100" href="privacy.html">Privacy Policy</a>.</p>
     <div class="flex flex-none gap-2">
       <button type="button" id="cookie-decline" class="cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-neutral-700 hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600">Decline</button>
       <button type="button" id="cookie-accept" class="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400">Accept</button>

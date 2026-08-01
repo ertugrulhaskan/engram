@@ -255,3 +255,19 @@
     tabs.forEach(function (t) { t.addEventListener('click', function () { select(t); }); });
   });
 })();
+
+// --- FAQ accordion: one answer open at a time ---
+// The markup is native <details>, so every answer is readable with JS off and stays in
+// the DOM for the FAQPage schema. This only closes the others when one is opened.
+// Setting `open = false` re-fires `toggle` on that element, but the guard below returns
+// immediately for a closing item, so there is no loop.
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('details[data-faq]'));
+  if (items.length < 2) return;
+  items.forEach(function (d) {
+    d.addEventListener('toggle', function () {
+      if (!d.open) return;
+      items.forEach(function (other) { if (other !== d) other.open = false; });
+    });
+  });
+})();
