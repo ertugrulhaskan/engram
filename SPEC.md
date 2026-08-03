@@ -472,6 +472,12 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 - Inline diff view for `>resolve` (it currently opens both versions with git-style
   markers in `$EDITOR`; conflict resolution itself shipped in Phase 2).
 - Promoting whole *types* at once (e.g. "all feedback"); multi-select promote.
+- Monorepo sub-keys. Subprojects that share one git remote share one bucket under
+  `projects/<key>/`; per-subdirectory keys are a later refinement.
+- Alias coordination for remote-less projects. The alias fallback itself is still
+  unbuilt (ROADMAP Phase 2), and even once it lands, two teammates must
+  independently choose the *same* alias for their memories to meet — a shared alias
+  map committed in the team repo is the likely fix.
 - Phase 4: other assistants, in two tiers (source list in ROADMAP Phase 4). Local
   instruction files first — files on disk, no API needed. Server-side memories
   (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing

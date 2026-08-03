@@ -45,8 +45,9 @@ behind the shipped index-sync and release work.
 
 ## Code rules (detail in CONTRIBUTING.md)
 
-- **Layering:** `internal/memory`, `internal/plan`, and `internal/config` contain no
-  UI; `internal/tui` contains no file/IO logic. Don't cross the line.
+- **Layering:** every package outside `internal/tui` contains no UI — `memory`, `plan`,
+  `config`, `team`, `secrets`; `internal/tui` contains no file/IO logic. Don't cross the
+  line.
 - **Never modify a user's memory files** except on an explicit user action
   (edit/create/delete/promote/withdraw). Only ever *add* frontmatter keys engram owns;
   never rewrite Claude's fields.

@@ -246,9 +246,10 @@ Files are never modified except when you explicitly edit one. See
 
 ## Contributing
 
-Contributions welcome! The codebase is small and deliberately layered:
-`internal/memory` (discovery + parsing + file mutation, no UI) and `internal/tui`
-(Bubble Tea UI, no file logic). See [CONTRIBUTING.md](CONTRIBUTING.md) for build
+Contributions welcome! The codebase is small and deliberately layered: everything
+outside `internal/tui` does the real work with no UI (`memory`, `plan`, `config`,
+`team`, `secrets`), and `internal/tui` is Bubble Tea UI with no file logic. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for build
 and test instructions — including the "Landing page" section for working on the
 [engram.im](https://engram.im) site under [`www/`](www/) — and [SPEC.md](SPEC.md)
 for the design. By participating you agree to the

@@ -48,7 +48,7 @@ www/
     sitemap.xml      # 2 URLs, hand-maintained <lastmod>
     llms.txt         # plain-text site summary for LLMs
     css/
-        input.css    # Tailwind entry (@source "../index.html")
+        input.css    # Tailwind entry — source(none) + one @source per scanned file
         styles.css   # generated, committed
     js/
         main.js      # page behavior — plain classic deferred script, no modules/deps
@@ -95,25 +95,30 @@ pre-paint theme guard inline in `<head>` so the right theme paints on the first 
 ## Project layout & the one hard rule
 
 ```
-main.go                  # entry point: discover → launch TUI
+main.go                  # entry point: discover → launch TUI; init-team subcommand
 internal/
     memory/              # discovery + parsing + file mutation
+    plan/                # plan-mode plans (a second read-only source)
+    config/              # theme + editor settings under the XDG config dir
+    team/                # the shared team store over git
+    secrets/             # credential scanning for the promote guard
     tui/                 # Bubble Tea UI
 ```
 
-**The layering rule:** `internal/memory` contains *no UI code*, and
-`internal/tui` contains *no file logic*. The UI consumes parsed `memory.Memory`
-values and calls `memory.Create` / `memory.Delete`; it never reads or writes
-files directly. Keep it that way — it's what keeps the project testable.
+**The layering rule:** everything outside `internal/tui` contains *no UI code*,
+and `internal/tui` contains *no file logic*. The UI consumes parsed
+`memory.Memory` values and calls into `memory` / `team` for anything that touches
+disk or git; it never reads or writes files directly. Keep it that way — it's
+what keeps the project testable. `SPEC.md` §8 lists every file and its job.
 
 ## Guidelines
 
 - **Format and vet** before committing: `gofmt -w .` and `go vet ./...`.
-- **Add tests** for logic in `internal/memory` (it's pure and easy to test). See
-  `internal/memory/*_test.go` for the style.
+- **Add tests** for logic in the non-UI packages (they're pure and easy to test).
+  See `internal/memory/*_test.go` for the style.
 - **Never modify a user's memory files** except in response to an explicit user
-  action (edit / create / delete / promote). This is a core principle — see
-  SPEC §2.
+  action (edit / create / delete / promote / withdraw / resolve). This is a core
+  principle — see SPEC §2.
 - **Stay compatible with Claude Code.** Only ever *add* optional frontmatter
   keys engram understands; don't rewrite Claude's fields.
 - Keep commit messages clear and in the present tense ("add type filter", not
@@ -121,8 +126,9 @@ files directly. Keep it that way — it's what keeps the project testable.
 
 ## Proposing changes
 
-1. Open an issue describing the change (especially for anything in Phase 2/3
-   scope — check [ROADMAP.md](ROADMAP.md) first).
+1. Open an issue describing the change (especially for anything in Phase 4 scope,
+   or the Phase 2 refinements still listed as open — check
+   [ROADMAP.md](ROADMAP.md) first).
 2. Fork, branch, and make your change with tests.
 3. Ensure `go test ./...` and `go vet ./...` pass and the tree is `gofmt`-clean.
 4. Open a pull request that explains the what and the why, and note anything you
@@ -157,8 +163,11 @@ goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
 
 **Tap + token (already configured):** the `ertugrulhaskan/homebrew-tap` repo exists
 and the engram repo carries a `HOMEBREW_TAP_TOKEN` Actions secret with write access
-to it (the built-in `GITHUB_TOKEN` can't push to a separate repository). For tighter
-security, scope that secret to a fine-grained PAT limited to the `homebrew-tap` repo.
+to it (the built-in `GITHUB_TOKEN` can't push to a separate repository). That secret
+should stay a **fine-grained PAT limited to the `homebrew-tap` repository** (contents:
+read/write) rather than a broad account token. Fine-grained PATs expire, so if a release
+builds cleanly but the Homebrew cask step fails with a `401`, an expired or rotated
+token is the first thing to check.
 
 ## Code of conduct
 

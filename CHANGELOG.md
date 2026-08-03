@@ -80,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commands, the `theme` / `editor` config keys, the palette's bare-text fuzzy jump,
   and auto-reload on disk changes.
 
+### Removed
+- **`OPEN_QUESTIONS.md`** — a Phase 2 design scratchpad that nothing linked to and that
+  the shipped implementation had overtaken (it still described retired badge names,
+  multi-select promote as shipping first, and conflict resolution as opening two files).
+  The questions still genuinely open, including monorepo sub-keys and alias coordination
+  for remote-less projects, now live in SPEC §10 alongside the rest.
+
 ## [0.2.1] - 2026-07-04
 
 ### Fixed
