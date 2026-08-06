@@ -159,10 +159,14 @@ func (m *Model) setTheme(idx int) {
 	}
 	m.themeIdx = idx
 	m.styleInputs()
+	// Order matters: rebuild the glamour renderer for the new theme BEFORE
+	// clearing the cache and rebuilding rows — rebuildRows ends in syncPreview,
+	// which re-renders the selected body and re-fills the cache. With the old
+	// renderer still in place it would cache a stale-theme render, and the
+	// preview only caught up on the next theme press.
+	m.buildRenderer()
 	m.previewCache = nil // glamour style changed
 	m.rebuildRows()
-	m.buildRenderer()
-	m.syncPreview()
 	// Round-trip the file so unrelated settings (secret-scan policy) survive.
 	cfg := config.Load()
 	cfg.Theme = m.theme().Key

@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   erroring.
 
 ### Fixed
+- **A theme switch now updates the preview pane on the first keypress** — the
+  preview cache was refilled with the old theme's glamour rendering before the
+  new renderer was built, so the right pane only caught up on a second press of
+  `1`–`3`. Present since themes shipped, not introduced by the redesign.
 - **Switching themes no longer wipes unrelated settings from `config.json`** — the
   save now round-trips the file, so `secretScanAction`/`secretScanScope` survive a
   `1`–`3` keypress. Previously every theme switch rewrote the file with only `theme`
