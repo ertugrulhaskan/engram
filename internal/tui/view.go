@@ -160,55 +160,76 @@ func (m Model) sourceStrip() string {
 		}
 	}
 
-	var right string
-	echo := ""
-	if q := strings.TrimSpace(m.search.Value()); q != "" && m.mode != modeFilter {
-		echo = "“" + q + "”" // echo the committed filter so a narrowed list has a visible reason
-	}
-	if m.srcKind == srcMemories {
-		scope := "project"
-		if m.groupBy == groupType {
-			scope = "type"
-		}
-		typeScope := "all"
-		if tf := typeCycle[m.typeIdx]; tf != "" {
-			typeScope = string(tf)
-		}
-		right = onbg(t.Dim, t.Bg).Render("group ") + onbg(t.Accent, t.Bg).Bold(true).Render(scope) +
-			onbg(t.Dim, t.Bg).Render(" · type ") + onbg(t.Accent, t.Bg).Bold(true).Render(typeScope)
-		if echo != "" {
-			right += onbg(t.Dim, t.Bg).Render(" · " + echo)
-		}
-		right += onbg(t.Dim, t.Bg).Render(" ")
-	} else if echo != "" {
-		right = onbg(t.Dim, t.Bg).Render(echo + " ")
-	} else {
-		right = onbg(t.Accent, t.Bg).Render("^K") + onbg(t.Faint, t.Bg).Render(" jump or run ")
-	}
+	// The right side is always the palette affordance, per the prototype — the
+	// type/group state lives in the chips row below (subRow).
+	right := onbg(t.Accent, t.Bg).Render("^K") + onbg(t.Faint, t.Bg).Render(" jump or run anything ")
 	return m.barLine(left, right, t.Bg)
 }
 
-// subRow is the line under the top bar: a focus underline per pane, or the
-// search input over the list when filtering.
+// subRow is the prototype's chips row over the list pane: the type/group
+// state on the left, the `/ search` affordance (or the committed query) at
+// the pane's right edge — replaced by the live input while filtering. The
+// chip values carry the list-pane focus signal (accent when focused — this
+// row replaced the old list-side focus underline); the preview side keeps
+// its rule, accented on focus.
 func (m Model) subRow() string {
 	t := m.theme()
 	var left string
 	if m.mode == modeFilter {
 		left = padTo(m.search.View(), m.listW)
 	} else {
-		c := t.Edge
+		sigC := t.Faint
 		if m.focus == focusList {
-			c = t.Accent
+			sigC = t.Accent // the row carries the list-pane focus signal (it replaced the underline)
 		}
-		left = fg(c).Render(strings.Repeat("─", m.listW))
+		// A chip's value reads accent when its shaping is active (a non-default
+		// type filter or grouping), dim otherwise — the prototype's active-chip
+		// highlight. Bold marks list focus.
+		chip := func(label, val string, active bool) string {
+			c := t.Dim
+			if active {
+				c = t.Accent
+			}
+			return onbg(t.Faint, t.Bg).Render(label+": ") + onbg(c, t.Bg).Bold(m.focus == focusList).Render(val)
+		}
+		var chips string
+		switch m.srcKind {
+		case srcMemories:
+			typeScope := "all"
+			if tf := typeCycle[m.typeIdx]; tf != "" {
+				typeScope = string(tf)
+			}
+			group := "project"
+			if m.groupBy == groupType {
+				group = "type"
+			}
+			chips = chip("type", typeScope, typeScope != "all") + onbg(t.Faint, t.Bg).Render("   ") +
+				chip("group", group, group != "project")
+		case srcPlans:
+			chips = chip("group", "recency", false)
+		default:
+			chips = chip("group", "project", false)
+		}
+		chips = onbg(t.Faint, t.Bg).Render(" ") + chips
+		// Search affordance, clipped against what the chips leave over.
+		hint := "search"
+		if q := strings.TrimSpace(m.search.Value()); q != "" {
+			hint = "“" + q + "”" // the committed filter — a narrowed list keeps its visible reason
+		}
+		avail := m.listW - lipgloss.Width(chips) - 4 // "/ " lead + trailing pad + 1 gap
+		var right string
+		if avail >= 4 {
+			right = onbg(sigC, t.Bg).Render("/ ") + onbg(t.Faint, t.Bg).Render(clip(hint, avail)+" ")
+		}
+		left = bandLine(chips, right, m.listW, t.Bg)
 	}
 	rc := t.Edge
 	if m.focus == focusPreview {
 		rc = t.Accent
 	}
 	right := fg(rc).Render(strings.Repeat("─", m.previewW))
-	// Paint each side with its pane's surface so the rule row belongs to the
-	// panes below it; the ┬ connector sits on the preview side of the divide.
+	// Paint each side with its pane's surface so the row belongs to the panes
+	// below it; the ┬ connector sits on the preview side of the divide.
 	return paintLine(left, m.listW, t.Bg) +
 		paintLine(fg(t.Edge).Render("┬"), 1, t.BgPane) +
 		paintLine(right, m.previewW, t.BgPane)

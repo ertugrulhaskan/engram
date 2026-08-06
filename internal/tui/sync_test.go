@@ -63,17 +63,21 @@ func syncedModel(state team.SyncState, extra map[int]team.SyncState) Model {
 }
 
 // TestSyncPillBracketed: the list renders sync state as an outlined bracketed
-// word (no filled background), and the preview meta shows the bracketed scope
-// pill plus the state word.
+// word (no filled background), and the preview meta carries the bracketed
+// scope pill — the state itself lives in the sync strip's sentence, not the
+// meta, per the prototype.
 func TestSyncPillBracketed(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	m := syncedModel(team.StateIncoming, map[int]team.SyncState{1: team.StateDiffers})
 
 	plain := ansi.Strip(m.View())
-	for _, want := range []string{"[behind]", "[unknown]", "team [global] · behind"} {
+	for _, want := range []string{"[behind]", "[unknown]", "[global]"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("frame missing %q", want)
 		}
+	}
+	if strings.Contains(plain, "team [global] · behind") {
+		t.Error("preview meta still carries the retired state token (the strip states it now)")
 	}
 	// Group headers keep their own cycled color — the sync color must not leak
 	// into (or blank out) GroupColor via variable reuse in memoryItems.
@@ -170,12 +174,12 @@ func TestSyncStripStoreStamp(t *testing.T) {
 func TestSyncStripViewportShrink(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	m := actionModel(team.StateIncoming, "acme/app")
-	if got, want := m.viewport.Height, m.panesH-7; got != want {
+	if got, want := m.viewport.Height, m.panesH-6; got != want {
 		t.Errorf("behind row: viewport height %d, want %d (band shown)", got, want)
 	}
 	var cur tea.Model = m
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	if got, want := cur.(Model).viewport.Height, m.panesH-4; got != want {
+	if got, want := cur.(Model).viewport.Height, m.panesH-3; got != want {
 		t.Errorf("personal row: viewport height %d, want %d (band hidden)", got, want)
 	}
 }

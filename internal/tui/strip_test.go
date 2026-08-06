@@ -24,44 +24,63 @@ func stripLine(frame string) string {
 
 func key(r string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r)} }
 
+// chipsLine extracts the chips row (third chrome line, the subRow's list
+// segment) from a rendered frame, with all styling removed.
+func chipsLine(frame string) string {
+	lines := strings.Split(frame, "\n")
+	if len(lines) < 3 {
+		return ""
+	}
+	return ansi.Strip(lines[2])
+}
+
 // TestSourceStripContents pins the strip's information: every source with its
-// live count on the left, and the list-shaping echo (group/type, search) or the
-// palette hint on the right.
+// live count on the left, the palette hint always on the right (per the
+// prototype), and the list-shaping state (type/group chips, the search
+// affordance and committed query) on the chips row below it.
 func TestSourceStripContents(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var cur tea.Model = New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{})
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	got := stripLine(cur.(Model).View())
-	for _, want := range []string{"memories 5", "plans 2", "files 2", "group project · type all"} {
+	for _, want := range []string{"memories 5", "plans 2", "files 2", "^K jump or run anything"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("strip %q missing %q", got, want)
 		}
 	}
-
-	// Shaping the memories list updates the echo.
-	cur, _ = cur.Update(key("t")) // type: all → user
-	cur, _ = cur.Update(key("g")) // group: project → type
-	got = stripLine(cur.(Model).View())
-	if !strings.Contains(got, "group type · type user") {
-		t.Errorf("strip %q missing shaped echo %q", got, "group type · type user")
+	chips := chipsLine(cur.(Model).View())
+	for _, want := range []string{"type: all", "group: project", "/ search"} {
+		if !strings.Contains(chips, want) {
+			t.Errorf("chips row %q missing %q", chips, want)
+		}
 	}
 
-	// A committed search is echoed so the narrowed list has a visible reason.
+	// Shaping the memories list updates the chips.
+	cur, _ = cur.Update(key("t")) // type: all → user
+	cur, _ = cur.Update(key("g")) // group: project → type
+	chips = chipsLine(cur.(Model).View())
+	if !strings.Contains(chips, "type: user") || !strings.Contains(chips, "group: type") {
+		t.Errorf("chips row %q missing shaped state", chips)
+	}
+
+	// A committed search replaces the affordance so the narrowed list has a
+	// visible reason.
 	cur, _ = cur.Update(key("/"))
 	cur, _ = cur.Update(key("p"))
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	got = stripLine(cur.(Model).View())
-	if !strings.Contains(got, "“p”") {
-		t.Errorf("strip %q missing search echo", got)
+	chips = chipsLine(cur.(Model).View())
+	if !strings.Contains(chips, "/ “p”") {
+		t.Errorf("chips row %q missing committed query", chips)
 	}
 
-	// Sources without shaping state point at the palette instead (^K since the
-	// ctrl+k alias landed with the contextual status bar).
+	// The palette hint survives on every source; plans chips show recency.
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	got = stripLine(cur.(Model).View())
-	if !strings.Contains(got, "^K jump or run") {
+	if got := stripLine(cur.(Model).View()); !strings.Contains(got, "^K jump or run anything") {
 		t.Errorf("plans strip %q missing palette hint", got)
+	}
+	if chips := chipsLine(cur.(Model).View()); !strings.Contains(chips, "group: recency") {
+		t.Errorf("plans chips row %q missing recency", chips)
 	}
 }
 

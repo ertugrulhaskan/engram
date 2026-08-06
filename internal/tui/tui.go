@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	badgeWidth  = 11 // width of the widest "[reference]" badge field
+	badgeWidth  = 9  // width of the widest bare "reference" badge word
 	previewPad  = 2  // left margin between the divider and preview content
 	maxReadCols = 88 // cap the prose line length on wide terminals for readability
 )

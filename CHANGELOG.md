@@ -86,16 +86,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`[behind]`, bold on the selected row), and two states are renamed for
   clarity: **incoming → behind** and **differs → unknown** (display only; the
   `engram:` frontmatter and the Go API are unchanged). The preview's scope
-  reads as a matching bracketed pill (`team [global] · behind`).
+  reads as a matching bracketed pill (`[global]`).
+- **The preview header and list badges follow the prototype** — the title
+  renders first with the meta line under it: the type badge as a bare colored
+  word (list rows too — brackets dropped), a compact path
+  (`app/memory/build-cache.md`), and the scope pill. The sync state word left
+  the meta — the sync strip right below already states it in a sentence — and
+  the `edited …` stamp stays only on personal rows, whose header has no strip
+  to carry a timestamp.
 - **A persistent source tab strip replaces the top-bar counts** — the chrome grows
   from four to five rows: a title bar (brand, version, and the theme switcher, which
   moved up from the status bar), then a tab strip showing every source with its live
   count (`memories 12 · plans 4 · files 6`), the active tab underlined. `shift+tab`
   cycles sources from either pane; the palette's `/memory` `/plans` `/files`
-  commands still work. The strip's right side echoes the group/type state and any
-  committed search (or points at `^P` when there is nothing to echo), and the status
-  bar's right corner now reads `? help`. Per-source cursor position, the type
-  filter, and the group mode all persist across switches; a search still clears.
+  commands still work. The strip's right side always shows the palette hint
+  (`^K jump or run anything`); the list-shaping state lives in a **chips row**
+  over the list pane — `type: all   group: project` (an active filter reads in
+  accent) with the `/ search` affordance at the pane edge, which shows the
+  committed query (`/ “q”`) while a search narrows the list. The status bar's
+  right corner now reads `? help`. Per-source cursor position, the type filter,
+  and the group mode all persist across switches; a search still clears.
 - **The TUI paints every cell with theme backgrounds** (`internal/tui/paint.go`) —
   list, preview, bars, rules, and dialogs each carry their theme surface color, so
   all three themes render identically regardless of the terminal's own palette

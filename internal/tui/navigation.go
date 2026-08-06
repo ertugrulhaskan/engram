@@ -160,8 +160,8 @@ func (m *Model) syncPreview() {
 	}
 	// The sync strip sits between the preview header and the body, so the
 	// viewport shrinks by its rows only while a stateful memory is selected
-	// (resize sets the 4-line-header baseline; this is the sole other writer).
-	if vpH := m.panesH - 4 - m.stripRows(it); vpH >= 1 {
+	// (resize sets the 3-line-header baseline; this is the sole other writer).
+	if vpH := m.panesH - 3 - m.stripRows(it); vpH >= 1 {
 		m.viewport.Height = vpH
 	} else {
 		m.viewport.Height = 1

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -146,14 +147,15 @@ func driftCause(unindexed, dangling int) string {
 	}
 }
 
-// badgeColW sizes the badge bracket field from the widest badge in the current
-// (filtered) list, so short badges (e.g. "[user]") don't leave a wide gap before the
-// title. Capped at badgeWidth (the widest possible "[reference]"); 0 when no row has a badge.
+// badgeColW sizes the type-badge field from the widest badge in the current
+// (filtered) list, so short badges (e.g. "user") don't leave a wide gap before
+// the title. The badge renders as a bare colored word per the prototype.
+// Capped at badgeWidth (the widest possible "reference"); 0 when no row has one.
 func (m Model) badgeColW() int {
 	w := 0
 	for _, r := range m.rows {
 		if r.kind == rowMemory && r.item.Badge != "" {
-			if l := runewidth.StringWidth("[" + r.item.Badge + "]"); l > w {
+			if l := runewidth.StringWidth(r.item.Badge); l > w {
 				w = l
 			}
 		}
@@ -318,7 +320,7 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 	}
 	out := indent
 	if it.Badge != "" {
-		out += st(it.BadgeColor).Render(padRight("["+it.Badge+"]", badgeW)) + st(t.Fg).Render(" ")
+		out += st(it.BadgeColor).Render(padRight(it.Badge, badgeW)) + st(t.Fg).Render(" ")
 	}
 	titleStyle := st(titleColor)
 	if selected {
@@ -358,6 +360,24 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 	return out
 }
 
+// shortPath is the preview meta's compact location — the prototype's
+// "engram/memory/tui-layering.md" shape: project name, the file's parent dir
+// base, and the filename, derived from the real path (never assembled from
+// assumptions about the layout).
+func shortPath(it Item) string {
+	if it.Path == "" {
+		return ""
+	}
+	base := filepath.Base(it.Path)
+	if it.Context == "" {
+		return base
+	}
+	if dir := filepath.Base(filepath.Dir(it.Path)); dir != "." && dir != string(filepath.Separator) {
+		return it.Context + "/" + dir + "/" + base
+	}
+	return it.Context + "/" + base
+}
+
 func (m Model) previewPane() string {
 	t := m.theme()
 	innerW := m.previewW - previewPad
@@ -366,43 +386,43 @@ func (m Model) previewPane() string {
 		empty := lipgloss.NewStyle().Width(m.previewW).Height(m.panesH).Render(fg(t.Dim).Render("  nothing selected"))
 		return paintBlock(empty, m.previewW, t.BgPane)
 	}
+	// Header per the prototype: the title first, the meta line right under it —
+	// badge word, shortened path, scope pill. The sync state itself is NOT in
+	// the meta: the sync strip directly below states it in a full sentence for
+	// every stateful memory. The edited stamp stays only where no strip follows
+	// (personal rows), so the time is never lost.
 	meta, used := "", 0
 	if it.Badge != "" {
-		b := "[" + it.Badge + "]"
-		meta = fg(it.BadgeColor).Bold(true).Render(b) + " "
-		used = runewidth.StringWidth(b) + 1
+		meta = fg(it.BadgeColor).Bold(true).Render(it.Badge) + " "
+		used = runewidth.StringWidth(it.Badge) + 1
 	}
-	if word, color := t.syncBadge(m.syncStates[it.Path]); word != "" {
-		if it.Scope != "" {
-			// Match the list's pill treatment: the scope as a bracketed pill in its
-			// own color (teal/blue), the state word in the sync color — e.g.
-			// "team [global] · behind". Reuse the Item's ScopeColor (set in
-			// memoryItems) so list and preview can't diverge.
-			sc := it.ScopeColor
-			if sc == "" {
-				sc = t.Dim
-			}
-			meta += fg(t.Dim).Render("team ") + fg(sc).Bold(true).Render("["+it.Scope+"]") +
-				fg(t.Dim).Render(" · ") + fg(color).Bold(true).Render(word) + " "
-			used += runewidth.StringWidth("team ["+it.Scope+"] · "+word) + 1
+	scopePill, scopeUsed := "", 0
+	if it.Scope != "" {
+		sc := it.ScopeColor
+		if sc == "" {
+			sc = t.Dim
+		}
+		pill := "[" + it.Scope + "]"
+		scopePill = " " + fg(sc).Bold(true).Render(pill)
+		scopeUsed = runewidth.StringWidth(pill) + 1
+	}
+	rest := shortPath(it)
+	if m.stripRows(it) == 0 {
+		stamp := "edited " + humanizeSince(it.Modified)
+		if rest == "" {
+			rest = stamp
 		} else {
-			tok := "team " + word // colored text in the preview, where there's room
-			meta += fg(color).Bold(true).Render(tok) + " "
-			used += runewidth.StringWidth(tok) + 1
+			rest += " · " + stamp
 		}
 	}
-	rest := "edited " + humanizeSince(it.Modified)
-	if it.Context != "" {
-		rest = it.Context + " · " + rest
-	}
-	meta += fg(t.Dim).Render(clip(rest, innerW-used))
+	meta += fg(t.Dim).Render(clip(rest, innerW-used-scopeUsed)) + scopePill
 	title := m.renderTitle(it.Title, innerW)
 	// The header and body are padded blocks; the sync strip band between them
 	// renders full-bleed (its own Bg2 rows span the pane edge to edge), so it
-	// reads as a strip, not indented text. Total header rows: 4, or 7 with the
+	// reads as a strip, not indented text. Total header rows: 3, or 6 with the
 	// band — syncPreview shrinks the viewport to match (stripRows).
 	head := lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
-		Render(lipgloss.JoinVertical(lipgloss.Left, meta, "", title, ""))
+		Render(lipgloss.JoinVertical(lipgloss.Left, title, meta, ""))
 	parts := []string{head}
 	if band := m.syncStrip(it); len(band) > 0 {
 		parts = append(parts, strings.Join(band, "\n"), "")

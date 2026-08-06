@@ -53,7 +53,7 @@ func (m *Model) resize(w, h int) {
 	m.input.Width = m.previewW
 	m.previewCache = nil // width changed — rendered bodies must re-wrap
 
-	vpH := m.panesH - 4 // preview meta header is 4 lines; syncPreview subtracts the sync strip band when shown
+	vpH := m.panesH - 3 // preview header is 3 lines (title, meta, blank); syncPreview subtracts the sync strip band when shown
 	if vpH < 1 {
 		vpH = 1
 	}
