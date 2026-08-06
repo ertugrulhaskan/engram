@@ -15,6 +15,7 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"↑ ↓ · j k", "move selection"},
 		{"pgup pgdn", "page up / down"},
 		{"⇥ tab", "switch list ⇄ preview"},
+		{"⇧⇥ shift+tab", "next source: memories · plans · files"},
 	},
 	{
 		{"/", "filter"},

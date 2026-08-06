@@ -74,6 +74,7 @@ The list reloads automatically when memory files change on disk.
 | `pgup`/`pgdn` | page through the list                |
 | `/`        | filter / search the list                |
 | `tab`      | switch focus between list and preview   |
+| `shift+tab` | cycle the source tabs: memories → plans → files |
 | `e`        | edit the selected memory in `$EDITOR`   |
 | `n`        | create a new memory in the current project and open it in `$EDITOR` |
 | `d`        | delete the selected item (asks `y`/`n` first) |

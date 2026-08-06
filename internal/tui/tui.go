@@ -34,6 +34,8 @@ const (
 	srcMemories srcKind = iota
 	srcPlans
 	srcFiles // read-only CLAUDE.md / MEMORY.md
+
+	srcCount // number of sources; keeps shift+tab cycling and per-source state in step
 )
 
 type groupMode int

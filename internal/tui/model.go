@@ -22,7 +22,7 @@ type Model struct {
 	plans    []plan.Plan      // full plan set
 	docs     []memory.DocFile // read-only CLAUDE.md / MEMORY.md files
 	srcKind  srcKind          // which source is being browsed
-	cursors  [3]int           // remembered cursor (row index) per source
+	cursors  [srcCount]int    // remembered cursor (row index) per source
 
 	rows   []row // computed display rows (headers + items + spacers)
 	cursor int   // index into rows; always points at a rowMemory

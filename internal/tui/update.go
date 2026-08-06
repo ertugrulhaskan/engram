@@ -204,6 +204,11 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.focus = focusList
 		}
 		return m, nil
+	case "shift+tab":
+		// Cycle the source strip. Works from either focus; per-source cursor,
+		// type filter, and group mode persist (switchSource clears only the search).
+		m.switchSource((m.srcKind + 1) % srcCount)
+		return m, nil
 	case "up", "k":
 		if m.focus == focusPreview {
 			m.viewport.LineUp(1)

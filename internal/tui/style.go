@@ -39,6 +39,10 @@ func typeName(t memory.Type) string {
 func fg(c string) lipgloss.Style  { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 func fgb(c string) lipgloss.Style { return fg(c).Bold(true) }
 
+// onbg styles text with an explicit surface color, for chrome that sits on a
+// painted background other than the bars' Bg2 (e.g. the source strip on Bg).
+func onbg(c, bg string) lipgloss.Style { return fg(c).Background(lipgloss.Color(bg)) }
+
 func humanizeSince(t time.Time) string {
 	if t.IsZero() {
 		return "unknown"

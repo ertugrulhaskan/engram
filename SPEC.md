@@ -358,7 +358,7 @@ engram/
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
             update.go        # Update dispatcher + per-mode key handlers
-            view.go          # View, top/bottom bars, drift warning, status styling
+            view.go          # View, title bar, source tab strip, status bar, drift warning
             items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)

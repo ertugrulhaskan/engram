@@ -25,12 +25,13 @@ func (m *Model) resize(w, h int) {
 		m.previewW = 1
 	}
 
-	// Chrome is 4 lines (top bar, sub row, bottom rule, bottom bar) and we leave
-	// the terminal's final row unwritten — filling the very last cell makes some
-	// terminals scroll the alt-screen buffer on each repaint, which shows up as
-	// blank scrollback with the UI pinned to the bottom. That single reservation
-	// is the whole scroll fix; no force-clear or frame clamp needed.
-	m.panesH = h - 5
+	// Chrome is 5 lines (title bar, source strip, sub row, bottom rule, bottom
+	// bar) and we leave the terminal's final row unwritten — filling the very
+	// last cell makes some terminals scroll the alt-screen buffer on each
+	// repaint, which shows up as blank scrollback with the UI pinned to the
+	// bottom. That single reservation is the whole scroll fix; no force-clear
+	// or frame clamp needed.
+	m.panesH = h - 6
 	if m.panesH < 6 {
 		m.panesH = 6
 	}

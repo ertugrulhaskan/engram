@@ -16,7 +16,7 @@ func (m Model) View() string {
 	}
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, m.listPane(), m.dividerCol(), m.previewPane())
 	frame := lipgloss.JoinVertical(lipgloss.Left,
-		m.topBar(), m.subRow(), panes, m.bottomRule(), m.bottomBar())
+		m.topBar(), m.sourceStrip(), m.subRow(), panes, m.bottomRule(), m.bottomBar())
 
 	// Modal dialogs float over the frame (VS Code-style) instead of replacing a
 	// pane, so the list and preview stay visible behind them.
@@ -107,23 +107,62 @@ func (m Model) overlay(frame, box string, top bool) string {
 	return placeOverlay(x, y, box, frame)
 }
 
+// topBar is the title bar: brand + version on the left, the theme switcher on
+// the right (moved here from the bottom bar when the source strip landed). The
+// drift pill stays here until the Phase 8 banner replaces it.
 func (m Model) topBar() string {
 	t := m.theme()
-	brand := t.bar(t.Accent).Bold(true).Render(" engram ")
+	left := t.bar(t.Accent).Bold(true).Render(" engram ")
+	if m.version != "" {
+		// Clip: release versions are short ("v0.2.1"), but a dev build carries a
+		// VCS pseudo-version long enough to crowd out the rest of the bar.
+		left += t.bar(t.Dim).Render(clip(m.version, 20) + " ")
+	}
+	if m.driftOut {
+		left += t.danger().Render(" " + driftSummary(m.driftUnindexed, m.driftDangling) + " ")
+	}
+	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
+		t.bar(t.Dim).Render(" · 1–3 to switch ")
+	return m.barLine(left, right, t.Bg2)
+}
 
-	var info, right string
-	if m.srcKind == srcPlans {
-		info = fmt.Sprintf("%d plans", len(m.plans))
-		right = t.bar(t.Dim).Render("source ") + t.bar(t.Accent).Bold(true).Render("plans") + t.bar(t.Dim).Render(" ")
-	} else if m.srcKind == srcFiles {
-		info = fmt.Sprintf("%d files · read-only", len(m.docs))
-		right = t.bar(t.Dim).Render("source ") + t.bar(t.Accent).Bold(true).Render("files") + t.bar(t.Dim).Render(" ")
-	} else {
-		seen := map[string]struct{}{}
-		for _, mm := range m.memories {
-			seen[mm.Project.Name] = struct{}{}
+// sourceStrip is the persistent source tab row under the title bar: every
+// source with its live count, so switching is a visible affordance rather than
+// palette trivia. The active tab reads in Fg bold + underline with the count in
+// Accent; inactive tabs are Faint. The right side echoes the list-shaping state
+// (group/type for memories, plus the committed search for any source) or, when
+// there is nothing to echo, points at the palette.
+func (m Model) sourceStrip() string {
+	t := m.theme()
+	tabs := []struct {
+		kind  srcKind
+		label string
+		count int
+	}{
+		{srcMemories, "memories", len(m.memories)},
+		{srcPlans, "plans", len(m.plans)},
+		{srcFiles, "files", len(m.docs)},
+	}
+	left := onbg(t.Faint, t.Bg).Render(" ")
+	for i, tab := range tabs {
+		if i > 0 {
+			left += onbg(t.Faint, t.Bg).Render("  ·  ")
 		}
-		info = fmt.Sprintf("%d memories · %d projects", len(m.memories), len(seen))
+		if tab.kind == m.srcKind {
+			left += onbg(t.Fg, t.Bg).Bold(true).Underline(true).Render(tab.label) +
+				onbg(t.Fg, t.Bg).Underline(true).Render(" ") +
+				onbg(t.Accent, t.Bg).Underline(true).Render(fmt.Sprintf("%d", tab.count))
+		} else {
+			left += onbg(t.Faint, t.Bg).Render(fmt.Sprintf("%s %d", tab.label, tab.count))
+		}
+	}
+
+	var right string
+	echo := ""
+	if q := strings.TrimSpace(m.search.Value()); q != "" && m.mode != modeFilter {
+		echo = "“" + q + "”" // echo the committed filter so a narrowed list has a visible reason
+	}
+	if m.srcKind == srcMemories {
 		scope := "project"
 		if m.groupBy == groupType {
 			scope = "type"
@@ -132,17 +171,18 @@ func (m Model) topBar() string {
 		if tf := typeCycle[m.typeIdx]; tf != "" {
 			typeScope = string(tf)
 		}
-		right = t.bar(t.Dim).Render("grouped by ") + t.bar(t.Accent).Bold(true).Render(scope) +
-			t.bar(t.Dim).Render("   type ") + t.bar(t.Accent).Bold(true).Render(typeScope) + t.bar(t.Dim).Render(" ")
+		right = onbg(t.Dim, t.Bg).Render("group ") + onbg(t.Accent, t.Bg).Bold(true).Render(scope) +
+			onbg(t.Dim, t.Bg).Render(" · type ") + onbg(t.Accent, t.Bg).Bold(true).Render(typeScope)
+		if echo != "" {
+			right += onbg(t.Dim, t.Bg).Render(" · " + echo)
+		}
+		right += onbg(t.Dim, t.Bg).Render(" ")
+	} else if echo != "" {
+		right = onbg(t.Dim, t.Bg).Render(echo + " ")
+	} else {
+		right = onbg(t.Accent, t.Bg).Render("^P") + onbg(t.Faint, t.Bg).Render(" jump or run ")
 	}
-	if q := strings.TrimSpace(m.search.Value()); q != "" && m.mode != modeFilter {
-		info += " · “" + q + "”" // echo the active filter so a narrowed list has a visible reason
-	}
-	left := brand + t.bar(t.Dim).Render(" "+info+" ")
-	if m.driftOut {
-		left += t.danger().Render(" " + driftSummary(m.driftUnindexed, m.driftDangling) + " ")
-	}
-	return m.barLine(left, right, t.Bg2)
+	return m.barLine(left, right, t.Bg)
 }
 
 // subRow is the line under the top bar: a focus underline per pane, or the
@@ -195,9 +235,14 @@ func (m Model) bottomBar() string {
 	default:
 		left = m.hints(t)
 	}
-	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
-		t.bar(t.Dim).Render(" · 1–3 to switch ")
+	right := m.bottomRight(t)
 	return m.barLine(left, right, t.Bg2)
+}
+
+// bottomRight is the status bar's right segment (`? help`) — its own method so
+// hints() can measure it when deciding how many key hints fit.
+func (m Model) bottomRight(t Theme) string {
+	return t.bar(t.Fg).Render("?") + t.bar(t.Dim).Render(" help ")
 }
 
 // statusStyle picks the footer color for the current status by its kind: danger
@@ -231,15 +276,15 @@ func (m Model) hints(t Theme) string {
 	var pairs [][2]string
 	if m.srcKind == srcPlans {
 		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"d", "delete"},
+			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"d", "delete"},
 		}
 	} else if m.srcKind == srcFiles {
 		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"@", "edit via Claude"},
+			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"@", "edit via Claude"},
 		}
 	} else {
 		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"e", "edit"},
+			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"e", "edit"},
 			{"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", "group"},
 		}
 		if m.driftOut {
@@ -247,7 +292,6 @@ func (m Model) hints(t Theme) string {
 		}
 	}
 	pairs = append(pairs, [2]string{"^P", "palette"})
-	pairs = append(pairs, [2]string{"?", "help"})
 	pairs = append(pairs, [2]string{"q", "quit"})
 	render := func(ps [][2]string) string {
 		out := t.bar(t.Dim).Render(" ")
@@ -257,7 +301,7 @@ func (m Model) hints(t Theme) string {
 		return out
 	}
 	out := render(pairs)
-	avail := m.width - lipgloss.Width(t.bar(t.Dim).Render("theme "+t.Name+" · 1–3 to switch ")) - 1
+	avail := m.width - lipgloss.Width(m.bottomRight(t)) - 1
 	for lipgloss.Width(out) > avail && len(pairs) > 1 {
 		pairs = pairs[:len(pairs)-1]
 		out = render(pairs)

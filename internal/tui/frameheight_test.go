@@ -42,7 +42,7 @@ func TestFrameNeverExceedsTerminal(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	base := New(stressMemories(), samplePlans(), sampleDocs(), config.Config{})
 
-	// Include very short terminals (h <= 11): panesH is floored above h-5 there,
+	// Include very short terminals (h <= 12): panesH is floored above h-6 there,
 	// so without the height clamp the frame would overflow at any width — the
 	// path a resize drag passes through, seeding ghost rows at the final size.
 	for _, h := range []int{6, 8, 10, 11, 12, 14, 20, 22, 24, 26, 30, 40} {
