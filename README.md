@@ -91,8 +91,9 @@ The list reloads automatically when memory files change on disk.
 `n`, `d`, and `e` keep the project's `MEMORY.md` index in sync, so Claude Code
 picks up the changes. When an index drifts anyway, a banner above the list names
 the project and the cause — files with no index line, index lines whose file is
-gone, with counts — and `R` reconciles it. `esc` dismisses the banner for the
-session (per project); the status bar keeps offering `R` while the drift lasts.
+gone, with counts — and `R` reconciles it after a confirm that names the actual
+files and what will be written. `esc` dismisses the banner for the session (per
+project); the status bar keeps offering `R` while the drift lasts.
 
 ### The command palette (`ctrl+p` / `ctrl+k`)
 
@@ -205,13 +206,16 @@ up yet:
   hit, showing the redacted match with an option to override (tunable — see
   [Configuration](#configuration)).
 - **`>pull`** — brings the team's **project-scoped** memories down into their
-  matching local projects. When only the store moved and your copy is untouched,
-  pull **fast-forwards** it automatically; a copy you edited is left alone, and a
-  genuine divergence is flagged as a conflict rather than overwritten. Pull walks
-  past *global* memories — take a behind global memory with `>resolve`.
-- **`>resolve`** — opens both versions of a conflict with git-style markers in
-  your `$EDITOR` and writes your merge back, re-anchored so "take theirs" reads
-  as synced.
+  matching local projects — after showing you the **full accounting first**: a
+  confirm dialog lists what will fast-forward, what has local edits (left
+  alone), and what diverged (flagged as a conflict, not overwritten), and
+  nothing moves until you say `y`. A pull with nothing to write skips the
+  dialog and says so. Pull walks past *global* memories — take a behind global
+  memory with `>resolve`.
+- **`>resolve`** — shows the **first conflict hunk** (git-style markers) in a
+  confirm, then opens the full merge in your `$EDITOR` and writes your merge
+  back, re-anchored so "take theirs" reads as synced. Cancelling touches
+  nothing.
 - **`>withdraw`** — takes a shared memory back (after a confirm), if you're its
   owner: it removes the copy from the store, resets your memory to personal,
   and, via a tombstone, removes it from teammates on their next pull.

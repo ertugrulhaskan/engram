@@ -168,6 +168,40 @@ func hasMarkerLine(text string) bool {
 // exits with an error, so the TUI needn't touch the filesystem itself).
 func AbortConflictResolve(tmpPath string) { _ = os.Remove(tmpPath) }
 
+// FirstConflictHunk reads a resolve temp file and returns up to max lines of
+// its first conflict hunk — the "yours" marker through the "team" marker — so
+// the UI can show what $EDITOR will open before it opens. A longer hunk keeps
+// its head and closing marker with an elision line between.
+func FirstConflictHunk(tmpPath string, max int) ([]string, error) {
+	raw, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n")
+	start := -1
+	for i, ln := range lines {
+		if strings.HasPrefix(ln, "<<<<<<<") {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return nil, errors.New("no conflict markers in the merge file")
+	}
+	var hunk []string
+	for _, ln := range lines[start:] {
+		hunk = append(hunk, ln)
+		if strings.HasPrefix(ln, ">>>>>>>") {
+			break
+		}
+	}
+	if max > 2 && len(hunk) > max {
+		head := append([]string{}, hunk[:max-2]...)
+		hunk = append(append(head, "…"), hunk[len(hunk)-1])
+	}
+	return hunk, nil
+}
+
 // ensureTrailingNL guarantees a section ends with a newline so the following
 // conflict marker starts on its own line.
 func ensureTrailingNL(s string) string {

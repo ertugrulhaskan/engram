@@ -36,22 +36,72 @@ type PullResult struct {
 // store (browse / promote-into-a-project on demand). Touched MEMORY.md indexes are
 // reconciled. Matching is by engram.id, not filename.
 func Pull(targets []ProjectTarget) (PullResult, error) {
-	var res PullResult
+	dir, err := storeReady()
+	if err != nil {
+		return PullResult{}, err
+	}
+	if err := fetchStore(dir); err != nil {
+		return PullResult{}, err
+	}
+	return applyPull(dir, targets, true)
+}
+
+// PullPlan fetches the team store and returns the accounting a Pull would
+// produce — same walk, same decisions — without writing anything to a local
+// memory dir. The fetch itself is safe pre-confirm: it only fast-forwards the
+// store's cache repo, never local files.
+func PullPlan(targets []ProjectTarget) (PullResult, error) {
+	dir, err := storeReady()
+	if err != nil {
+		return PullResult{}, err
+	}
+	if err := fetchStore(dir); err != nil {
+		return PullResult{}, err
+	}
+	return applyPull(dir, targets, false)
+}
+
+// PullApply is the write half of a confirmed plan: the same walk with writes
+// on, against the store state PullPlan already fetched — no second fetch, so
+// the accounting the user confirmed is the accounting that is applied.
+func PullApply(targets []ProjectTarget) (PullResult, error) {
+	dir, err := storeReady()
+	if err != nil {
+		return PullResult{}, err
+	}
+	return applyPull(dir, targets, true)
+}
+
+// storeReady resolves the store dir and errors when it isn't initialized.
+func storeReady() (string, error) {
 	dir, err := Dir()
 	if err != nil {
-		return res, err
+		return "", err
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
-		return res, fmt.Errorf("team store not initialized — run `engram init-team <git-url>` first")
+		return "", fmt.Errorf("team store not initialized — run `engram init-team <git-url>` first")
 	}
+	return dir, nil
+}
+
+// fetchStore fast-forwards the store cache repo to its remote.
+func fetchStore(dir string) error {
 	if out, err := exec.Command("git", "-C", dir, "-c", "protocol.ext.allow=never", "pull", "--ff-only").CombinedOutput(); err != nil {
 		reason := strings.TrimSpace(string(out))
 		if reason == "" {
 			reason = err.Error()
 		}
-		return res, fmt.Errorf("git pull failed: %s", reason)
+		return fmt.Errorf("git pull failed: %s", reason)
 	}
+	return nil
+}
 
+// applyPull walks the fetched store and either applies (write=true) or only
+// counts (write=false) what a pull would do. Plan and apply share every
+// decision path — the write flag gates exactly the mutations — so a confirmed
+// plan can never disagree with its apply.
+func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, error) {
+	var res PullResult
 	byKey := make(map[string][]string, len(targets))
 	for _, t := range targets {
 		if t.Key != "" && t.MemoryDir != "" {
@@ -86,11 +136,13 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 				case pullUpToDate:
 					res.UpToDate++
 				case pullFastForward:
-					if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
-						return // best-effort: leave this file for the next pull
+					if write {
+						if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
+							return // best-effort: leave this file for the next pull
+						}
+						touched[memDir] = true
 					}
 					res.Updated++
-					touched[memDir] = true
 				case pullLocalAhead:
 					res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
 				default: // pullConflict
@@ -106,14 +158,16 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 			res.Conflicts++
 			return
 		}
-		if err := os.MkdirAll(memDir, 0o755); err != nil {
-			return // best-effort: can't create the local dir — skip
-		}
-		if err := os.WriteFile(dest, teamRaw, 0o644); err != nil {
-			return // best-effort: leave it for the next pull
+		if write {
+			if err := os.MkdirAll(memDir, 0o755); err != nil {
+				return // best-effort: can't create the local dir — skip
+			}
+			if err := os.WriteFile(dest, teamRaw, 0o644); err != nil {
+				return // best-effort: leave it for the next pull
+			}
+			touched[memDir] = true
 		}
 		res.Placed++
-		touched[memDir] = true
 	}
 
 	walkErr := filepath.WalkDir(projectsRoot, func(path string, d fs.DirEntry, err error) error {
@@ -190,11 +244,18 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 				// reset the copy on the machine it ran on). Demote it to personal —
 				// keeping the file — rather than deleting the owner's own memory.
 				if m.Owner != "" && me != "" && m.Owner == me {
+					if !write {
+						continue // a demote keeps the file, so the plan has nothing to count
+					}
 					if stamped, err := memory.WriteEngram(string(lr), memory.EngramMeta{ID: m.ID, Scope: "personal"}); err == nil {
 						if os.WriteFile(localPath, []byte(stamped), 0o644) == nil {
 							touched[t.MemoryDir] = true
 						}
 					}
+					continue
+				}
+				if !write {
+					res.Removed++
 					continue
 				}
 				if os.Remove(localPath) == nil {

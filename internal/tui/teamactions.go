@@ -56,7 +56,8 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// actionPull pulls project-scoped team memories into their matching local projects.
+// actionPull plans a pull of project-scoped team memories: the accounting is
+// computed (and shown for confirmation) before anything moves.
 func (m Model) actionPull() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("pull applies to memories")
@@ -67,7 +68,7 @@ func (m Model) actionPull() (tea.Model, tea.Cmd) {
 	if !team.IsInitialized() {
 		return m, m.setDanger(noStoreHint)
 	}
-	return m, tea.Batch(m.setStatus("pulling…"), m.pullCmd())
+	return m, tea.Batch(m.setStatus("checking the team store…"), m.planPullCmd())
 }
 
 // actionWithdraw asks to take a shared memory back (a confirm follows).
@@ -118,7 +119,12 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m, m.setDanger("resolve: " + err.Error())
 	}
-	return m, m.resolveCmd(it.Path, tmp)
+	// Show the first conflict hunk before $EDITOR opens. The preview is
+	// best-effort: without one the confirm still explains what happens next.
+	hunk, _ := team.FirstConflictHunk(tmp, 7)
+	m.resolvePath, m.resolveTmp, m.resolveHunk = it.Path, tmp, hunk
+	m.mode = modeResolveConfirm
+	return m, nil
 }
 
 // actionInit sets up the team store from a git URL (the one action that doesn't need

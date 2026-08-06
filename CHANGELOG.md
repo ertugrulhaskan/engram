@@ -20,8 +20,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the team store's git history** (fetched lazily for the selected row) and is
   simply omitted when git can't answer — never guessed. `missing` and `unknown`
   state their facts (`not in store`, `no anchor`) instead of claiming a time.
+- **A pull shows its full accounting before anything moves** — `p` (or `>pull`)
+  now fetches the store, runs the pull as a dry run (`team.PullPlan` — the
+  identical walk with writes off), and opens a confirm listing exactly what
+  will happen: what fast-forwards, what arrives new, what has local edits
+  (left alone), what diverged (flagged, not overwritten). `y` applies that
+  same walk with no second fetch, so the confirmed accounting is the applied
+  accounting. A pull with nothing to write skips the dialog and says why.
+- **A resolve shows the first conflict hunk before `$EDITOR` opens** — the
+  git-style markers render in the confirm, so the decision is made before the
+  handoff; cancelling removes the merge temp file and touches nothing.
+- **Reconcile (`R`) confirms first, naming the actual files** — which files
+  have no index line, which index lines point at no file, and what will be
+  written; the toast then reports what happened (`2 index lines written to
+  app/MEMORY.md`). A clean index answers `index already in sync` instead of
+  silently rebuilding.
 
 ### Changed
+- **Every dialog shares one anatomy with semantic colors** — an opaque panel
+  framed in the dialog's meaning (delete/secret/resolve in danger,
+  promote/withdraw/reconcile in warn, pull in info, new/palette/help in
+  accent), an icon+title header, body copy with the lead line bright, and the
+  actions bottom-right on a darker footer band. Copy follows the design spec:
+  delete names the file and the MEMORY.md consequence, promote names both
+  scopes and the `engram:` stamp, withdraw spells out the three consequences
+  and the reassurance ("Promoting again puts it back"), and the secret dialog
+  shows `line · rule` with the redacted match and an honest caveat — the
+  spec's "override is recorded" claim is deliberately dropped, since engram
+  keeps no audit log. Toasts name what happened (`memory deleted — MEMORY.md
+  updated`, `promoted to the team store · pushed`, `withdrawn · tombstone
+  pushed`, `merge written back — re-anchored as synced`).
 - **Index drift warns from a banner above the list, not the title bar** — when
   the selected project's `MEMORY.md` is out of step with its files, a warning
   band takes the first list row: `△ app: 2 files have no line in MEMORY.md ·

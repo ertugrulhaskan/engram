@@ -46,8 +46,8 @@ func TestDriftBannerAndRebuild(t *testing.T) {
 	// causes + chip all on the row.
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
 	got := m.(Model)
-	if !got.driftOut || got.driftUnindexed != 1 || got.driftDangling != 1 {
-		t.Fatalf("drift: got out=%v unindexed=%d dangling=%d, want true/1/1",
+	if !got.driftOut || len(got.driftUnindexed) != 1 || len(got.driftDangling) != 1 {
+		t.Fatalf("drift: got out=%v unindexed=%v dangling=%v, want true and one name each",
 			got.driftOut, got.driftUnindexed, got.driftDangling)
 	}
 	if got.bannerRows() != 1 {
@@ -78,8 +78,18 @@ func TestDriftBannerAndRebuild(t *testing.T) {
 		t.Errorf("banner lead %q not painted Warn-on-WarnBg", lead)
 	}
 
-	// R reconciles synchronously inside the handler.
+	// R opens the reconcile confirm naming the files; y rebuilds the index.
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	if m.(Model).mode != modeReconcileConfirm {
+		t.Fatalf("R should open the reconcile confirm, mode=%v", m.(Model).mode)
+	}
+	conf := m.(Model).View()
+	for _, want := range []string{"reconcile acme/MEMORY.md", "a.md", "gone.md"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("reconcile confirm missing %q:\n%s", want, conf)
+		}
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
 	un, dang, err := memory.IndexDrift(dir)
 	if err != nil {
 		t.Fatal(err)

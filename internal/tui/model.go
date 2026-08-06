@@ -60,9 +60,17 @@ type Model struct {
 	fsSig          string          // last-seen filesystem fingerprint; "" until the first poll baselines it
 	driftDir       string          // memory dir the drift flag was computed for (cache key)
 	driftOut       bool            // selected project's MEMORY.md is out of sync with its files
-	driftUnindexed int             // memory files on disk with no MEMORY.md bullet (added without an index line)
-	driftDangling  int             // MEMORY.md bullets whose .md file is gone (deleted/renamed without updating the index)
+	driftUnindexed []string        // memory files on disk with no MEMORY.md bullet (added without an index line)
+	driftDangling  []string        // MEMORY.md bullets whose .md file is gone (deleted/renamed without updating the index)
 	driftDismissed map[string]bool // memory dirs whose banner was esc-dismissed; session-only, lazily initialized
+
+	// pull confirm (modePullConfirm)
+	pullPlan team.PullResult // the accounting shown pre-confirm; y applies this same walk
+
+	// resolve confirm (modeResolveConfirm)
+	resolvePath string   // the conflicted memory
+	resolveTmp  string   // merge temp file BeginConflictResolve wrote (removed on cancel)
+	resolveHunk []string // first conflict hunk, shown before $EDITOR opens
 
 	width, height           int
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)

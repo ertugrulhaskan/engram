@@ -173,11 +173,11 @@ func (m *Model) syncPreview() {
 			m.driftDir = it.MemDir
 			un, dang, err := memory.IndexDrift(it.MemDir)
 			if err == nil {
-				m.driftUnindexed, m.driftDangling = len(un), len(dang)
+				m.driftUnindexed, m.driftDangling = un, dang
 			} else {
-				m.driftUnindexed, m.driftDangling = 0, 0
+				m.driftUnindexed, m.driftDangling = nil, nil
 			}
-			m.driftOut = m.driftUnindexed > 0 || m.driftDangling > 0
+			m.driftOut = len(m.driftUnindexed) > 0 || len(m.driftDangling) > 0
 		}
 	} else {
 		// Drop the cache key with the flag: keeping it would make the equality

@@ -244,8 +244,13 @@ filename. The id is assigned once, on the first promote.
   **sync anchor** decides: only the store moved and the local is untouched → **fast-
   forward** (take the store copy); only the local moved → left as `ahead`; both moved
   (or no anchor) → left as a conflict, never overwritten. The summary counts new /
-  updated / ahead / up-to-date / withdrawn / conflict / skipped. *(Pull walks
-  `projects/` only; a local copy of a global memory is updated via `resolve`.)*
+  updated / ahead / up-to-date / withdrawn / conflict / skipped. In the TUI the
+  accounting comes **first**: `team.PullPlan` runs the identical walk with writes
+  off (the fetch itself is safe — it only fast-forwards the store's cache repo),
+  a confirm dialog shows the counts, and `team.PullApply` then applies that same
+  walk without a second fetch — so the confirmed plan and the apply can never
+  disagree. A zero-work plan skips the dialog. *(Pull walks `projects/` only; a
+  local copy of a global memory is updated via `resolve`.)*
 - **resolve** *(`>resolve`)* — reconcile a `conflict` / `unknown` / behind-global
   memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
   engram block excluded) into a temp file bracketed by git-style markers
@@ -381,10 +386,12 @@ engram/
             items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering, drift banner, manual rounded-dialog frame (frameLines)
+            dialog.go        # shared dialog anatomy: icon+title header, wrapped body, Bg2 footer action band
+            confirms.go      # pre-action confirms: pull accounting, resolve hunk preview, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
             promote.go       # >promote: team scope picker modal + background promote command
-            pull.go          # >pull: resolve project keys + pull team memories off-thread
+            pull.go          # >pull: resolve project keys, plan (PullPlan) + apply (PullApply) off-thread
             withdraw.go      # >withdraw: owner-only confirm modal + background withdraw command
             resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save
             secret.go        # secret-scan modal: scan before promote, show redacted findings + override

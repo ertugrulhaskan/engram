@@ -42,7 +42,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !resolved {
 			return m, m.setStatus("resolve aborted — nothing changed")
 		}
-		return m, tea.Batch(m.setStatus("conflict resolved"), reloadCmd())
+		return m, tea.Batch(m.setStatus("merge written back — re-anchored as synced"), reloadCmd())
 
 	case editorFinishedMsg:
 		if msg.err != nil {
@@ -61,9 +61,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.setStatus("settings updated")
 		}
 		// Keep the folder's MEMORY.md index in sync with the new/edited file
-		// (best-effort; the reload reflects the files regardless).
+		// (best-effort; the reload reflects the files regardless). The toast is
+		// deliberately non-committal — the editor may have exited without saving.
 		if msg.path != "" {
 			_ = memory.UpsertIndexForPath(msg.path)
+			return m, tea.Batch(m.setStatus("back from $EDITOR — MEMORY.md refreshed"), reloadCmd())
 		}
 		return m, reloadCmd()
 
@@ -98,7 +100,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case !msg.pushed:
 			return m, tea.Batch(m.setDanger("withdrawn locally; push failed — check your git remote/creds"), reloadCmd())
 		default:
-			return m, tea.Batch(m.setStatus("withdrawn from team"), reloadCmd())
+			return m, tea.Batch(m.setStatus("withdrawn · tombstone pushed"), reloadCmd())
 		}
 
 	case promoteFinishedMsg:
@@ -110,18 +112,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.setDanger("promote failed: "+msg.err.Error()), reloadCmd())
 		case !msg.pushed:
 			return m, tea.Batch(m.setDanger("promoted locally; push failed — check your git remote/creds"), reloadCmd())
+		case msg.override:
+			return m, tea.Batch(m.setStatus("promoted with an override — pushed"), reloadCmd())
 		default:
-			return m, tea.Batch(m.setStatus("promoted to team"), reloadCmd())
+			return m, tea.Batch(m.setStatus("promoted to the team store · pushed"), reloadCmd())
 		}
+
+	case pullPlanMsg:
+		// The background PullPlan accounting is in — open the confirm (or say
+		// why there is nothing to confirm).
+		return m.applyPullPlan(msg)
 
 	case pullFinishedMsg:
 		m.driftDir = ""
 		if msg.err != nil {
 			return m, tea.Batch(m.setDanger("pull failed: "+msg.err.Error()), reloadCmd())
 		}
+		// The toast names what moved; the full accounting was already confirmed
+		// in the pull dialog.
 		r := msg.res
-		summary := fmt.Sprintf("pull: %d new · %d updated · %d ahead · %d up-to-date · %d withdrawn · %d conflict · %d skipped",
-			r.Placed, r.Updated, r.Ahead, r.UpToDate, r.Removed, r.Conflicts, r.Skipped)
+		var parts []string
+		if r.Placed > 0 {
+			parts = append(parts, fmt.Sprintf("%d new", r.Placed))
+		}
+		if r.Updated > 0 {
+			parts = append(parts, fmt.Sprintf("%d project memor%s fast-forwarded", r.Updated, pick(r.Updated == 1, "y", "ies")))
+		}
+		if r.Removed > 0 {
+			parts = append(parts, fmt.Sprintf("%d withdrawn removed", r.Removed))
+		}
+		if r.Conflicts > 0 {
+			parts = append(parts, fmt.Sprintf("%d conflict%s left alone", r.Conflicts, plural(r.Conflicts)))
+		}
+		if len(parts) == 0 {
+			parts = append(parts, fmt.Sprintf("nothing to pull — %d up to date", r.UpToDate))
+		}
+		summary := strings.Join(parts, " · ")
 		if r.Conflicts > 0 {
 			return m, tea.Batch(m.setDanger(summary), reloadCmd())
 		}
@@ -167,7 +193,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Transient FS error — ignore so the footer doesn't churn.
 		case m.fsSig == "":
 			m.fsSig = msg.sig // first poll: adopt the baseline, don't reload
-		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm:
+		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm && m.mode != modePullConfirm && m.mode != modeResolveConfirm && m.mode != modeReconcileConfirm:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
 			return m, tea.Batch(reloadCmd(), pollCmd())
@@ -199,6 +225,12 @@ func (m Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateSecretWarn(msg)
 	case modeWithdrawConfirm:
 		return m.updateWithdrawConfirm(msg)
+	case modePullConfirm:
+		return m.updatePullConfirm(msg)
+	case modeResolveConfirm:
+		return m.updateResolveConfirm(msg)
+	case modeReconcileConfirm:
+		return m.updateReconcileConfirm(msg)
 	default:
 		return m.updateNormal(msg)
 	}
@@ -354,8 +386,8 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeHelp
 		return m, nil
 	case "R":
-		// Rebuild the current project's MEMORY.md index: drop dangling bullets,
-		// add unindexed files, preserve order. Fixes drift from external moves.
+		// Rebuild the current project's MEMORY.md index — behind a confirm that
+		// names the drifted files (updateReconcileConfirm does the write).
 		if m.srcKind != srcMemories {
 			return m, nil
 		}
@@ -363,12 +395,11 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if dir == "" {
 			return m, nil
 		}
-		added, removed, err := memory.ReconcileIndex(dir)
-		if err != nil {
-			return m, m.setDanger("index rebuild failed: " + err.Error())
+		if dir != m.driftDir || len(m.driftUnindexed)+len(m.driftDangling) == 0 {
+			return m, m.setStatus("index already in sync — nothing to write")
 		}
-		m.driftDir = "" // force a fresh drift check after the rebuild
-		return m, tea.Batch(m.setStatus(fmt.Sprintf("index rebuilt  +%d  −%d", added, removed)), reloadCmd())
+		m.mode = modeReconcileConfirm
+		return m, nil
 	}
 	return m, nil
 }
@@ -444,10 +475,12 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				return m, m.setDanger("delete failed: " + err.Error())
 			}
+			toast := "plan deleted"
 			if it.Kind == "memory" {
 				_ = memory.RemoveIndexForPath(it.Path) // drop its MEMORY.md bullet too
+				toast = "memory deleted — MEMORY.md updated"
 			}
-			return m, tea.Batch(m.setDanger("deleted “"+clip(it.Title, 40)+"”"), reloadCmd())
+			return m, tea.Batch(m.setDanger(toast), reloadCmd())
 		}
 		return m, nil
 	default:

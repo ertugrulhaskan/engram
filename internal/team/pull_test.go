@@ -1,6 +1,7 @@
 package team
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -192,5 +193,121 @@ func TestPull(t *testing.T) {
 	}
 	if res4.Skipped != 1 {
 		t.Errorf("skip pull = %+v, want Skipped=1", res4)
+	}
+}
+
+// snapshotDir maps every file under dir to its content, so a test can prove a
+// plan wrote nothing.
+func snapshotDir(t *testing.T, dir string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel(dir, path)
+		raw, _ := os.ReadFile(path)
+		out[rel] = string(raw)
+		return nil
+	})
+	return out
+}
+
+// PullPlan must produce exactly the accounting the write path produces, while
+// writing nothing; PullApply then applies a confirmed plan without re-fetching.
+func TestPullPlanMatchesPull(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = P\n\temail = p@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	shared := "---\nname: shared\nengram:\n    id: ID-1\n    scope: team\n    project: github.com/acme/app\n---\n# Shared\n\nteam note\n"
+	matePath := filepath.Join(mate, "projects", "github.com/acme/app", "shared.md")
+	if err := os.MkdirAll(filepath.Dir(matePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(matePath, []byte(shared), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "add shared")
+	gitT(t, mate, "push")
+
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	targets := []ProjectTarget{{Key: "github.com/acme/app", MemoryDir: localMem}}
+
+	// Stage 1 — fresh placement: the plan counts it, writes nothing; the apply
+	// (no second fetch) lands it with the same count.
+	before := snapshotDir(t, localMem)
+	plan, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan: %v", err)
+	}
+	if plan.Placed != 1 {
+		t.Errorf("plan = %+v, want Placed=1", plan)
+	}
+	if after := snapshotDir(t, localMem); len(after) != len(before) {
+		t.Errorf("PullPlan wrote files: before=%v after=%v", before, after)
+	}
+	applied, err := PullApply(targets)
+	if err != nil {
+		t.Fatalf("PullApply: %v", err)
+	}
+	if applied != plan {
+		t.Errorf("apply %+v disagrees with plan %+v", applied, plan)
+	}
+	if _, err := os.Stat(filepath.Join(localMem, "shared.md")); err != nil {
+		t.Errorf("apply did not place shared.md: %v", err)
+	}
+
+	// Stage 2 — up to date: plan equals pull, still no writes.
+	before = snapshotDir(t, localMem)
+	plan2, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan 2: %v", err)
+	}
+	res2, err := Pull(targets)
+	if err != nil {
+		t.Fatalf("Pull 2: %v", err)
+	}
+	if plan2 != res2 || plan2.UpToDate != 1 {
+		t.Errorf("plan %+v vs pull %+v, want equal with UpToDate=1", plan2, res2)
+	}
+
+	// Stage 3 — local edit: both classify it a conflict; the plan leaves the
+	// edit untouched byte-for-byte.
+	edited := shared + "\nlocal edit\n"
+	if err := os.WriteFile(filepath.Join(localMem, "shared.md"), []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan3, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan 3: %v", err)
+	}
+	res3, err := Pull(targets)
+	if err != nil {
+		t.Fatalf("Pull 3: %v", err)
+	}
+	if plan3 != res3 || plan3.Conflicts != 1 {
+		t.Errorf("plan %+v vs pull %+v, want equal with Conflicts=1", plan3, res3)
+	}
+	if got, _ := os.ReadFile(filepath.Join(localMem, "shared.md")); string(got) != edited {
+		t.Error("a plan or conflict pull touched the locally edited file")
 	}
 }

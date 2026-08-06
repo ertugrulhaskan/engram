@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ertugrulhaskan/engram/internal/secrets"
 	"github.com/ertugrulhaskan/engram/internal/team"
@@ -42,12 +41,12 @@ func (m Model) applyScanResult(msg scanFinishedMsg) (tea.Model, tea.Cmd) {
 		return m, m.setDanger("secret scan failed: " + msg.err.Error())
 	}
 	if len(msg.findings) == 0 {
-		return m, m.promoteCmd(msg.path, msg.placement)
+		return m, m.promoteCmd(msg.path, msg.placement, false)
 	}
 	if m.scanAction == "warn" {
 		return m, tea.Batch(
 			m.setDanger(secretSummary(msg.findings)+" — promoting anyway"),
-			m.promoteCmd(msg.path, msg.placement),
+			m.promoteCmd(msg.path, msg.placement, false),
 		)
 	}
 	// block / block-strict — hold the scanned path/placement for the user's call.
@@ -73,7 +72,7 @@ func (m Model) updateSecretWarn(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeNormal
 		path, placement := m.secretPath, m.secretPlacement
 		m.secretFindings = nil
-		return m, m.promoteCmd(path, placement)
+		return m, m.promoteCmd(path, placement, true)
 	}
 	return m, nil
 }
@@ -86,41 +85,46 @@ func secretSummary(fs []secrets.Finding) string {
 	return fmt.Sprintf("%d possible secrets", len(fs))
 }
 
-// secretModal lists the redacted findings that blocked a promote, styled like the
-// delete confirmation (danger frame). In block-strict mode it drops the override.
+// secretModal lists the redacted findings that blocked a promote, in the shared
+// dialog anatomy (Danger). Each finding names its line and rule with the
+// redacted match under it. In block-strict mode there is no override action.
+// The spec's caveat is trimmed of its "is recorded" claim — engram keeps no
+// audit trail, and the dialog must not pretend otherwise.
 func (m Model) secretModal() string {
 	t := m.theme()
 	cw := m.boxWidth()
 	panel := m.panelBg()
-	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 	strict := m.scanAction == "block-strict"
 
-	lines := []string{
-		padBG(pst(t.Danger).Bold(true).Render(" Possible secret in this memory"), cw, panel),
-		m.ruleLine(cw),
-	}
+	lines := m.dlgHeader(cw, "!", "secret scan blocked this promote", t.Danger)
 
-	const maxShown = 4
+	const maxShown = 3
 	shown, extra := m.secretFindings, 0
 	if len(shown) > maxShown {
 		extra = len(shown) - maxShown
 		shown = shown[:maxShown]
 	}
 	for _, f := range shown {
-		row := fmt.Sprintf("  %s · line %d · %s", f.Rule, f.Line, f.Match)
-		lines = append(lines, padBG(pst(t.Fg).Render(clip(row, cw)), cw, panel))
+		lines = append(lines,
+			padBG(onbg(t.Fg, panel).Render(clip(fmt.Sprintf("  line %d · %s", f.Line, f.Rule), cw)), cw, panel),
+			padBG(onbg(t.Dim, panel).Render(clip("  "+f.Match, cw)), cw, panel))
 	}
 	if extra > 0 {
-		lines = append(lines, padBG(pst(t.Dim).Render(fmt.Sprintf("  +%d more", extra)), cw, panel))
+		lines = append(lines, padBG(onbg(t.Dim, panel).Render(fmt.Sprintf("  +%d more", extra)), cw, panel))
 	}
-
-	var hint string
+	lines = append(lines, padBG("", cw, panel))
+	caveat := "The scan is a curated rule set — a guard, not a guarantee. Overriding is a real decision."
 	if strict {
-		hint = pst(t.Dim).Render("  remove it, then promote — ") + pst(t.Fg).Bold(true).Render("esc") + pst(t.Dim).Render(" cancel")
-	} else {
-		hint = pst(t.Dim).Render("  share anyway? ") + pst(t.Danger).Bold(true).Render("y") + pst(t.Dim).Render(" promote   ") +
-			pst(t.Fg).Bold(true).Render("n") + pst(t.Dim).Render(" / ") + pst(t.Fg).Bold(true).Render("esc") + pst(t.Dim).Render(" cancel")
+		caveat += " This policy is block-strict: remove the secret, then promote."
 	}
-	lines = append(lines, padBG("", cw, panel), padBG(hint, cw, panel))
-	return m.frameLines(lines, cw, t.Danger, nil)
+	lines = append(lines, m.dlgText(cw, caveat, t.Dim)...)
+	lines = append(lines, padBG("", cw, panel))
+
+	actions := []dialogAction{{"esc cancel", false}}
+	if !strict {
+		actions = append(actions, dialogAction{"y override", true})
+	}
+	bleed := map[int]string{len(lines): t.Bg2}
+	lines = append(lines, m.dlgFooter(cw, t.Danger, actions))
+	return m.frameLines(lines, cw, t.Danger, bleed)
 }

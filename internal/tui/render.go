@@ -90,7 +90,7 @@ func (m Model) bannerRows() int {
 func (m Model) driftBanner(it Item) string {
 	t := m.theme()
 	w := m.listW
-	cause := driftCause(m.driftUnindexed, m.driftDangling)
+	cause := driftCause(len(m.driftUnindexed), len(m.driftDangling))
 	full := it.Context + ": " + cause
 	avail := w - 3 - 1 // " △ " lead and a trailing cell
 	chipW := runewidth.StringWidth("[R reconcile]") + 2
@@ -603,47 +603,35 @@ func (m Model) ruleLine(cw int) string {
 		Background(lipgloss.Color(m.panelBg())).Render(strings.Repeat("─", cw))
 }
 
-// confirmModal is the delete confirmation, styled like the palette dialog: a
-// header, the target shown as a highlighted (danger) row, and the y/n actions.
+// confirmModal is the delete confirmation, in the shared dialog anatomy: it
+// names the target, its path, and — for memories — the index consequence.
 func (m Model) confirmModal() string {
 	t := m.theme()
-	cw := m.boxWidth()
-	panel := m.panelBg()
-	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 	it, _ := m.selected()
 	kind := "memory"
+	body := []string{it.Title, it.Path}
 	if it.Kind == "plan" {
 		kind = "plan"
+	} else {
+		body = append(body, "Its line in MEMORY.md is removed too.")
 	}
-	row := m.palRow(palItem{glyph: "✕", label: it.Title, sub: kind + " · this cannot be undone"}, cw, panel, t.Danger)
-	hint := pst(t.Dim).Render(" press ") + pst(t.Danger).Bold(true).Render("y") + pst(t.Dim).Render(" delete     ") +
-		pst(t.Fg).Bold(true).Render("n") + pst(t.Dim).Render(" / ") + pst(t.Fg).Bold(true).Render("esc") + pst(t.Dim).Render(" cancel")
-	lines := []string{
-		padBG(pst(t.Danger).Bold(true).Render(" Delete "+kind+"?"), cw, panel),
-		m.ruleLine(cw),
-	}
-	// Derive the bleed indices from where the target rows land (not hardcoded), so
-	// they stay correct if the header/rule lines change — mirrors paletteBox.
-	bleed := map[int]string{len(lines): t.Danger, len(lines) + 1: t.Danger}
-	lines = append(lines, row[0], row[1], padBG("", cw, panel), padBG(hint, cw, panel))
-	return m.frameLines(lines, cw, t.Danger, bleed)
+	return m.dialog("✕", "delete this "+kind+"?", t.Danger,
+		body, []dialogAction{{"n cancel", false}, {"y delete", true}})
 }
 
-// newModal is the new-memory title prompt, in the same opaque dialog style.
+// newModal is the new-memory title prompt: shared anatomy around a live input.
 func (m Model) newModal() string {
 	t := m.theme()
 	cw := m.boxWidth()
 	panel := m.panelBg()
-	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
-	lines := []string{
-		padBG(pst(t.Accent).Bold(true).Render(" New memory"), cw, panel),
-		m.ruleLine(cw),
-		padBG(pst(t.Dim).Render(clip("  title for the new memory in this project", cw)), cw, panel),
+	lines := m.dlgHeader(cw, "+", "new memory", t.Accent)
+	lines = append(lines, m.dlgText(cw, "title for the new memory in this project", t.Dim)...)
+	lines = append(lines,
 		padBG("", cw, panel),
 		padBG("  "+m.input.View(), cw, panel),
 		padBG("", cw, panel),
-		padBG(pst(t.Dim).Render("  press ")+pst(t.Accent).Bold(true).Render("↵")+pst(t.Dim).Render(" create     ")+
-			pst(t.Fg).Bold(true).Render("esc")+pst(t.Dim).Render(" cancel"), cw, panel),
-	}
-	return m.frameLines(lines, cw, t.Accent, nil)
+	)
+	bleed := map[int]string{len(lines): t.Bg2}
+	lines = append(lines, m.dlgFooter(cw, t.Accent, []dialogAction{{"esc cancel", false}, {"↵ create", true}}))
+	return m.frameLines(lines, cw, t.Accent, bleed)
 }

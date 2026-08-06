@@ -2,24 +2,25 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
-// promoteFinishedMsg reports the outcome of a background Promote.
+// promoteFinishedMsg reports the outcome of a background Promote. override
+// travels with it so the toast can say the secret-scan block was overridden.
 type promoteFinishedMsg struct {
-	pushed bool
-	err    error
+	pushed   bool
+	override bool
+	err      error
 }
 
 // promoteCmd runs team.Promote off the UI thread. Promote keeps git output
 // captured, so it never disturbs the alt-screen — no tea.ExecProcess takeover is
 // needed; a push that needs interactive credentials simply reports pushed=false.
-func (m Model) promoteCmd(path, placement string) tea.Cmd {
+func (m Model) promoteCmd(path, placement string, override bool) tea.Cmd {
 	return func() tea.Msg {
 		pushed, err := team.Promote(path, placement)
-		return promoteFinishedMsg{pushed: pushed, err: err}
+		return promoteFinishedMsg{pushed: pushed, override: override, err: err}
 	}
 }
 
@@ -43,51 +44,48 @@ func (m Model) updatePromoteScope(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			placement = m.promoteKey
 		}
 		if m.scanAction == "off" {
-			return m, m.promoteCmd(m.promotePath, placement)
+			return m, m.promoteCmd(m.promotePath, placement, false)
 		}
 		return m, m.scanCmd(m.promotePath, placement) // scan first; policy applied on the result
 	}
 	return m, nil
 }
 
-// scopeModal renders the promote scope picker in the shared opaque-dialog style:
-// a header, the project and global choices (project omitted when the memory's
-// project has no git remote), and the action hints.
+// scopeModal renders the promote scope picker in the shared dialog anatomy
+// (Warn — promoting publishes): scope is the question, so the two scopes are
+// the selectable rows, then the honest mechanics line. The project row is
+// omitted when the memory's project has no git remote.
 func (m Model) scopeModal() string {
 	t := m.theme()
 	cw := m.boxWidth()
 	panel := m.panelBg()
-	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 
-	lines := []string{
-		padBG(pst(t.Accent).Bold(true).Render(" Promote “"+clip(m.promoteTitle, cw-14)+"”"), cw, panel),
-		m.ruleLine(cw),
-	}
+	lines := m.dlgHeader(cw, "→", "promote “"+clip(m.promoteTitle, cw-24)+"” — pick a scope", t.Warn)
 	bleed := map[int]string{}
 
 	addRow := func(label, sub string, selected bool) {
-		selBg := ""
+		txt := clip(label+" — "+sub, cw-4)
 		if selected {
-			selBg = t.Accent
+			bleed[len(lines)] = t.Sel
+			row := onbg(t.Warn, t.Sel).Bold(true).Render("  › ") + onbg(t.Fg, t.Sel).Bold(true).Render(txt)
+			lines = append(lines, padBG(row, cw, t.Sel))
+			return
 		}
-		row := m.palRow(palItem{glyph: "◆", label: label, sub: sub}, cw, panel, selBg)
-		if selBg != "" {
-			bleed[len(lines)] = selBg
-			bleed[len(lines)+1] = selBg
-		}
-		lines = append(lines, row...)
+		lines = append(lines, padBG(onbg(t.Dim, panel).Render("    "+txt), cw, panel))
 	}
 
 	if m.promoteKey != "" {
-		addRow("This project", m.promoteKey, m.promoteCursor == 0)
-		addRow("Global", "shared across all projects", m.promoteCursor == 1)
+		addRow("this project", "keyed by "+m.promoteKey, m.promoteCursor == 0)
+		addRow("global", "every project you work in", m.promoteCursor == 1)
 	} else {
-		lines = append(lines, padBG(pst(t.Dim).Render("  this project has no git remote — promoting globally"), cw, panel))
-		addRow("Global", "shared across all projects", true)
+		lines = append(lines, m.dlgText(cw, "this project has no git remote — promoting globally", t.Dim)...)
+		addRow("global", "every project you work in", true)
 	}
+	lines = append(lines, padBG("", cw, panel))
+	lines = append(lines, m.dlgText(cw, "engram stamps an engram: frontmatter block and pushes.", t.Dim)...)
+	lines = append(lines, padBG("", cw, panel))
 
-	hint := pst(t.Dim).Render("  ↑↓ choose   ") + pst(t.Accent).Bold(true).Render("↵") + pst(t.Dim).Render(" promote   ") +
-		pst(t.Fg).Bold(true).Render("esc") + pst(t.Dim).Render(" cancel")
-	lines = append(lines, padBG("", cw, panel), padBG(hint, cw, panel))
-	return m.frameLines(lines, cw, t.Accent, bleed)
+	bleed[len(lines)] = t.Bg2
+	lines = append(lines, m.dlgFooter(cw, t.Warn, []dialogAction{{"esc cancel", false}, {"↵ promote", true}}))
+	return m.frameLines(lines, cw, t.Warn, bleed)
 }

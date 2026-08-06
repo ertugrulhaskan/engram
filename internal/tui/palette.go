@@ -48,8 +48,6 @@ type palItem struct {
 	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
 	arg        string // for palInit: the git URL typed after ">init"
 
-	right      string // right-aligned pill — used by the two-line palRow (dialogs), not the palette
-	rightColor string // pill color (hex); "" = dim
 }
 
 // --- command palette ---
@@ -353,57 +351,6 @@ func (m Model) palVisibleRows() int {
 		n = 1
 	}
 	return n
-}
-
-// palRow renders one candidate as a two-line Warp-style row (icon + label + pill
-// over a muted subtitle). Every cell carries panelBg; the selected row is filled
-// with selBg and dark text instead, like the highlighted entry in the screenshot.
-func (m Model) palRow(c palItem, cw int, panelBg, selBg string) []string {
-	t := m.theme()
-	sel := selBg != ""
-	bg := panelBg
-	pri, subc, rc, gcol := t.Fg, t.Dim, c.rightColor, c.glyphColor
-	if rc == "" {
-		rc = t.Dim
-	}
-	if gcol == "" {
-		gcol = t.Accent
-	}
-	if sel { // bright bar, dark text
-		bg = selBg
-		pri, subc, rc, gcol = t.Bg2, t.Bg2, t.Bg2, t.Bg2
-	}
-	st := func(col string) lipgloss.Style {
-		return fg(col).Background(lipgloss.Color(bg))
-	}
-	fill := func(n int) string {
-		if n <= 0 {
-			return ""
-		}
-		return lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(n))
-	}
-
-	gw := runewidth.StringWidth(c.glyph)
-	rightW := runewidth.StringWidth(c.right)
-	before := 1 + gw + 2 // leading space + glyph + two spaces
-	labelMax := cw - before - rightW - 2
-	if labelMax < 4 {
-		labelMax = 4
-	}
-	label := clip(c.label, labelMax)
-	gap := cw - before - runewidth.StringWidth(label) - rightW - 1
-	if gap < 1 {
-		gap = 1
-	}
-	line1 := fill(1) + st(gcol).Bold(true).Render(c.glyph) + fill(2) +
-		st(pri).Bold(true).Render(label) + fill(gap)
-	if rightW > 0 {
-		line1 += st(rc).Render(c.right)
-	}
-	line1 = padBG(line1+fill(1), cw, bg)
-
-	line2 := padBG(fill(5)+st(subc).Render(clip(c.sub, cw-6)), cw, bg)
-	return []string{line1, line2}
 }
 
 // palLine renders one candidate as a single-line row: the section sigil and

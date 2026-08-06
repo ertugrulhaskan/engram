@@ -22,9 +22,12 @@ const (
 	modeConfirm
 	modePalette
 	modeHelp
-	modePromoteScope    // picking team scope (this project / global) for a promote
-	modeSecretWarn      // a promote was blocked because the memory looks like it holds a secret
-	modeWithdrawConfirm // confirming a withdraw (removing a shared memory from the team store)
+	modePromoteScope     // picking team scope (this project / global) for a promote
+	modeSecretWarn       // a promote was blocked because the memory looks like it holds a secret
+	modeWithdrawConfirm  // confirming a withdraw (removing a shared memory from the team store)
+	modePullConfirm      // showing a pull's full accounting (team.PullPlan) before anything moves
+	modeResolveConfirm   // showing the first conflict hunk before handing the merge file to $EDITOR
+	modeReconcileConfirm // naming the drifted files before rebuilding MEMORY.md
 )
 
 // srcKind selects which collection is being browsed.

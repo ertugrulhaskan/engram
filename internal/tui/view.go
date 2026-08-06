@@ -36,6 +36,12 @@ func (m Model) View() string {
 		box = m.secretModal()
 	case modeWithdrawConfirm:
 		box = m.withdrawModal()
+	case modePullConfirm:
+		box = m.pullModal()
+	case modeResolveConfirm:
+		box = m.resolveModal()
+	case modeReconcileConfirm:
+		box = m.reconcileModal()
 	}
 	if box != "" {
 		// Scrim: dim the page toward the surface color before compositing, so

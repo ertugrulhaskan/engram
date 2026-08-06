@@ -91,7 +91,7 @@ func TestConfirmFloatsOverPanes(t *testing.T) {
 		t.Fatalf("d did not open the confirm dialog (mode=%v)", m.(Model).mode)
 	}
 	out := m.(Model).View()
-	if !strings.Contains(out, "Delete memory?") {
+	if !strings.Contains(out, "delete this memory?") {
 		t.Error("delete dialog header not rendered")
 	}
 	if !strings.Contains(out, "webapp") {
