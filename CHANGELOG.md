@@ -22,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state their facts (`not in store`, `no anchor`) instead of claiming a time.
 
 ### Changed
+- **Index drift warns from a banner above the list, not the title bar** — when
+  the selected project's `MEMORY.md` is out of step with its files, a warning
+  band takes the first list row: `△ app: 2 files have no line in MEMORY.md ·
+  1 line has no file  [R reconcile]` — named project, both drift directions
+  with real counts, one action. On narrower panes it sheds in a fixed order
+  (project name first, then the chip — `R` stays offered in the status bar,
+  whose hint now also reads `reconcile` instead of `fix index`) so the cause
+  stays legible instead of drowning in an ellipsis. `esc` dismisses it for the
+  session, per project, when no filter is active (a committed filter clears
+  first); it never appears in the plans or files sources. The title bar's
+  `⚠ index out of sync` pill is retired.
 - **The palette is one sectioned list — no prefix required** — opening it
   (`ctrl+p` or `ctrl+k`) now shows everything at once: every memory and plan
   under **Jump to** (first result preselected), then **Sources**, **Team**, and
@@ -78,6 +89,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   erroring.
 
 ### Fixed
+- **The drift warning no longer disappears after visiting plans or files** —
+  leaving the memories source cleared the drift flag but kept its cache key, so
+  returning to the same project skipped the recompute and the warning stayed
+  off until a reload. Present since the drift check shipped.
 - **A theme switch now updates the preview pane on the first keypress** — the
   preview cache was refilled with the old theme's glamour rendering before the
   new renderer was built, so the right pane only caught up on a second press of

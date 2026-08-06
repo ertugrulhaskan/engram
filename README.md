@@ -89,9 +89,10 @@ The list reloads automatically when memory files change on disk.
 | `q` / `ctrl+c` | quit                                |
 
 `n`, `d`, and `e` keep the project's `MEMORY.md` index in sync, so Claude Code
-picks up the changes. When an index drifts anyway — files added without an index
-line, or entries left behind by a deleted or renamed file — the warning names the
-cause and `R` reconciles it.
+picks up the changes. When an index drifts anyway, a banner above the list names
+the project and the cause — files with no index line, index lines whose file is
+gone, with counts — and `R` reconciles it. `esc` dismisses the banner for the
+session (per project); the status bar keeps offering `R` while the drift lasts.
 
 ### The command palette (`ctrl+p` / `ctrl+k`)
 

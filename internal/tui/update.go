@@ -283,6 +283,16 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.search.Value() != "" {
 			m.search.SetValue("")
 			m.rebuildRows()
+			return m, nil
+		}
+		// No filter to clear — dismiss the drift banner for this project until
+		// the session ends (the status bar keeps offering R while drift lasts).
+		if _, ok := m.driftBannerItem(); ok {
+			if m.driftDismissed == nil {
+				m.driftDismissed = map[string]bool{}
+			}
+			m.driftDismissed[m.driftDir] = true
+			m.ensureVisible() // the list window grew a row back
 		}
 		return m, nil
 	case "e":

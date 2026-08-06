@@ -45,6 +45,10 @@ func TestFrameNeverExceedsTerminal(t *testing.T) {
 	// Give the worst-case (long) memory a sync state so the preview also
 	// carries the 3-row sync strip band — the tallest header the pane can have.
 	mems[0].Shared = memory.EngramMeta{ID: "m-stress", Scope: "team", Project: "global"}
+	// And a genuinely drifted memory dir, so the drift banner renders across the
+	// whole sweep — at degenerate heights it must yield its row, never overflow.
+	driftDir, _ := driftedProject(t, "stress")
+	mems[0].Project = memory.Project{Name: "stress", MemoryDir: driftDir}
 	base := New(mems, samplePlans(), sampleDocs(), config.Config{})
 	base.syncStates = map[string]team.SyncState{mems[0].Path: team.StateIncoming}
 	base.rebuildRows()

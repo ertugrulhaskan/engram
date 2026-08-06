@@ -53,7 +53,7 @@ func (m *Model) page(dir int) {
 	if len(m.rows) == 0 {
 		return
 	}
-	h := m.listRows()
+	h := m.listRows() - m.bannerRows()
 	if h < 1 {
 		h = 1
 	}
@@ -91,7 +91,7 @@ func (m Model) shownCount() int {
 }
 
 func (m *Model) ensureVisible() {
-	h := m.listRows()
+	h := m.listRows() - m.bannerRows()
 	if h < 1 {
 		return
 	}
@@ -180,8 +180,16 @@ func (m *Model) syncPreview() {
 			m.driftOut = m.driftUnindexed > 0 || m.driftDangling > 0
 		}
 	} else {
+		// Drop the cache key with the flag: keeping it would make the equality
+		// check above skip the recompute when this project is selected again
+		// after a plans/files visit, leaving the warning permanently off.
 		m.driftOut = false
+		m.driftDir = ""
 	}
+	// The banner may have just appeared or vanished with the drift refresh,
+	// changing the list window height — re-clamp so the cursor row stays on
+	// screen (safe: ensureVisible only moves m.top, it never calls back here).
+	m.ensureVisible()
 	if m.previewCache == nil {
 		m.previewCache = map[string]string{}
 	}

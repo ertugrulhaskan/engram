@@ -108,8 +108,8 @@ func (m Model) overlay(frame, box string, top bool) string {
 }
 
 // topBar is the title bar: brand + version on the left, the theme switcher on
-// the right (moved here from the bottom bar when the source strip landed). The
-// drift pill stays here until the Phase 8 banner replaces it.
+// the right (moved here from the bottom bar when the source strip landed).
+// Drift now warns from the banner above the list, not from here.
 func (m Model) topBar() string {
 	t := m.theme()
 	left := t.bar(t.Accent).Bold(true).Render(" engram ")
@@ -117,9 +117,6 @@ func (m Model) topBar() string {
 		// Clip: release versions are short ("v0.2.1"), but a dev build carries a
 		// VCS pseudo-version long enough to crowd out the rest of the bar.
 		left += t.bar(t.Dim).Render(clip(m.version, 20) + " ")
-	}
-	if m.driftOut {
-		left += t.danger().Render(" " + driftSummary(m.driftUnindexed, m.driftDangling) + " ")
 	}
 	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
 		t.bar(t.Dim).Render(" · 1–3 to switch ")
@@ -258,20 +255,6 @@ func (m Model) statusStyle(t Theme) lipgloss.Style {
 	}
 }
 
-// driftSummary names the cause of MEMORY.md drift so the warning is actionable:
-// files added on disk without an index line, entries left dangling by a deleted
-// or renamed file, or both.
-func driftSummary(unindexed, dangling int) string {
-	switch {
-	case unindexed > 0 && dangling > 0:
-		return fmt.Sprintf("⚠ index out of sync · %d file(s) added without an index line · %d entry(ies) for a deleted/renamed file", unindexed, dangling)
-	case unindexed > 0:
-		return fmt.Sprintf("⚠ index out of sync · %d file(s) added without a MEMORY.md index line", unindexed)
-	default:
-		return fmt.Sprintf("⚠ index out of sync · %d .md file(s) deleted/renamed without updating MEMORY.md", dangling)
-	}
-}
-
 // hints is the contextual left side of the status bar. For the selected row it
 // leads with the one offered team action (offeredAction, in the row's sync-state
 // color) so `p` never appears when there is nothing to pull; the always-available
@@ -309,7 +292,8 @@ func (m Model) hints(t Theme) string {
 			{"e", "edit"}, {"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", group},
 		}
 		if m.driftOut {
-			pairs = append(pairs, [2]string{"R", "fix index"})
+			// Same verb as the banner chip — two wordings for one key is noise.
+			pairs = append(pairs, [2]string{"R", "reconcile"})
 		}
 	}
 	pairs = append(pairs, [2]string{"^P", "palette"})

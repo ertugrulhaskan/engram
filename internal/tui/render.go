@@ -12,7 +12,7 @@ import (
 
 func (m Model) listPane() string {
 	t := m.theme()
-	h := m.listRows()
+	h := m.listRows() - m.bannerRows()               // the drift banner takes the first row from the scroll window
 	badgeW := m.badgeColW()                          // widest type badge in view; computed once per render
 	syncW := m.syncColW()                            // right-aligned sync-pill width (0 when nothing in view is shared)
 	scopeW := m.scopeColW()                          // scope chip width (0 when nothing in view is shared)
@@ -51,7 +51,99 @@ func (m Model) listPane() string {
 	// (paintLine leaves explicit backgrounds alone).
 	body := paintBlock(strings.Join(lines, "\n"), m.listW, t.Bg)
 	status := paintLine(fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, total)), m.listW, t.Bg)
+	if it, ok := m.driftBannerItem(); ok {
+		return lipgloss.JoinVertical(lipgloss.Left, m.driftBanner(it), body, status)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, status)
+}
+
+// driftBannerItem reports whether the drift banner shows, and for which item.
+// It shows only in the memories source (R is dead elsewhere — plans have no
+// index, files are read-only) for the selected project, until esc-dismissed.
+func (m Model) driftBannerItem() (Item, bool) {
+	if m.srcKind != srcMemories || !m.driftOut {
+		return Item{}, false
+	}
+	it, ok := m.selected()
+	if !ok || it.MemDir == "" || it.MemDir != m.driftDir || m.driftDismissed[it.MemDir] {
+		return Item{}, false
+	}
+	return it, true
+}
+
+// bannerRows is how many list-pane rows the drift banner occupies (0 or 1) —
+// the single source the scroll window (listPane, ensureVisible, page) shrinks
+// by. On a degenerate short pane the list keeps its rows and the banner yields.
+func (m Model) bannerRows() int {
+	if _, ok := m.driftBannerItem(); ok && m.listRows() >= 2 {
+		return 1
+	}
+	return 0
+}
+
+// driftBanner renders the WarnBg warning row that sits above the list: named
+// project, named cause, one action. The row must hold exactly w cells (an
+// over-wide line would wrap and grow the row), so what doesn't fit sheds in a
+// fixed order — the project name first (the group header below repeats it),
+// then the chip (R stays offered in the status bar), and only then does the
+// cause itself clip. Shedding is monotonic: nothing returns at narrower widths.
+func (m Model) driftBanner(it Item) string {
+	t := m.theme()
+	w := m.listW
+	cause := driftCause(m.driftUnindexed, m.driftDangling)
+	full := it.Context + ": " + cause
+	avail := w - 3 - 1 // " △ " lead and a trailing cell
+	chipW := runewidth.StringWidth("[R reconcile]") + 2
+	chipTxt := "[R reconcile]"
+	clipped := full
+	switch {
+	case runewidth.StringWidth(full)+chipW <= avail:
+	case runewidth.StringWidth(cause)+chipW <= avail:
+		clipped = cause
+	case runewidth.StringWidth(cause) <= avail:
+		clipped, chipTxt = cause, ""
+	default:
+		clipped, chipTxt = clip(cause, avail), ""
+	}
+	// Tint the index's name inside the already-clipped sentence — styling after
+	// clipping keeps the width math exact (each cause names MEMORY.md once).
+	sentR := onbg(t.Fg, t.WarnBg).Render(clipped)
+	if i := strings.Index(clipped, "MEMORY.md"); i >= 0 {
+		sentR = onbg(t.Fg, t.WarnBg).Render(clipped[:i]) +
+			onbg(t.Warn, t.WarnBg).Render("MEMORY.md") +
+			onbg(t.Fg, t.WarnBg).Render(clipped[i+len("MEMORY.md"):])
+	}
+	left := onbg(t.Warn, t.WarnBg).Render(" △ ") + sentR
+	right := ""
+	if chipTxt != "" {
+		right = onbg(t.Warn, t.WarnBg).Bold(true).Render(chipTxt) +
+			onbg(t.Warn, t.WarnBg).Render(" ")
+	}
+	return paintLine(bandLine(left, right, w, t.WarnBg), w, t.WarnBg)
+}
+
+// driftCause names what is out of sync between a project's memory files and
+// its MEMORY.md index — both directions when both apply, never a generic
+// reconcile prompt.
+func driftCause(unindexed, dangling int) string {
+	plural := func(n int, one, many string) string {
+		if n == 1 {
+			return one
+		}
+		return many
+	}
+	switch {
+	case unindexed > 0 && dangling > 0:
+		return fmt.Sprintf("%d %s no line in MEMORY.md · %d %s no file",
+			unindexed, plural(unindexed, "file has", "files have"),
+			dangling, plural(dangling, "line has", "lines have"))
+	case unindexed > 0:
+		return fmt.Sprintf("%d %s no line in MEMORY.md",
+			unindexed, plural(unindexed, "file has", "files have"))
+	default:
+		return fmt.Sprintf("%d MEMORY.md %s no file",
+			dangling, plural(dangling, "line has", "lines have"))
+	}
 }
 
 // badgeColW sizes the badge bracket field from the widest badge in the current

@@ -375,12 +375,12 @@ engram/
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
             update.go        # Update dispatcher + per-mode key handlers
-            view.go          # View, title bar, source tab strip, status bar, drift warning
+            view.go          # View, title bar, source tab strip, status bar
             offer.go         # offeredAction + state sentences/glyphs: sync state → what the UI advertises
             synctime.go      # lazy per-selection fetch of the store's last-change time (sync strip stamp)
             items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
             palette.go       # command palette: types, candidates, rendering
-            render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)
+            render.go        # list/preview/row rendering, drift banner, manual rounded-dialog frame (frameLines)
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
             promote.go       # >promote: team scope picker modal + background promote command
