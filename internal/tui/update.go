@@ -299,11 +299,27 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modeConfirm
 		}
 		return m, nil
-	case "ctrl+p":
+	case "ctrl+p", "ctrl+k":
+		// Two aliases for one palette: ^P is the legacy opener, ^K the spec's.
+		// Inside the palette ctrl+k keeps meaning "move up" (updatePalette).
 		m.mode = modePalette
 		m.palette.SetValue("")
 		m.rebuildPalette()
 		return m, m.palette.Focus()
+	case "P":
+		// Direct team keys mirror the `>` palette verbs; the action methods
+		// self-guard (source, git, store, state) with the same messages.
+		return m.actionPromote()
+	case "p":
+		return m.actionPull()
+	case "r":
+		return m.actionResolve()
+	case "@":
+		// Hand the selected project to an interactive Claude session — the same
+		// action as the palette's @claude entry (the hint was previously
+		// advertised in the files source but not bound).
+		cmd := m.assistantCmd("claude")
+		return m, cmd
 	case "?":
 		m.mode = modeHelp
 		return m, nil

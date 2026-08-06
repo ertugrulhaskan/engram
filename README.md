@@ -82,7 +82,9 @@ The list reloads automatically when memory files change on disk.
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
 | `1`–`3`    | switch theme                            |
-| `ctrl+p`   | open the command palette (see below)    |
+| `P` / `p` / `r` | promote / pull / resolve — the status bar offers the one that fits the selected row's sync state |
+| `@`        | open the selected project in a Claude Code session |
+| `ctrl+p` / `ctrl+k` | open the command palette (see below) |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
 
@@ -159,9 +161,12 @@ directly, so the index and your instructions don't get hand-corrupted.
 
 ## Team sharing
 
-Team sharing lives under the **`>` command palette** (`ctrl+p`, then type `>`);
-normal use stays a no-arg TUI. The team store is a git repo your team reads and
-writes.
+Team sharing lives under the **`>` command palette** (`ctrl+p`, then type `>`),
+with direct keys for the frequent verbs: `P` promote, `p` pull, `r` resolve.
+The status bar advertises only the key that fits the selected row's sync state
+(a `[behind]` project row offers `p pull`; a personal row offers nothing), so a
+team key never appears where it has nothing to do. Normal use stays a no-arg
+TUI. The team store is a git repo your team reads and writes.
 
 ### Setup
 

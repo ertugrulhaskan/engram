@@ -180,7 +180,7 @@ func (m Model) sourceStrip() string {
 	} else if echo != "" {
 		right = onbg(t.Dim, t.Bg).Render(echo + " ")
 	} else {
-		right = onbg(t.Accent, t.Bg).Render("^P") + onbg(t.Faint, t.Bg).Render(" jump or run ")
+		right = onbg(t.Accent, t.Bg).Render("^K") + onbg(t.Faint, t.Bg).Render(" jump or run ")
 	}
 	return m.barLine(left, right, t.Bg)
 }
@@ -272,20 +272,41 @@ func driftSummary(unindexed, dangling int) string {
 	}
 }
 
+// hints is the contextual left side of the status bar. For the selected row it
+// leads with the one offered team action (offeredAction, in the row's sync-state
+// color) so `p` never appears when there is nothing to pull; the always-available
+// keys follow. Keys render as keycaps — the key on a subtle Sel block over the
+// bar — per the prototype. Toggle hints name the target state, not the current
+// one ("g group by type" while grouped by project).
 func (m Model) hints(t Theme) string {
+	keycap := func(key, fgc string) string {
+		return fg(fgc).Background(lipgloss.Color(t.Sel)).Render(" " + key + " ")
+	}
+	// The offered action sits outside the truncation loop: on a narrow terminal
+	// the generic keys shed first and the contextual one survives longest.
+	offered := ""
+	if it, ok := m.selected(); ok {
+		if key, verb := offeredAction(it.Sync, it.Scope); key != "" {
+			_, c := t.syncBadge(it.Sync)
+			offered = fgb(c).Background(lipgloss.Color(t.Sel)).Render(" "+key+" ") +
+				t.bar(c).Render(" "+verb+" ")
+		}
+	}
+
+	// Action keys only, per the prototype — navigation (move / filter / focus /
+	// source cycling) lives in the `?` help, where all of it is listed.
+	group := "group by type"
+	if m.groupBy == groupType {
+		group = "group by project"
+	}
 	var pairs [][2]string
 	if m.srcKind == srcPlans {
-		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"d", "delete"},
-		}
+		pairs = [][2]string{{"d", "delete"}}
 	} else if m.srcKind == srcFiles {
-		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"@", "edit via Claude"},
-		}
+		pairs = [][2]string{{"@", "edit via Claude"}}
 	} else {
 		pairs = [][2]string{
-			{"↑↓/jk", "move"}, {"/", "filter"}, {"⇥", "focus"}, {"⇧⇥", "source"}, {"e", "edit"},
-			{"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", "group"},
+			{"e", "edit"}, {"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", group},
 		}
 		if m.driftOut {
 			pairs = append(pairs, [2]string{"R", "fix index"})
@@ -294,9 +315,9 @@ func (m Model) hints(t Theme) string {
 	pairs = append(pairs, [2]string{"^P", "palette"})
 	pairs = append(pairs, [2]string{"q", "quit"})
 	render := func(ps [][2]string) string {
-		out := t.bar(t.Dim).Render(" ")
+		out := t.bar(t.Dim).Render(" ") + offered
 		for _, p := range ps {
-			out += t.bar(t.Fg).Render(p[0]) + t.bar(t.Dim).Render(" "+p[1]+"  ")
+			out += keycap(p[0], t.Fg) + t.bar(t.Dim).Render(" "+p[1]+" ")
 		}
 		return out
 	}

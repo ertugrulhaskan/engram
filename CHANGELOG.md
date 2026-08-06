@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The status bar is contextual, with direct team keys** — `P` promote, `p`
+  pull, and `r` resolve now work straight from the list (the `>` palette verbs
+  remain), and the status bar leads with the one key that fits the selected
+  row's sync state, in that state's color: a `[behind]` project row offers
+  `p pull`, a `[behind]` global row offers `r resolve` (pull skips globals, so
+  `p` would be dead there), and a personal row offers no team key at all. Keys
+  render as keycaps, the `g` hint names the grouping you would switch *to*, and
+  navigation hints moved to the `?` help. `@` now actually opens the selected
+  project in Claude Code (it was advertised in the files view but unbound), and
+  `ctrl+k` opens the palette alongside `ctrl+p` (inside the palette `ctrl+k`
+  still moves up).
 - **Sync states read as outlined word pills with the spec's vocabulary** — the
   list's filled sync pill becomes a bracketed word in the state's color
   (`[behind]`, bold on the selected row), and two states are renamed for

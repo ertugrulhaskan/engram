@@ -56,10 +56,11 @@ func TestSourceStripContents(t *testing.T) {
 		t.Errorf("strip %q missing search echo", got)
 	}
 
-	// Sources without shaping state point at the palette instead.
+	// Sources without shaping state point at the palette instead (^K since the
+	// ctrl+k alias landed with the contextual status bar).
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
 	got = stripLine(cur.(Model).View())
-	if !strings.Contains(got, "^P jump or run") {
+	if !strings.Contains(got, "^K jump or run") {
 		t.Errorf("plans strip %q missing palette hint", got)
 	}
 }
