@@ -139,6 +139,10 @@ func (m *Model) styleInputs() {
 	panel := lipgloss.Color(t.Sel)
 	m.search.PromptStyle = fgb(t.Accent)
 	m.search.Cursor.Style = fg(t.Accent)
+	// Explicit text colors: the subRow is painted t.Bg now, so terminal-default
+	// foreground text could be invisible on it (white on Paperback's near-white).
+	m.search.TextStyle = fg(t.Fg)
+	m.search.PlaceholderStyle = fg(t.Faint)
 	m.palette.PlaceholderStyle = fg(t.Dim).Background(panel)
 	m.palette.TextStyle = fg(t.Fg).Background(panel)
 	m.palette.Cursor.Style = fg(t.Accent).Background(panel)

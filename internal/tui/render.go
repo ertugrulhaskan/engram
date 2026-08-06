@@ -44,9 +44,12 @@ func (m Model) listPane() string {
 	case srcFiles:
 		total = len(m.docs)
 	}
-	body := lipgloss.NewStyle().Width(m.listW).Render(strings.Join(lines, "\n"))
-	status := fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, total))
-	return lipgloss.JoinVertical(lipgloss.Left, body, lipgloss.NewStyle().Width(m.listW).Render(status))
+	// Paint every list line to exactly listW over the theme surface — the
+	// selected row's Sel fill and the sync pills carry their own backgrounds
+	// on top of it (paintLine leaves explicit backgrounds alone).
+	body := paintBlock(strings.Join(lines, "\n"), m.listW, t.Bg)
+	status := paintLine(fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, total)), m.listW, t.Bg)
+	return lipgloss.JoinVertical(lipgloss.Left, body, status)
 }
 
 // badgeColW sizes the badge bracket field from the widest badge in the current
@@ -268,7 +271,8 @@ func (m Model) previewPane() string {
 	innerW := m.previewW - previewPad
 	it, ok := m.selected()
 	if !ok {
-		return lipgloss.NewStyle().Width(m.previewW).Height(m.panesH).Render(fg(t.Dim).Render("  nothing selected"))
+		empty := lipgloss.NewStyle().Width(m.previewW).Height(m.panesH).Render(fg(t.Dim).Render("  nothing selected"))
+		return paintBlock(empty, m.previewW, t.BgPane)
 	}
 	meta, used := "", 0
 	if it.Badge != "" {
@@ -307,8 +311,11 @@ func (m Model) previewPane() string {
 	// never push the whole frame past the terminal height. An overflowing frame
 	// scrolls the alt-screen, which desyncs Bubble Tea's line-diff renderer and
 	// leaves ghost rows (a trailing highlight) until the next full repaint.
-	return lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
+	rendered := lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
 		Height(m.panesH).MaxHeight(m.panesH).Render(block)
+	// Paint the whole pane BgPane; glamour's own fills (code blocks, chips)
+	// sit on top, and the reset-reassert in paintLine closes their bleed.
+	return paintBlock(rendered, m.previewW, t.BgPane)
 }
 
 // renderTitle styles the preview title in the accent color, with `code` spans
@@ -340,16 +347,14 @@ func (m Model) boxWidth() int {
 	return w
 }
 
-// panelBg is the fill behind the floating dialogs. It's empty ("") on purpose:
-// the dialogs render as a rounded accent border over the terminal's own
-// background, with no filled panel — the only way a terminal can show smooth
-// rounded corners, since a filled cell squares the corner off (a terminal cell
-// is one glyph + one fg + one bg, with no sub-cell clipping like CSS). lipgloss
-// treats an empty color as "unset", so every shared fill helper (padBG,
-// ruleLine, the per-modal background styles) goes transparent automatically.
-// Selection and danger highlights pass their own color as selBg and are
-// unaffected.
-func (m Model) panelBg() string { return "" }
+// panelBg is the fill behind the floating dialogs: the theme's pane surface,
+// so dialogs read as opaque panels over the (scrim-dimmed) page, per the
+// design spec. Every shared fill helper (padBG, ruleLine, the per-modal
+// background styles) threads this value, so the panel is opaque everywhere.
+// The rounded corner glyphs render over the fill and therefore read
+// near-square — a terminal cell can't clip sub-cell corners; accepted
+// deviation from the prototype's border radius.
+func (m Model) panelBg() string { return m.theme().BgPane }
 
 // padBG right-pads a (possibly styled) string to width w, filling the gap with
 // the given background so every cell of a dialog row is opaque.
@@ -370,6 +375,11 @@ func padBG(s string, w int, bg string) string {
 // border, no dark gap — while every other row gets the thin accent border.
 func (m Model) frameLines(lines []string, cw int, border string, bleed map[int]string) string {
 	a := fg(border)
+	// Border rows carry the panel fill too — an unpainted corner or side cell
+	// would punch a hole to whatever the (dimmed) page renders beneath the box.
+	if p := m.panelBg(); p != "" {
+		a = a.Background(lipgloss.Color(p))
+	}
 	out := make([]string, 0, len(lines)+2)
 	out = append(out, a.Render("╭"+strings.Repeat("─", cw)+"╮"))
 	for i, ln := range lines {

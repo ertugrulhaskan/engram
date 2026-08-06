@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The TUI paints every cell with theme backgrounds** (`internal/tui/paint.go`) —
+  list, preview, bars, rules, and dialogs each carry their theme surface color, so
+  all three themes render identically regardless of the terminal's own palette
+  (the prerequisite for the light Paperback theme being usable in a dark terminal
+  and vice versa). Dialogs are now opaque panels over a **scrim**: while a dialog
+  floats, the page behind it blends toward the surface color (truecolor terminals;
+  elsewhere the opaque panel alone provides the separation). Dialog corners render
+  near-square against the fill — a terminal cell can't clip a rounded corner over
+  a background.
 - **Three themes replace the previous five** (`internal/tui/theme.go`) — **Midnight**
   (Dracula-derived, the default), **Paperback** (light), and **CRT** (green phosphor),
   switched with `1`–`3`. Every color in the UI now flows through one named token set

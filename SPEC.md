@@ -370,6 +370,7 @@ engram/
             resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save
             secret.go        # secret-scan modal: scan before promote, show redacted findings + override
             style.go         # color/pad/clip text helpers, type labels, humanize
+            paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection
             status.go        # transient footer status: kinds, flash/auto-dismiss

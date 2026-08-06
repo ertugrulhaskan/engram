@@ -38,7 +38,9 @@ func (m Model) View() string {
 		box = m.withdrawModal()
 	}
 	if box != "" {
-		frame = m.overlay(frame, box, top)
+		// Scrim: dim the page toward the surface color before compositing, so
+		// the dialog visibly floats (truecolor only; a no-op elsewhere).
+		frame = m.overlay(m.dimFrame(frame), box, top)
 	}
 
 	// Make every line exactly m.width: pad short lines (so an overlaid dialog
@@ -162,14 +164,18 @@ func (m Model) subRow() string {
 		rc = t.Accent
 	}
 	right := fg(rc).Render(strings.Repeat("─", m.previewW))
-	return left + fg(t.Edge).Render("┬") + right
+	// Paint each side with its pane's surface so the rule row belongs to the
+	// panes below it; the ┬ connector sits on the preview side of the divide.
+	return paintLine(left, m.listW, t.Bg) +
+		paintLine(fg(t.Edge).Render("┬"), 1, t.BgPane) +
+		paintLine(right, m.previewW, t.BgPane)
 }
 
 func (m Model) bottomRule() string {
 	t := m.theme()
-	return fg(t.Edge).Render(strings.Repeat("─", m.listW)) +
-		fg(t.Edge).Render("┴") +
-		fg(t.Edge).Render(strings.Repeat("─", m.previewW))
+	return paintLine(fg(t.Edge).Render(strings.Repeat("─", m.listW)), m.listW, t.Bg) +
+		paintLine(fg(t.Edge).Render("┴"), 1, t.BgPane) +
+		paintLine(fg(t.Edge).Render(strings.Repeat("─", m.previewW)), m.previewW, t.BgPane)
 }
 
 func (m Model) bottomBar() string {
@@ -270,7 +276,8 @@ func (m Model) barLine(left, right, bg string) string {
 }
 
 func (m Model) dividerCol() string {
-	line := fg(m.theme().Edge).Render("│")
+	t := m.theme()
+	line := paintLine(fg(t.Edge).Render("│"), 1, t.BgPane)
 	lines := make([]string, m.panesH)
 	for i := range lines {
 		lines[i] = line
