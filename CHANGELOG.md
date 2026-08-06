@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state their facts (`not in store`, `no anchor`) instead of claiming a time.
 
 ### Changed
+- **The palette is one sectioned list — no prefix required** — opening it
+  (`ctrl+p` or `ctrl+k`) now shows everything at once: every memory and plan
+  under **Jump to** (first result preselected), then **Sources**, **Team**, and
+  **Assistant**, and typing filters all of it together — fuzzy over titles *and
+  project names* for jumps, name prefixes for commands. The three-row prefix
+  guide is retired; `/` `>` `@` survive as accelerators that scope the search
+  (`>init <git-url>` works as before). Rows are single lines with the
+  description right-aligned, and the `memory` command is now `memories` (the
+  old spelling still resolves).
 - **The status bar is contextual, with direct team keys** — `P` promote, `p`
   pull, and `r` resolve now work straight from the list (the `>` palette verbs
   remain), and the status bar leads with the one key that fits the selected

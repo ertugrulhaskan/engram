@@ -17,7 +17,6 @@ const (
 	palJump                       // switch source and select path
 	palSettings                   // open the settings dialog
 	palAssistant                  // launch an AI assistant session (@Claude …)
-	palPrefix                     // seed a prefix ("/", "@" or ">") into the input to reveal its menu
 	palPromote                    // > promote the selected memory
 	palPull                       // > pull team memories
 	palWithdraw                   // > withdraw the selected memory
@@ -25,21 +24,32 @@ const (
 	palInit                       // > init the team store from a git URL (arg)
 )
 
-// palItem is one command-palette candidate, rendered as a two-line row (primary
-// label + muted subtitle) with a right-aligned pill, à la Warp's palette.
+// Palette sections, in display order. Rows are grouped section-contiguously and
+// the renderer inserts a header line whenever the section changes — the flat
+// palRows list (and so the cursor math) is untouched by sectioning.
+const (
+	palSecJump      = "Jump to"
+	palSecSources   = "Sources"
+	palSecTeam      = "Team"
+	palSecAssistant = "Assistant"
+)
+
+// palItem is one command-palette candidate, rendered as a single-line row:
+// section sigil + label on the left, the muted description right-aligned.
 type palItem struct {
-	glyph      string // leading icon
-	glyphColor string // icon color (hex)
-	label      string // primary line
-	sub        string // secondary muted line
-	right      string // right-aligned pill (slash form, or item type)
-	rightColor string // pill color (hex); "" = dim
+	glyph      string // section sigil (· / > @)
+	glyphColor string // sigil color (hex); "" = accent
+	label      string // primary text
+	sub        string // muted description, right-aligned
+	section    string // palSec* — groups rows under a rendered header
 	action     palAction
 	src        srcKind
 	path       string
 	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
-	prefix     string // for palPrefix: text seeded into the input ("/", "@" or ">")
 	arg        string // for palInit: the git URL typed after ">init"
+
+	right      string // right-aligned pill — used by the two-line palRow (dialogs), not the palette
+	rightColor string // pill color (hex); "" = dim
 }
 
 // --- command palette ---
@@ -108,15 +118,6 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case palInit:
 			m.mode = modeNormal
 			return m.actionInit(sel.arg)
-		case palPrefix:
-			// A guide row ("/" or "@") seeds its prefix so the next keystrokes
-			// filter that menu — equivalent to typing the prefix by hand. The
-			// input was blurred above; re-focus so typing continues.
-			m.palette.SetValue(sel.prefix)
-			m.palette.CursorEnd()
-			m.palCursor, m.palTop = 0, 0
-			m.rebuildPalette()
-			return m, m.palette.Focus()
 		}
 		return m, nil
 	}
@@ -127,21 +128,37 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// palCommand is one of the three top-level palette commands. Each matches its
-// bare name or /slash form (so "mem", "/mem", "memory" all hit memory).
+// palCommand is one of the top-level palette commands. Each matches its bare
+// name or /slash form by prefix; alias keeps a retired spelling working (the
+// "memory" command became "memories", whose prefix diverges at "memor<y|ies>").
 type palCommand struct {
-	name string
-	item palItem
+	name  string
+	alias string
+	item  palItem
 }
 
 func (m Model) paletteCommands() []palCommand {
 	t := m.theme()
+	sig := func(it palItem) palItem { it.glyph, it.section = "/", palSecSources; return it }
 	return []palCommand{
-		{"memory", palItem{glyph: "◆", glyphColor: t.TProject, label: "memory", sub: "Browse your Claude memories", right: "/memory", action: palSwitch, src: srcMemories}},
-		{"plans", palItem{glyph: "▣", glyphColor: t.TReference, label: "plans", sub: "Browse your plan-mode plans", right: "/plans", action: palSwitch, src: srcPlans}},
-		{"files", palItem{glyph: "▤", glyphColor: t.TUser, label: "files", sub: "CLAUDE.md & MEMORY.md (read-only; edit via @Claude)", right: "/files", action: palSwitch, src: srcFiles}},
-		{"settings", palItem{glyph: "◈", glyphColor: t.TFeedback, label: "settings", sub: "Open the config file (theme, editor)", right: "/settings", action: palSettings}},
+		{"memories", "memory", sig(palItem{glyphColor: t.TProject, label: "memories", sub: "browse your Claude memories", action: palSwitch, src: srcMemories})},
+		{"plans", "", sig(palItem{glyphColor: t.TReference, label: "plans", sub: "browse your plan-mode plans", action: palSwitch, src: srcPlans})},
+		{"files", "", sig(palItem{glyphColor: t.TUser, label: "files", sub: "CLAUDE.md & MEMORY.md — read-only", action: palSwitch, src: srcFiles})},
+		{"settings", "", sig(palItem{glyphColor: t.TFeedback, label: "settings", sub: "open the config file (theme, editor)", action: palSettings})},
 	}
+}
+
+// matchCommands lists the source/settings commands whose name (or alias)
+// starts with q; all of them for an empty q.
+func (m Model) matchCommands(q string) []palItem {
+	q = strings.ToLower(q)
+	var rows []palItem
+	for _, c := range m.paletteCommands() {
+		if strings.HasPrefix(c.name, q) || (c.alias != "" && strings.HasPrefix(c.alias, q)) {
+			rows = append(rows, c.item)
+		}
+	}
+	return rows
 }
 
 // teamVerb is one team command reachable via ">" in the palette. Each acts on the
@@ -154,13 +171,43 @@ type teamVerb struct {
 
 func (m Model) teamVerbs() []teamVerb {
 	t := m.theme()
+	sig := func(it palItem) palItem { it.glyph, it.section = ">", palSecTeam; return it }
 	return []teamVerb{
-		{"promote", palItem{glyph: "↑", glyphColor: t.TProject, label: "promote", sub: "Share the selected memory with the team", right: ">promote", action: palPromote}},
-		{"pull", palItem{glyph: "↓", glyphColor: t.TReference, label: "pull", sub: "Bring team memories into their matching projects", right: ">pull", action: palPull}},
-		{"resolve", palItem{glyph: "↕", glyphColor: t.TFeedback, label: "resolve", sub: "Merge a conflicting memory in $EDITOR", right: ">resolve", action: palResolve}},
-		{"withdraw", palItem{glyph: "◆", glyphColor: t.TUser, label: "withdraw", sub: "Take a promoted memory back from the team", right: ">withdraw", action: palWithdraw}},
-		{"init", palItem{glyph: "⊕", glyphColor: t.Accent, label: "init", sub: "Set up the team store — type: >init <git-url>", right: ">init", action: palInit}},
+		{"promote", sig(palItem{glyphColor: t.TProject, label: "promote", sub: "share the selected memory", action: palPromote})},
+		{"pull", sig(palItem{glyphColor: t.TReference, label: "pull", sub: "bring team memories into their projects", action: palPull})},
+		{"resolve", sig(palItem{glyphColor: t.TFeedback, label: "resolve", sub: "merge a conflicting memory in $EDITOR", action: palResolve})},
+		{"withdraw", sig(palItem{glyphColor: t.TUser, label: "withdraw", sub: "take a promoted memory back", action: palWithdraw})},
+		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: "set up the team store — >init <git-url>", action: palInit})},
 	}
+}
+
+// matchTeamVerbs lists the team verbs whose name starts with q (all for an
+// empty q) — the bare-query route; ">" queries keep their own arg-aware branch.
+func (m Model) matchTeamVerbs(q string) []palItem {
+	q = strings.ToLower(q)
+	var rows []palItem
+	for _, v := range m.teamVerbs() {
+		if strings.HasPrefix(v.name, q) {
+			rows = append(rows, v.item)
+		}
+	}
+	return rows
+}
+
+// matchAssistants lists assistant providers whose key starts with q.
+func (m Model) matchAssistants(q string) []palItem {
+	t := m.theme()
+	q = strings.ToLower(q)
+	var rows []palItem
+	for _, p := range m.assistantProviders() {
+		if strings.HasPrefix(p.key, q) {
+			rows = append(rows, palItem{
+				glyph: "@", glyphColor: t.Accent, label: p.label, sub: p.sub,
+				section: palSecAssistant, action: palAssistant, provider: p.key,
+			})
+		}
+	}
+	return rows
 }
 
 // palProvider is one AI assistant reachable via "@" in the palette. Today only
@@ -173,67 +220,85 @@ type palProvider struct {
 
 func (m Model) assistantProviders() []palProvider {
 	return []palProvider{
-		{key: "claude", label: "@Claude", sub: "Fix & edit memories/plans with Claude Code"},
+		{key: "claude", label: "@Claude", sub: "fix & edit memories/plans with Claude Code"},
 	}
 }
 
-// rebuildPalette recomputes candidates. A leading "@" is assistant-only (mirrors
-// how a leading "/" is command-only); otherwise commands (memory/plans/settings)
-// match a bare or /slashed prefix and the remaining text fuzzy-jumps across item
-// titles in both sources, so a query can surface a command and matches together.
-func (m *Model) rebuildPalette() {
+// palJumpCap bounds the Jump-to section so an empty query over a large corpus
+// stays a palette, not a full listing (the sources themselves are the listing).
+const palJumpCap = 30
+
+// paletteJumpRows builds the Jump-to section: every memory and plan for an
+// empty query (memories first, natural order), or fuzzy matches — over titles
+// AND project names — sorted tightest-first for a typed one. Capped at limit.
+func (m Model) paletteJumpRows(q string, limit int) []palItem {
 	t := m.theme()
+	type cand struct {
+		it    palItem
+		score int
+	}
+	var cands []cand
+	for _, mm := range m.memories {
+		score := 0
+		if q != "" {
+			sc, ok := fuzzyScore(q, mm.Title+" "+mm.Project.Name)
+			if !ok {
+				continue
+			}
+			score = sc
+		}
+		cands = append(cands, cand{palItem{
+			glyph: "·", glyphColor: t.typeColor(mm.Type), label: mm.Title, sub: mm.Project.Name,
+			section: palSecJump, action: palJump, src: srcMemories, path: mm.Path,
+		}, score})
+	}
+	for _, p := range m.plans {
+		score := 0
+		if q != "" {
+			sc, ok := fuzzyScore(q, p.Title)
+			if !ok {
+				continue
+			}
+			score = sc
+		}
+		cands = append(cands, cand{palItem{
+			glyph: "·", glyphColor: t.TReference, label: p.Title, sub: "plan · " + humanizeSince(p.Modified),
+			section: palSecJump, action: palJump, src: srcPlans, path: p.Path,
+		}, score})
+	}
+	if q != "" {
+		sort.SliceStable(cands, func(i, j int) bool {
+			if cands[i].score != cands[j].score {
+				return cands[i].score < cands[j].score // tighter match first
+			}
+			return cands[i].it.label < cands[j].it.label
+		})
+	}
+	if len(cands) > limit {
+		cands = cands[:limit]
+	}
+	rows := make([]palItem, 0, len(cands))
+	for _, c := range cands {
+		rows = append(rows, c.it)
+	}
+	return rows
+}
+
+// rebuildPalette recomputes candidates as one sectioned list: Jump to, then
+// Sources, Team, Assistant. An empty query shows everything (jump capped);
+// typing filters every section at once — fuzzy over item titles and project
+// names, prefix over command/verb names. The old prefixes survive as section
+// scopes: "/" narrows to Sources, ">" to Team (keeping its verb+argument
+// parsing), "@" to Assistant. Nothing is reachable only via a prefix.
+func (m *Model) rebuildPalette() {
 	q := strings.TrimSpace(m.palette.Value())
-	cmdq := strings.ToLower(strings.TrimPrefix(q, "/"))
 	var rows []palItem
 
-	// Empty palette is a guide: two rows pointing at the two entry points ("/"
-	// for commands, "@" for the assistant). Each seeds its prefix on Enter.
-	if q == "" {
-		rows = []palItem{
-			{glyph: "/", glyphColor: t.Accent, label: "commands",
-				sub:   "Browse memories, plans, files & settings",
-				right: "type /", rightColor: t.Dim, action: palPrefix, prefix: "/"},
-			{glyph: "@", glyphColor: t.Accent, label: "assistant",
-				sub:   "Fix & edit memories/plans with Claude Code",
-				right: "type @", rightColor: t.Dim, action: palPrefix, prefix: "@"},
-			{glyph: ">", glyphColor: t.Accent, label: "team",
-				sub:   "Share, pull, resolve & set up the team store",
-				right: "type >", rightColor: t.Dim, action: palPrefix, prefix: ">"},
-		}
-		m.palRows = rows
-		if m.palCursor >= len(rows) || m.palCursor < 0 {
-			m.palCursor = 0
-		}
-		if m.palTop > m.palCursor {
-			m.palTop = m.palCursor
-		}
-		return
-	}
+	switch {
+	case strings.HasPrefix(q, "@"):
+		rows = m.matchAssistants(strings.TrimSpace(q[1:]))
 
-	if strings.HasPrefix(q, "@") {
-		pq := strings.ToLower(strings.TrimSpace(q[1:]))
-		for _, p := range m.assistantProviders() {
-			if pq == "" || strings.HasPrefix(p.key, pq) {
-				rows = append(rows, palItem{
-					glyph: "✦", glyphColor: t.Accent,
-					label: p.label, sub: p.sub,
-					right: "assistant", rightColor: t.Accent,
-					action: palAssistant, provider: p.key,
-				})
-			}
-		}
-		m.palRows = rows
-		if m.palCursor >= len(rows) || m.palCursor < 0 {
-			m.palCursor = 0
-		}
-		if m.palTop > m.palCursor {
-			m.palTop = m.palCursor
-		}
-		return
-	}
-
-	if strings.HasPrefix(q, ">") {
+	case strings.HasPrefix(q, ">"):
 		// ">verb [arg]" — filter the team verbs by the first word; init keeps the
 		// rest as its git-URL argument.
 		rest := strings.TrimSpace(q[1:])
@@ -247,59 +312,20 @@ func (m *Model) rebuildPalette() {
 				it := v.item
 				if it.action == palInit && arg != "" {
 					it.arg = arg
-					it.sub = "Set up the team store from " + arg
+					it.sub = "set up the team store from " + arg
 				}
 				rows = append(rows, it)
 			}
 		}
-		m.palRows = rows
-		if m.palCursor >= len(rows) || m.palCursor < 0 {
-			m.palCursor = 0
-		}
-		if m.palTop > m.palCursor {
-			m.palTop = m.palCursor
-		}
-		return
-	}
 
-	for _, c := range m.paletteCommands() {
-		if strings.HasPrefix(c.name, cmdq) {
-			rows = append(rows, c.item)
-		}
-	}
+	case strings.HasPrefix(q, "/"):
+		rows = m.matchCommands(strings.TrimPrefix(q, "/"))
 
-	// A bare word also fuzzy-jumps to items (a leading "/" means command-only).
-	if q != "" && !strings.HasPrefix(q, "/") {
-		type cand struct {
-			it    palItem
-			score int
-		}
-		var cands []cand
-		for _, mm := range m.memories {
-			if sc, ok := fuzzyScore(q, mm.Title); ok {
-				it := palItem{glyph: "•", glyphColor: t.typeColor(mm.Type), label: mm.Title,
-					sub: "memory · " + mm.Project.Name, right: string(mm.Type), rightColor: t.typeColor(mm.Type),
-					action: palJump, src: srcMemories, path: mm.Path}
-				cands = append(cands, cand{it, sc})
-			}
-		}
-		for _, p := range m.plans {
-			if sc, ok := fuzzyScore(q, p.Title); ok {
-				it := palItem{glyph: "•", glyphColor: t.TReference, label: p.Title,
-					sub: "plan · " + humanizeSince(p.Modified), right: "plan", rightColor: t.TReference,
-					action: palJump, src: srcPlans, path: p.Path}
-				cands = append(cands, cand{it, sc})
-			}
-		}
-		sort.SliceStable(cands, func(i, j int) bool {
-			if cands[i].score != cands[j].score {
-				return cands[i].score < cands[j].score // tighter match first
-			}
-			return cands[i].it.label < cands[j].it.label
-		})
-		for _, c := range cands {
-			rows = append(rows, c.it)
-		}
+	default:
+		rows = append(rows, m.paletteJumpRows(q, palJumpCap)...)
+		rows = append(rows, m.matchCommands(q)...)
+		rows = append(rows, m.matchTeamVerbs(q)...)
+		rows = append(rows, m.matchAssistants(q)...)
 	}
 
 	m.palRows = rows
@@ -312,14 +338,14 @@ func (m *Model) rebuildPalette() {
 }
 
 // palVisible caps how many palette candidates the floating dialog shows at once
-// (each candidate is a two-line row).
-const palVisible = 6
+// (each candidate is a single-line row; section headers add up to four more).
+const palVisible = 10
 
 // palVisibleRows is the candidate count the palette actually shows, reduced on
-// short terminals so the two-line rows plus chrome (header, rule, border) still
-// fit within the frame and the box never overflows past the bottom.
+// short terminals so the rows plus chrome (header, rule, border, and up to four
+// section header lines) still fit within the frame and the box never overflows.
 func (m Model) palVisibleRows() int {
-	n := (m.panesH - 2) / 2 // ~4 chrome lines; 2 lines per candidate
+	n := m.panesH - 8 // header + rule + 2 border rows + ≤4 section headers
 	if n > palVisible {
 		n = palVisible
 	}
@@ -380,9 +406,51 @@ func (m Model) palRow(c palItem, cw int, panelBg, selBg string) []string {
 	return []string{line1, line2}
 }
 
-// paletteBox renders the command palette as a floating Warp-style dialog: a
-// search header above two-line candidate rows with a highlighted selection bar,
-// on an opaque panel so it sits cleanly over the panes.
+// palLine renders one candidate as a single-line row: the section sigil and
+// label on the left, the muted description right-aligned. The selected row is
+// an accent bar with dark text. The label clips last; the description clips
+// first and vanishes on very narrow boxes.
+func (m Model) palLine(c palItem, cw int, panelBg, selBg string) string {
+	t := m.theme()
+	bg := panelBg
+	pri, subc, gcol := t.Fg, t.Dim, c.glyphColor
+	if gcol == "" {
+		gcol = t.Accent
+	}
+	if selBg != "" { // bright bar, dark text
+		bg = selBg
+		pri, subc, gcol = t.Bg2, t.Bg2, t.Bg2
+	}
+	st := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(bg)) }
+	fill := func(n int) string {
+		if n <= 0 {
+			return ""
+		}
+		return lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(n))
+	}
+
+	sw := runewidth.StringWidth(c.glyph)
+	label := clip(c.label, cw-sw-4)
+	lw := runewidth.StringWidth(label)
+	desc := c.sub
+	if maxD := cw - sw - lw - 5; runewidth.StringWidth(desc) > maxD {
+		if maxD < 4 {
+			desc = ""
+		} else {
+			desc = clip(desc, maxD)
+		}
+	}
+	gap := cw - 3 - sw - lw - runewidth.StringWidth(desc) - 1
+	line := fill(1) + st(gcol).Bold(true).Render(c.glyph) + fill(1) +
+		st(pri).Bold(selBg != "").Render(label) + fill(gap) + st(subc).Render(desc) + fill(1)
+	return padBG(line, cw, bg)
+}
+
+// paletteBox renders the command palette as a floating dialog: the input header
+// above a sectioned single-line candidate list with a highlighted selection
+// bar, on an opaque panel so it sits cleanly over the panes. Section headers
+// are render-time lines inserted where the section changes — the cursor only
+// ever addresses candidate rows.
 func (m Model) paletteBox() string {
 	t := m.theme()
 	cw := m.boxWidth()
@@ -390,29 +458,45 @@ func (m Model) paletteBox() string {
 	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 
 	// Pad the header with the input's own background (Sel) so the field reads as
-	// a full-width box reaching the border, independent of the input's exact width.
-	header := padBG(pst(t.Accent).Bold(true).Render("engram")+pst(t.Dim).Render(":  ")+m.palette.View(), cw, t.Sel)
+	// a full-width box reaching the border; the right-side hint appears when the
+	// box is wide enough to share the line with the input (see resize).
+	left := fg(t.Accent).Background(lipgloss.Color(t.Sel)).Bold(true).Render("engram") +
+		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + m.palette.View()
+	right := ""
+	if cw >= palHintMinWidth {
+		right = fg(t.Faint).Background(lipgloss.Color(t.Sel)).Render(palHint + " ")
+	}
+	header := padBG(bandLine(left, right, cw, t.Sel), cw, t.Sel)
 	lines := []string{header, m.ruleLine(cw)}
 	bleed := map[int]string{} // selected row bleeds to the border (see frameLines)
 
 	if len(m.palRows) == 0 {
 		lines = append(lines, padBG(pst(t.Dim).Render("  no matches"), cw, panel))
 	}
+	prevSec := ""
 	for i := 0; i < m.palVisibleRows(); i++ {
 		idx := m.palTop + i
 		if idx < 0 || idx >= len(m.palRows) {
 			continue
 		}
+		c := m.palRows[idx]
+		if c.section != "" && c.section != prevSec {
+			lines = append(lines, padBG(pst(t.Faint).Render("  "+c.section), cw, panel))
+			prevSec = c.section
+		}
 		selBg := ""
 		if idx == m.palCursor {
 			selBg = t.Accent
+			bleed[len(lines)] = selBg
 		}
-		row := m.palRow(m.palRows[idx], cw, panel, selBg)
-		if selBg != "" {
-			bleed[len(lines)] = selBg   // label line
-			bleed[len(lines)+1] = selBg // subtitle line
-		}
-		lines = append(lines, row...)
+		lines = append(lines, m.palLine(c, cw, panel, selBg))
 	}
 	return m.frameLines(lines, cw, t.Accent, bleed)
 }
+
+// palHint is the header's right-side nudge; it renders only when the box can
+// fit it beside the input (palHintMinWidth, mirrored by resize's input budget).
+const (
+	palHint         = "type anything — prefixes optional"
+	palHintMinWidth = 64
+)

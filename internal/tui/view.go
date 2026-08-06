@@ -223,7 +223,7 @@ func (m Model) bottomBar() string {
 	var left string
 	switch {
 	case m.mode == modePalette:
-		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memory · plans · files · settings · @claude · >team") +
+		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memories · plans · files · settings · @claude · >team") +
 			t.bar(t.Dim).Render(" · type to jump · ") + t.bar(t.Accent).Render("↑↓") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("↵") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("esc") + t.bar(t.Dim).Render(" close ")

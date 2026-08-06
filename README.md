@@ -93,13 +93,20 @@ picks up the changes. When an index drifts anyway — files added without an ind
 line, or entries left behind by a deleted or renamed file — the warning names the
 cause and `R` reconciles it.
 
-### The command palette (`ctrl+p`)
+### The command palette (`ctrl+p` / `ctrl+k`)
 
-The palette opens to three guide rows; what you type decides what it does:
+One field, no prefix required: the palette opens to a **sectioned list of
+everything** — every memory and plan under *Jump to*, then *Sources*, *Team*,
+and *Assistant* — and typing filters all of it at once (fuzzy over titles *and*
+project names for jumps, name prefixes for commands). The first result is
+preselected; `↵` runs it.
 
-- **`/` — sources.** Switch what the list shows: `/memory` (the default),
-  `/plans` (your plan-mode plans, grouped by recency), `/files` (see below),
-  or `/settings` (opens engram's config file in your `$EDITOR`).
+The old prefixes survive as accelerators that scope the search — nothing needs
+them anymore:
+
+- **`/` — sources.** `/memories` (the default; `/memory` still works),
+  `/plans` (grouped by recency), `/files` (see below), or `/settings` (opens
+  engram's config file in your `$EDITOR`).
 - **`@` — assistant.** `@Claude` hands off to an interactive
   [Claude Code](https://claude.com/claude-code) session, seeded with the selected
   project's memory/plan health, to fix what `R` can't (malformed frontmatter,
@@ -109,8 +116,6 @@ The palette opens to three guide rows; what you type decides what it does:
   a one-line hint.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
   `>withdraw` — covered in [Team sharing](#team-sharing) below.
-- **Anything else — jump.** Plain text (no prefix) fuzzy-matches memory and plan
-  titles and jumps straight to the match.
 
 ### `/files` — read-only view of Claude's own files
 

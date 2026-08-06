@@ -41,8 +41,12 @@ func (m *Model) resize(w, h int) {
 	}
 	// Palette input fills the dialog: box inner width minus the "engram:  " prefix
 	// (9) and the cursor cell textinput.View adds (1), with 1 cell of slack so the
-	// header can never overflow the frame.
+	// header can never overflow the frame. Wide boxes also reserve the header's
+	// right-side hint (palHint) plus a 2-cell gap — mirrored in paletteBox.
 	m.palette.Width = m.boxWidth() - 11
+	if m.boxWidth() >= palHintMinWidth {
+		m.palette.Width -= len([]rune(palHint)) + 2
+	}
 	if m.palette.Width < 1 {
 		m.palette.Width = 1
 	}

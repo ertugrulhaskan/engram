@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
 )
 
@@ -17,37 +18,122 @@ func typeRunes(m tea.Model, s string) tea.Model {
 	return m
 }
 
-// The empty palette is a guide: three rows ("/" commands, "@" assistant, ">"
-// team). Pressing Enter on the "/" row seeds "/" and reveals the command list
-// without closing.
-func TestPaletteEmptyGuide(t *testing.T) {
+// The empty palette is the full sectioned list: every memory and plan under
+// "Jump to" (first row preselected), then Sources, Team, and Assistant — the
+// prefix guide is retired; nothing needs a prefix to be reachable.
+func TestPaletteSectionedEmpty(t *testing.T) {
 	var m tea.Model = ready(t)
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	rows := m.(Model).palRows
-	if len(rows) != 3 {
-		t.Fatalf("empty palette = %d rows, want 3 (/, @ and > guides): %+v", len(rows), rows)
+	got := m.(Model)
+	rows := got.palRows
+
+	wantRows := 5 + 2 + len(got.paletteCommands()) + len(got.teamVerbs()) + len(got.assistantProviders())
+	if len(rows) != wantRows {
+		t.Fatalf("empty palette = %d rows, want %d (jump + commands + verbs + assistant)", len(rows), wantRows)
 	}
-	if rows[0].action != palPrefix || rows[0].prefix != "/" {
-		t.Fatalf("first guide row = %+v, want palPrefix '/'", rows[0])
+	if got.palCursor != 0 || rows[0].action != palJump {
+		t.Fatalf("first row not a preselected jump row (cursor=%d action=%v)", got.palCursor, rows[0].action)
 	}
-	if rows[1].action != palPrefix || rows[1].prefix != "@" {
-		t.Fatalf("second guide row = %+v, want palPrefix '@'", rows[1])
+	// Sections appear contiguously in display order.
+	order := map[string]int{palSecJump: 0, palSecSources: 1, palSecTeam: 2, palSecAssistant: 3}
+	last := -1
+	for i, r := range rows {
+		o, ok := order[r.section]
+		if !ok {
+			t.Fatalf("row %d has unknown section %q", i, r.section)
+		}
+		if o < last {
+			t.Fatalf("row %d section %q out of order", i, r.section)
+		}
+		last = o
 	}
-	if rows[2].action != palPrefix || rows[2].prefix != ">" {
-		t.Fatalf("third guide row = %+v, want palPrefix '>'", rows[2])
+	// The rendered box shows section headers and the header hint.
+	box := got.paletteBox()
+	for _, want := range []string{palSecJump, palSecSources, palHint} {
+		if !strings.Contains(box, want) {
+			t.Errorf("palette box missing %q", want)
+		}
+	}
+	// Enter on the preselected row jumps to the first memory.
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	after := m.(Model)
+	if after.mode != modeNormal || after.srcKind != srcMemories {
+		t.Fatalf("enter on jump row: mode=%v src=%v, want normal/memories", after.mode, after.srcKind)
+	}
+}
+
+// The "memory" command became "memories"; the old spelling and prefixes keep
+// working via the alias ("memory" is not a string prefix of "memories").
+func TestPaletteMemoriesAlias(t *testing.T) {
+	for _, q := range []string{"/memories", "/memory", "/mem"} {
+		var m tea.Model = ready(t)
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+		m = typeRunes(m, q)
+		rows := m.(Model).palRows
+		found := false
+		for _, r := range rows {
+			if r.action == palSwitch && r.src == srcMemories {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q did not list the memories command: %+v", q, rows)
+		}
+	}
+}
+
+// A bare query fuzzy-matches project names too, and surfaces team verbs and
+// the assistant without their prefixes.
+func TestPaletteBareQueryBreadth(t *testing.T) {
+	var m tea.Model = ready(t)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	rows := typeRunes(m, "webapp").(Model).palRows // a project name, not a title
+	if len(rows) == 0 || rows[0].action != palJump || !strings.Contains(rows[0].label, "legacy-note") {
+		t.Errorf("project-name query = %+v, want the webapp memory first", rows)
 	}
 
-	// Enter on the "/" guide seeds the prefix and lists the commands in-place.
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = ready(t).Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	found := false
+	for _, r := range typeRunes(m, "prom").(Model).palRows {
+		if r.action == palPromote {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("bare \"prom\" did not surface the promote verb")
+	}
+
+	m, _ = ready(t).Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	found = false
+	for _, r := range typeRunes(m, "cla").(Model).palRows {
+		if r.action == palAssistant {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("bare \"cla\" did not surface the assistant")
+	}
+}
+
+// The Jump-to section is capped so a large corpus doesn't swamp the palette.
+func TestPaletteJumpCap(t *testing.T) {
+	mems := make([]memory.Memory, 0, palJumpCap+10)
+	for i := 0; i < palJumpCap+10; i++ {
+		mems = append(mems, mem("note-"+string(rune('a'+i%26))+string(rune('0'+i/26)), "d", memory.TypeProject,
+			"acme", "/Users/me/.claude/projects/-acme/memory/n"+string(rune('a'+i%26))+string(rune('0'+i/26))+".md", "2024-01-06"))
+	}
+	var m tea.Model = New(mems, nil, nil, config.Config{})
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	got := m.(Model)
-	if got.mode != modePalette {
-		t.Fatalf("palette closed after a guide row (mode=%v), want it to stay open", got.mode)
+	jump := 0
+	for _, r := range got.palRows {
+		if r.section == palSecJump {
+			jump++
+		}
 	}
-	if got.palette.Value() != "/" {
-		t.Fatalf("guide did not seed '/' (value=%q)", got.palette.Value())
-	}
-	if len(got.palRows) != len(got.paletteCommands()) {
-		t.Fatalf("after '/' = %d rows, want %d commands", len(got.palRows), len(got.paletteCommands()))
+	if jump != palJumpCap {
+		t.Errorf("jump section = %d rows, want the %d cap", jump, palJumpCap)
 	}
 }
 

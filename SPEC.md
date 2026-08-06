@@ -406,10 +406,14 @@ engram/
 
 ### 8.1 `@Claude` assistant (Phase 1.5)
 
-The empty palette is a guide: two `palPrefix` rows — `/` (commands) and `@`
-(assistant) — each with a description. Selecting one seeds its prefix into the
-input (equivalent to typing it), so `/` lists the source/settings commands and
-`@` lists the assistant providers below.
+The palette is one sectioned list — *Jump to* (every memory and plan, capped at
+30), then *Sources*, *Team*, and *Assistant* — filtered as a whole by typing:
+fuzzy over item titles and project names, prefix over command/verb names. The
+prefixes `/`, `>`, and `@` survive as section scopes (`>` keeps its
+`>init <git-url>` argument parsing); nothing is reachable only via a prefix.
+Rows are single lines (section sigil + label, description right-aligned) and
+section headers are render-time lines, so the cursor only ever addresses
+candidate rows.
 
 The palette's `@` prefix offers AI providers (today only `@Claude`; the
 `palProvider` registry and `palItem.provider` field keep room for others). Selecting
