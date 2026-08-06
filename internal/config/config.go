@@ -12,7 +12,7 @@ import (
 
 // Config is engram's persisted settings.
 type Config struct {
-	Theme  string `json:"theme,omitempty"`  // theme name, e.g. "Nord"
+	Theme  string `json:"theme,omitempty"`  // theme key: "midnight" (default) | "paperback" | "crt"
 	Editor string `json:"editor,omitempty"` // optional editor command override, e.g. "code --wait"
 
 	// Secret-scan guard on promote. Empty means the default.

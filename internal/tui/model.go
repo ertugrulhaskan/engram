@@ -89,13 +89,7 @@ func (m Model) WithVersion(v string) Model {
 // New builds the initial model from the discovered memories, plans, and
 // read-only docs, applying persisted settings (theme, editor override).
 func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg config.Config) Model {
-	themeIdx := 0
-	for i, th := range themes {
-		if th.Name == cfg.Theme {
-			themeIdx = i
-			break
-		}
-	}
+	themeIdx := resolveThemeIdx(cfg.Theme)
 	t := themes[themeIdx]
 
 	se := textinput.New()
@@ -142,7 +136,7 @@ func (m Model) theme() Theme { return themes[m.themeIdx] }
 // carry the panel background; the filter input sits on the normal surface.
 func (m *Model) styleInputs() {
 	t := m.theme()
-	panel := lipgloss.Color(t.SelBg)
+	panel := lipgloss.Color(t.Sel)
 	m.search.PromptStyle = fgb(t.Accent)
 	m.search.Cursor.Style = fg(t.Accent)
 	m.palette.PlaceholderStyle = fg(t.Dim).Background(panel)
@@ -165,7 +159,11 @@ func (m *Model) setTheme(idx int) {
 	m.rebuildRows()
 	m.buildRenderer()
 	m.syncPreview()
-	_ = config.Save(config.Config{Theme: m.theme().Name, Editor: m.editorOverride})
+	// Round-trip the file so unrelated settings (secret-scan policy) survive.
+	cfg := config.Load()
+	cfg.Theme = m.theme().Key
+	cfg.Editor = m.editorOverride
+	_ = config.Save(cfg)
 }
 
 func (m Model) Init() tea.Cmd { return pollCmd() }

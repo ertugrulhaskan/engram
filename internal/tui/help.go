@@ -26,7 +26,7 @@ var helpGroups = [][]struct{ key, desc string }{
 	{
 		{"t", "cycle type filter"},
 		{"g", "group by project ⇄ type"},
-		{"1–5", "switch theme"},
+		{"1–3", "switch theme"},
 	},
 	{
 		{"^P", "palette · / sources · @Claude · > team"},

@@ -345,7 +345,7 @@ func (m Model) palRow(c palItem, cw int, panelBg, selBg string) []string {
 	}
 	if sel { // bright bar, dark text
 		bg = selBg
-		pri, subc, rc, gcol = t.BarBg, t.BarBg, t.BarBg, t.BarBg
+		pri, subc, rc, gcol = t.Bg2, t.Bg2, t.Bg2, t.Bg2
 	}
 	st := func(col string) lipgloss.Style {
 		return fg(col).Background(lipgloss.Color(bg))
@@ -389,9 +389,9 @@ func (m Model) paletteBox() string {
 	panel := m.panelBg()
 	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 
-	// Pad the header with the input's own background (SelBg) so the field reads as
+	// Pad the header with the input's own background (Sel) so the field reads as
 	// a full-width box reaching the border, independent of the input's exact width.
-	header := padBG(pst(t.Accent).Bold(true).Render("engram")+pst(t.Dim).Render(":  ")+m.palette.View(), cw, t.SelBg)
+	header := padBG(pst(t.Accent).Bold(true).Render("engram")+pst(t.Dim).Render(":  ")+m.palette.View(), cw, t.Sel)
 	lines := []string{header, m.ruleLine(cw)}
 	bleed := map[int]string{} // selected row bleeds to the border (see frameLines)
 

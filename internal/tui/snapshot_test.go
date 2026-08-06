@@ -18,7 +18,7 @@ func samplePlans() []plan.Plan {
 	d := func(s string) time.Time { t, _ := time.Parse("2006-01-02", s); return t }
 	return []plan.Plan{
 		{Title: "Auto-reload on disk changes", Body: "# Plan: Auto-reload\n\nwatch the fs\n", Path: "/Users/me/.claude/plans/auto-reload.md", Modified: d("2026-06-22")},
-		{Title: "Themed redesign", Body: "# Plan: Themed redesign\n\nfive themes\n", Path: "/Users/me/.claude/plans/themed.md", Modified: d("2026-06-19")},
+		{Title: "Themed redesign", Body: "# Plan: Themed redesign\n\nthree themes\n", Path: "/Users/me/.claude/plans/themed.md", Modified: d("2026-06-19")},
 	}
 }
 
@@ -80,13 +80,13 @@ func TestRender(t *testing.T) {
 		}
 	}
 
-	// Grouped by type + Tokyo Night theme: exercises the right-aligned project
+	// Grouped by type + Paperback theme: exercises the right-aligned project
 	// column and theme switching.
 	var cur tea.Model = New(sampleMemories(), samplePlans(), nil, config.Config{})
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
 	if testing.Verbose() {
-		fmt.Printf("\n========== grouped by type · Tokyo Night ==========\n%s\n", cur.(Model).View())
+		fmt.Printf("\n========== grouped by type · Paperback ==========\n%s\n", cur.(Model).View())
 	}
 }

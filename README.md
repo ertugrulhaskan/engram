@@ -80,7 +80,7 @@ The list reloads automatically when memory files change on disk.
 | `t`        | cycle the type filter                   |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
-| `1`–`5`    | switch theme                            |
+| `1`–`3`    | switch theme                            |
 | `ctrl+p`   | open the command palette (see below)    |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
@@ -205,7 +205,7 @@ engram's config lives at `~/.config/engram/config.json` (open it with
 
 | Key | Values | Default |
 |-----|--------|---------|
-| `theme` | theme name, e.g. `"Nord"` — saved automatically when you press `1`–`5` | Dracula |
+| `theme` | theme key: `"midnight"` · `"paperback"` · `"crt"` — saved automatically when you press `1`–`3` (names from older versions still resolve) | midnight |
 | `editor` | editor command override, e.g. `"code --wait"` — when unset, `$VISUAL` / `$EDITOR` apply | — |
 | `secretScanAction` | `block` · `block-strict` (no override) · `warn` · `off` | `block` |
 | `secretScanScope` | `secrets` · `secrets+pii` | `secrets` |

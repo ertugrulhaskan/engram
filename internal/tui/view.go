@@ -138,9 +138,9 @@ func (m Model) topBar() string {
 	}
 	left := brand + t.bar(t.Dim).Render(" "+info+" ")
 	if m.driftOut {
-		left += dangerStyle().Render(" " + driftSummary(m.driftUnindexed, m.driftDangling) + " ")
+		left += t.danger().Render(" " + driftSummary(m.driftUnindexed, m.driftDangling) + " ")
 	}
-	return m.barLine(left, right, t.BarBg)
+	return m.barLine(left, right, t.Bg2)
 }
 
 // subRow is the line under the top bar: a focus underline per pane, or the
@@ -151,25 +151,25 @@ func (m Model) subRow() string {
 	if m.mode == modeFilter {
 		left = padTo(m.search.View(), m.listW)
 	} else {
-		c := t.Border
+		c := t.Edge
 		if m.focus == focusList {
 			c = t.Accent
 		}
 		left = fg(c).Render(strings.Repeat("─", m.listW))
 	}
-	rc := t.Border
+	rc := t.Edge
 	if m.focus == focusPreview {
 		rc = t.Accent
 	}
 	right := fg(rc).Render(strings.Repeat("─", m.previewW))
-	return left + fg(t.Border).Render("┬") + right
+	return left + fg(t.Edge).Render("┬") + right
 }
 
 func (m Model) bottomRule() string {
 	t := m.theme()
-	return fg(t.Border).Render(strings.Repeat("─", m.listW)) +
-		fg(t.Border).Render("┴") +
-		fg(t.Border).Render(strings.Repeat("─", m.previewW))
+	return fg(t.Edge).Render(strings.Repeat("─", m.listW)) +
+		fg(t.Edge).Render("┴") +
+		fg(t.Edge).Render(strings.Repeat("─", m.previewW))
 }
 
 func (m Model) bottomBar() string {
@@ -190,8 +190,8 @@ func (m Model) bottomBar() string {
 		left = m.hints(t)
 	}
 	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
-		t.bar(t.Dim).Render(" · 1–5 to switch ")
-	return m.barLine(left, right, t.BarBg)
+		t.bar(t.Dim).Render(" · 1–3 to switch ")
+	return m.barLine(left, right, t.Bg2)
 }
 
 // statusStyle picks the footer color for the current status by its kind: danger
@@ -199,9 +199,9 @@ func (m Model) bottomBar() string {
 func (m Model) statusStyle(t Theme) lipgloss.Style {
 	switch m.statusKind {
 	case statusDanger:
-		return dangerStyle()
+		return t.danger()
 	case statusCancel:
-		return cancelStyle()
+		return t.cancel()
 	default:
 		return t.bar(t.Fg)
 	}
@@ -251,7 +251,7 @@ func (m Model) hints(t Theme) string {
 		return out
 	}
 	out := render(pairs)
-	avail := m.width - lipgloss.Width(t.bar(t.Dim).Render("theme "+t.Name+" · 1–5 to switch ")) - 1
+	avail := m.width - lipgloss.Width(t.bar(t.Dim).Render("theme "+t.Name+" · 1–3 to switch ")) - 1
 	for lipgloss.Width(out) > avail && len(pairs) > 1 {
 		pairs = pairs[:len(pairs)-1]
 		out = render(pairs)
@@ -270,7 +270,7 @@ func (m Model) barLine(left, right, bg string) string {
 }
 
 func (m Model) dividerCol() string {
-	line := fg(m.theme().Border).Render("│")
+	line := fg(m.theme().Edge).Render("│")
 	lines := make([]string, m.panesH)
 	for i := range lines {
 		lines[i] = line

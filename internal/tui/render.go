@@ -200,13 +200,13 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 		nameW = 4
 	}
 
-	// Selection: an accent chevron + bold accent title over a SelBg row highlight.
+	// Selection: an accent chevron + bold accent title over a Sel row highlight.
 	// The highlight is safe from ghost-cell bleed because clampFrame now closes
 	// every line's background (a glamour code chip could otherwise leave a bg open
 	// and smear across rows) — the row fill itself was never the leak.
 	bg := ""
 	if selected {
-		bg = t.SelBg
+		bg = t.Sel
 	}
 	st := func(c string) lipgloss.Style {
 		s := fg(c)
@@ -276,7 +276,7 @@ func (m Model) previewPane() string {
 		meta = fg(it.BadgeColor).Bold(true).Render(b) + " "
 		used = runewidth.StringWidth(b) + 1
 	}
-	if _, bg, _, word := syncBadge(m.syncStates[it.Path]); word != "" {
+	if _, bg, _, word := t.syncBadge(m.syncStates[it.Path]); word != "" {
 		if it.Scope != "" {
 			// Match the list: scope word in its own color (teal/blue), state in the
 			// sync color — e.g. "team global · synced". Reuse the Item's ScopeColor
@@ -319,7 +319,7 @@ func (m Model) renderTitle(title string, w int) string {
 	var b strings.Builder
 	for i, part := range strings.Split(title, "`") {
 		if i%2 == 1 {
-			b.WriteString(fg(t.Fg).Background(lipgloss.Color(t.SelBg)).Render(part))
+			b.WriteString(fg(t.Fg).Background(lipgloss.Color(t.Sel)).Render(part))
 		} else {
 			b.WriteString(fgb(t.Accent).Render(part))
 		}

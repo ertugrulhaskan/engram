@@ -23,9 +23,9 @@ func TestSelectedRowHighlighted(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	base := New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{})
 
-	// Every theme (each has a distinct SelBg) and both groupings — grouping by type
+	// Every theme (each has a distinct Sel) and both groupings — grouping by type
 	// adds the right-aligned column, another fill carrier.
-	for themeKey := '1'; themeKey <= '5'; themeKey++ {
+	for themeKey := '1'; themeKey <= '3'; themeKey++ {
 		for _, group := range []bool{false, true} {
 			var cur tea.Model = base
 			cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
@@ -35,7 +35,7 @@ func TestSelectedRowHighlighted(t *testing.T) {
 			}
 			m := cur.(Model)
 
-			// The list pane in isolation — no top/bottom bars (which carry a BarBg),
+			// The list pane in isolation — no top/bottom bars (which carry a Bg2),
 			// no divider, no preview.
 			pane := m.listPane()
 			highlighted, chevronRow := 0, false

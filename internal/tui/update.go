@@ -41,11 +41,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cp, _ := config.Path(); msg.path != "" && msg.path == cp {
 			cfg := config.Load()
 			m.editorOverride = strings.TrimSpace(cfg.Editor)
-			for i, th := range themes {
-				if th.Name == cfg.Theme {
-					m.setTheme(i)
-					break
-				}
+			// Only switch when the value resolves — an unknown or empty theme in a
+			// hand-edited config keeps the current theme instead of resetting it.
+			if idx, ok := resolveTheme(cfg.Theme); ok {
+				m.setTheme(idx)
 			}
 			return m, m.setStatus("settings updated")
 		}
@@ -194,7 +193,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
-	case "1", "2", "3", "4", "5":
+	case "1", "2", "3":
 		idx := int(msg.String()[0] - '1')
 		m.setTheme(idx)
 		return m, nil

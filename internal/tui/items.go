@@ -194,7 +194,7 @@ func (m Model) memoryItems() []Item {
 			label, color = typeLabel(mm.Type), t.typeColor(mm.Type)
 			right = "· " + mm.Project.Name
 		}
-		syncLbl, syncBg, syncFg, _ := syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
+		syncLbl, syncBg, syncFg, _ := t.syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
 		// Tie the scope chip to the sync pill: only show it when the memory has a
 		// sync state (team-scoped AND the store is initialized), so it never appears
 		// as an orphan chip with no pill beside it.
@@ -205,7 +205,7 @@ func (m Model) memoryItems() []Item {
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope, ScopeColor: scopeColor(scope),
+			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope, ScopeColor: t.scopeColor(scope),
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})

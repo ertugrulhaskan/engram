@@ -307,9 +307,9 @@ Every memory has a state relative to the team repo:
 
 `● differs` is the honest fallback for a memory shared before the anchor existed:
 distinguishing incoming from ahead needs the recorded base, so without it engram makes no
-direction claim. A color-coded `global` (teal) / `project` (azure) **scope chip** sits
-beside the pill — fixed across themes like the sync colors — tied to its presence (no
-orphan chip).
+direction claim. A color-coded `global` (OK green) / `project` (Info blue) **scope chip**
+sits beside the pill — per-theme semantic tokens, like the sync colors — tied to its
+presence (no orphan chip).
 
 ### Collisions & conflicts
 
@@ -438,9 +438,9 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 - Domain: **engram.im**. The landing page is `www/index.html`, with assets split into
   subfolders: `www/css/` (Tailwind) and `www/js/` (behavior). Styled with **Tailwind
   CSS — stock theme plus one custom token block**: the `.term` terminal-mockup palette
-  in `www/css/input.css` (dark = the TUI's Dracula theme verbatim from
+  in `www/css/input.css` (dark = the TUI’s Midnight theme (Dracula-derived) verbatim from
   `internal/tui/theme.go`; light = a GitHub Light mapping, a site design choice — the
-  TUI ships no light theme). Everything outside the terminal mockups stays stock.
+  TUI’s own light theme, Paperback, is a separate palette). Everything outside the terminal mockups stays stock.
   Compiled to `www/css/styles.css`. Input is `www/css/input.css`; rebuild with `npm run build:css`
   (see CONTRIBUTING "Landing page"). The built CSS is **committed**, so there is no
   deploy-time build. Page behavior lives in `www/js/main.js` (a plain classic deferred

@@ -7,24 +7,37 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
-// Theme is a full color scheme for the UI. Colors are hex strings so they keep
-// their identity on truecolor terminals and downsample gracefully elsewhere.
-// Backgrounds are applied only to controlled surfaces (the bars and the
-// selected row); everything else is foreground color over the terminal's own
-// background, so themes read well on any dark terminal.
+// Theme is a full color scheme for the UI — one variable set, three value sets.
+// Colors are hex strings so they keep their identity on truecolor terminals and
+// downsample gracefully elsewhere. Components never reference a raw hex: every
+// color in the UI flows through a named token here, which is what lets a light
+// theme (Paperback) exist at all.
 type Theme struct {
-	Name    string
+	Name    string // display name, e.g. "Midnight"
+	Key     string // persisted config value, e.g. "midnight"
 	Glamour string // glamour style name for the preview body
 
-	Accent string // brand, focus, selection chevron, titles
-	Fg     string // primary text
-	Dim    string // secondary text
-	Faint  string // rules, dividers, faint glyphs
+	// Surfaces.
+	Bg     string // pane + list background
+	Bg2    string // title bar, status bar, code blocks
+	BgPane string // preview pane, dialog panels
+	Sel    string // selected row; also preview code chips, inputs, palette header
+	Edge   string // all 1px borders: pane divider, rules, dialog frames
 
-	BarBg  string // top/bottom bar background
-	SelBg  string // selected row highlight; also preview code chips, inputs, palette header
-	Border string // pane divider and rules
-	Danger string // destructive actions
+	// Text.
+	Fg     string // primary text
+	Dim    string // body copy, secondary text
+	Faint  string // chrome, hints, metadata
+	Accent string // cursor, active tab, keys, focus border
+
+	// Semantics. Per-theme (not fixed) so they sit correctly on light and dark
+	// surfaces alike: OK = synced/global scope, Info = behind/project scope,
+	// Warn = ahead/drift/withdraw, Danger = conflict/missing/delete/secret.
+	OK     string
+	Info   string
+	Warn   string
+	Danger string
+	WarnBg string // drift-banner fill: Warn pre-blended over Bg (terminals have no alpha)
 
 	// Memory type colors.
 	TUser, TFeedback, TProject, TReference, TOther string
@@ -75,134 +88,122 @@ func (t Theme) groupColorer() func(key string) string {
 // and bottom bars so every segment carries the background (lipgloss resets
 // would otherwise punch holes in a full-width fill).
 func (t Theme) bar(c string) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Background(lipgloss.Color(t.BarBg))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Background(lipgloss.Color(t.Bg2))
 }
 
-// Semantic status colors for transient footer messages and the index-drift
-// warning. They're fixed across themes on purpose: they signal severity
-// (danger/cancel), not brand, so the meaning stays constant when the theme
-// changes.
-const (
-	statusDangerBg = "#c0392b" // red
-	statusDangerFg = "#ffffff" // white
-	statusCancelBg = "#50c878" // emerald
-	statusCancelFg = "#3e2723" // dark brown
-)
-
-// dangerStyle renders warnings and destructive confirmations (and the index-out-
-// of-sync badge): white text on red. cancelStyle renders aborted actions: dark
-// brown on emerald.
-func dangerStyle() lipgloss.Style {
+// danger renders warnings and destructive confirmations (and the index-drift
+// badge) as a filled block: theme background as text over the Danger fill —
+// the state colors are chosen to contrast with Bg on every theme, so Bg is
+// always the readable pill text. cancel renders aborted actions the same way
+// over the OK fill.
+func (t Theme) danger() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(statusDangerFg)).
-		Background(lipgloss.Color(statusDangerBg)).
+		Foreground(lipgloss.Color(t.Bg)).
+		Background(lipgloss.Color(t.Danger)).
 		Bold(true)
 }
 
-func cancelStyle() lipgloss.Style {
+func (t Theme) cancel() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(statusCancelFg)).
-		Background(lipgloss.Color(statusCancelBg))
+		Foreground(lipgloss.Color(t.Bg)).
+		Background(lipgloss.Color(t.OK))
 }
-
-// Sync-badge colors. Fixed across themes on purpose (like the status colors
-// above): they signal a memory's relationship to the team store, not brand. The
-// list renders a filled pill (background + contrasting foreground); the glyph is
-// kept alongside the word so the state reads without relying on color.
-const (
-	syncSyncedColor   = "#50c878" // emerald — local matches the team copy
-	syncDiffersColor  = "#e0af68" // amber — local differs / is ahead of the team copy
-	syncIncomingColor = "#7aa2f7" // blue — the store advanced; an update is waiting (safe to take)
-	syncConflictColor = "#db4b4b" // bright red — local and store diverged; needs a manual resolve
-	syncMissingColor  = "#c0392b" // dark red — promoted, but no copy in the store
-	syncPillFgDark    = "#0e2118" // dark text, for the green / amber / blue pills
-	syncPillFgLight   = "#ffffff" // light text, for the red pills
-)
 
 // syncBadge maps a team sync state to its list label, the pill's background and
 // foreground colors, and the bare word used (as colored text) in the preview
 // meta. The label pairs a width-1-safe glyph with the word so state reads without
 // color. StateNone returns empty — personal/unshared memories carry no badge.
-func syncBadge(s team.SyncState) (label, bg, fgc, word string) {
+// Semantic mapping per the design tokens: synced→OK, incoming→Info, ahead→Warn,
+// conflict/missing→Danger, differs (no anchor)→Faint.
+func (t Theme) syncBadge(s team.SyncState) (label, bg, fgc, word string) {
 	switch s {
 	case team.StateSynced:
-		return "✓ synced", syncSyncedColor, syncPillFgDark, "synced"
+		return "✓ synced", t.OK, t.Bg, "synced"
 	case team.StateIncoming:
-		return "↓ incoming", syncIncomingColor, syncPillFgDark, "incoming"
+		return "↓ incoming", t.Info, t.Bg, "incoming"
 	case team.StateLocalAhead:
-		return "↑ ahead", syncDiffersColor, syncPillFgDark, "ahead"
+		return "↑ ahead", t.Warn, t.Bg, "ahead"
 	case team.StateDiverged:
-		return "↕ conflict", syncConflictColor, syncPillFgLight, "conflict"
+		return "↕ conflict", t.Danger, t.Bg, "conflict"
 	case team.StateDiffers:
-		return "● differs", syncDiffersColor, syncPillFgDark, "differs"
+		return "● differs", t.Faint, t.Bg, "differs"
 	case team.StateMissing:
-		return "! missing", syncMissingColor, syncPillFgLight, "missing"
+		return "! missing", t.Danger, t.Bg, "missing"
 	default:
 		return "", "", "", ""
 	}
 }
 
-// Scope-chip colors. Fixed across themes (like the sync colors above): they tag
-// which bucket a shared memory lives in — team-wide (global) or a single project
-// — which is a semantic tag, not brand. Rendered as colored text (not a filled
-// pill), so the chip stays lighter than the sync pill sitting beside it.
-const (
-	scopeGlobalColor  = "#4ec9b0" // teal — the team-wide bucket
-	scopeProjectColor = "#4a9eff" // azure — one project's bucket (kept distinct from the periwinkle syncIncomingColor so scope ≠ state)
-)
-
-// scopeColor maps a scope-chip label to its fixed color ("" when there's no chip).
-func scopeColor(scope string) string {
+// scopeColor maps a scope-chip label to its semantic color ("" when there's no
+// chip): global is the team-wide bucket (OK), project a single project's (Info).
+func (t Theme) scopeColor(scope string) string {
 	switch scope {
 	case "global":
-		return scopeGlobalColor
+		return t.OK
 	case "project":
-		return scopeProjectColor
+		return t.Info
 	default:
 		return ""
 	}
 }
 
-// themes is the switchable set, ordered to match the 1–5 number keys.
+// resolveTheme maps a persisted config value to a theme index. It accepts the
+// stable Key ("midnight"), the display Name ("Midnight"), and the names of the
+// five retired pre-redesign themes — configs written by older engram versions
+// keep working, they just land on Midnight (every retired theme was dark;
+// Midnight is the direct heir of the old default). ok is false for empty or
+// unrecognized values, so callers choose their own fallback: startup defaults
+// to themes[0], while a live settings reload keeps the current theme.
+func resolveTheme(v string) (idx int, ok bool) {
+	for i, th := range themes {
+		if th.Key == v || th.Name == v {
+			return i, true
+		}
+	}
+	switch v {
+	case "Dracula", "Tokyo Night", "Nord", "Gruvbox", "Classic Dark":
+		return 0, true // Midnight
+	}
+	return 0, false
+}
+
+// resolveThemeIdx is resolveTheme with the startup fallback baked in: unknown
+// values land on the default theme, matching what older binaries do with the
+// new keys.
+func resolveThemeIdx(v string) int {
+	idx, _ := resolveTheme(v)
+	return idx
+}
+
+// themes is the switchable set, ordered to match the 1–3 number keys.
+// Values are the design-spec token sets (design source: the TUI design spec's
+// Dracula Dense / Paper Terminal / Phosphor palettes).
 var themes = []Theme{
 	{
-		Name: "Dracula", Glamour: "dracula",
-		Accent: "#bd93f9", Fg: "#f8f8f2", Dim: "#6272a4", Faint: "#44475a",
-		BarBg: "#21222c", SelBg: "#44475a", Border: "#44475a",
-		Danger: "#ff5555",
+		Name: "Midnight", Key: "midnight", Glamour: "dracula",
+		Bg: "#282a36", Bg2: "#21222c", BgPane: "#2b2d3a", Sel: "#44475a", Edge: "#3a3d4d",
+		Fg: "#f8f8f2", Dim: "#c6c8d1", Faint: "#6272a4", Accent: "#bd93f9",
+		OK: "#50fa7b", Info: "#8be9fd", Warn: "#ffb86c", Danger: "#ff5555",
+		WarnBg: "#3e383b", // Warn @ 10% over Bg
 		TUser:  "#8be9fd", TFeedback: "#ffb86c", TProject: "#50fa7b", TReference: "#bd93f9", TOther: "#6272a4",
 		Groups: []string{"#50fa7b", "#8be9fd", "#ff79c6", "#ffb86c", "#bd93f9", "#f1fa8c"},
 	},
 	{
-		Name: "Tokyo Night", Glamour: "tokyo-night",
-		Accent: "#7aa2f7", Fg: "#c0caf5", Dim: "#565f89", Faint: "#3b4261",
-		BarBg: "#16161e", SelBg: "#283457", Border: "#3b4261",
-		Danger: "#f7768e",
-		TUser:  "#7dcfff", TFeedback: "#ff9e64", TProject: "#9ece6a", TReference: "#bb9af7", TOther: "#565f89",
-		Groups: []string{"#9ece6a", "#7dcfff", "#bb9af7", "#ff9e64", "#7aa2f7", "#e0af68"},
+		Name: "Paperback", Key: "paperback", Glamour: "light",
+		Bg: "#f5f2ec", Bg2: "#ebe7dd", BgPane: "#fbf9f5", Sel: "#e2ddd0", Edge: "#dcd6c8",
+		Fg: "#2a2723", Dim: "#5c574e", Faint: "#928b7d", Accent: "#a8492a",
+		OK: "#3f7d4e", Info: "#2f5d8a", Warn: "#a8722a", Danger: "#a83a2a",
+		WarnBg: "#eee6db", // Warn @ 9% over Bg
+		TUser:  "#2f5d8a", TFeedback: "#a8722a", TProject: "#3f7d4e", TReference: "#6b4a8a", TOther: "#928b7d",
+		Groups: []string{"#3f7d4e", "#2f5d8a", "#6b4a8a", "#a8722a", "#a8492a", "#2a6f6a"},
 	},
 	{
-		Name: "Nord", Glamour: "dark",
-		Accent: "#88c0d0", Fg: "#e5e9f0", Dim: "#616e88", Faint: "#434c5e",
-		BarBg: "#272c36", SelBg: "#3b4252", Border: "#434c5e",
-		Danger: "#bf616a",
-		TUser:  "#81a1c1", TFeedback: "#d08770", TProject: "#a3be8c", TReference: "#b48ead", TOther: "#616e88",
-		Groups: []string{"#a3be8c", "#88c0d0", "#b48ead", "#d08770", "#81a1c1", "#ebcb8b"},
-	},
-	{
-		Name: "Gruvbox", Glamour: "dark",
-		Accent: "#fabd2f", Fg: "#ebdbb2", Dim: "#928374", Faint: "#504945",
-		BarBg: "#1d2021", SelBg: "#3c3836", Border: "#504945",
-		Danger: "#fb4934",
-		TUser:  "#83a598", TFeedback: "#fe8019", TProject: "#b8bb26", TReference: "#d3869b", TOther: "#928374",
-		Groups: []string{"#b8bb26", "#83a598", "#d3869b", "#fe8019", "#8ec07c", "#fabd2f"},
-	},
-	{
-		Name: "Classic Dark", Glamour: "dark",
-		Accent: "#4fa6ed", Fg: "#d4d4d4", Dim: "#808080", Faint: "#3a3a3a",
-		BarBg: "#181818", SelBg: "#2a2d2e", Border: "#3a3a3a",
-		Danger: "#e05561",
-		TUser:  "#569cd6", TFeedback: "#ce9178", TProject: "#6a9955", TReference: "#c586c0", TOther: "#808080",
-		Groups: []string{"#6a9955", "#569cd6", "#c586c0", "#ce9178", "#4ec9b0", "#dcdcaa"},
+		Name: "CRT", Key: "crt", Glamour: "dark",
+		Bg: "#0a0b09", Bg2: "#0f110e", BgPane: "#0d0f0c", Sel: "#1c2419", Edge: "#233020",
+		Fg: "#c9f7bf", Dim: "#7fbe78", Faint: "#4d7a4a", Accent: "#ffc05a",
+		OK: "#6ef58a", Info: "#7fe4ff", Warn: "#ffc05a", Danger: "#ff6b5a",
+		WarnBg: "#1e1910", // Warn @ 8% over Bg
+		TUser:  "#7fe4ff", TFeedback: "#ffc05a", TProject: "#6ef58a", TReference: "#d7a0ff", TOther: "#4d7a4a",
+		Groups: []string{"#6ef58a", "#7fe4ff", "#d7a0ff", "#ffc05a", "#c9f7bf", "#7fbe78"},
 	},
 }

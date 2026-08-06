@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Three themes replace the previous five** (`internal/tui/theme.go`) — **Midnight**
+  (Dracula-derived, the default), **Paperback** (light), and **CRT** (green phosphor),
+  switched with `1`–`3`. Every color in the UI now flows through one named token set
+  per theme (surfaces, text, and semantic `ok`/`info`/`warn`/`danger` colors); the
+  previously fixed cross-theme sync-pill, scope-chip, and status colors are per-theme
+  tokens, which is what makes a light theme possible at all. `config.json` now stores
+  a stable lowercase key (`"midnight"` · `"paperback"` · `"crt"`); configs written by
+  older versions still resolve (the five retired theme names map to Midnight), and
+  older binaries reading the new keys fall back to their default theme rather than
+  erroring.
+
+### Fixed
+- **Switching themes no longer wipes unrelated settings from `config.json`** — the
+  save now round-trips the file, so `secretScanAction`/`secretScanScope` survive a
+  `1`–`3` keypress. Previously every theme switch rewrote the file with only `theme`
+  and `editor`.
+- **A hand-edited config with an unknown theme keeps the current theme** on settings
+  reload instead of resetting (the unknown value is also left in the file untouched).
+
 ### Added
 - **Landing-page search and AI-answer surface** (`www/`) — the site now ships
   `robots.txt` (nothing disallowed; AI answer agents such as `OAI-SearchBot`,

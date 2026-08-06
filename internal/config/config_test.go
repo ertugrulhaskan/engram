@@ -47,7 +47,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("missing config should be zero, got %+v", c)
 	}
 
-	want := Config{Theme: "Nord", Editor: "code --wait"}
+	want := Config{Theme: "crt", Editor: "code --wait"}
 	if err := Save(want); err != nil {
 		t.Fatal(err)
 	}
