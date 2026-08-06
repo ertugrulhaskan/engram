@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -16,6 +17,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.resize(msg.Width, msg.Height)
+		return withStoreTimeFetch(m, nil)
+
+	case storeTimeMsg:
+		// The store's last-change time for one behind memory came back. On
+		// failure the stamp stays omitted (asked-marker prevents a retry loop).
+		if msg.err == nil {
+			if m.storeTimes == nil {
+				m.storeTimes = map[string]time.Time{}
+			}
+			m.storeTimes[msg.id] = msg.t
+		}
 		return m, nil
 
 	case resolveFinishedMsg:
@@ -133,11 +145,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fsSig = msg.sig
 		m.previewCache = nil
 		m.driftDir = "" // index may have changed — recompute on next syncPreview
+		// Store timestamps go stale with the states (a pull moves the store),
+		// so drop both caches and let the selected row re-ask.
+		m.storeTimes, m.storeTimeAsked = nil, nil
 		m.rebuildRows()
 		if prevPath != "" {
 			m.selectByPath(prevPath)
 		}
-		return m, nil
+		return withStoreTimeFetch(m, nil)
 
 	case clearStatusMsg:
 		if msg.seq == m.statusSeq {
@@ -160,28 +175,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, pollCmd()
 
 	case tea.KeyMsg:
-		switch m.mode {
-		case modeFilter:
-			return m.updateFilter(msg)
-		case modeNew:
-			return m.updateNew(msg)
-		case modeConfirm:
-			return m.updateConfirm(msg)
-		case modePalette:
-			return m.updatePalette(msg)
-		case modeHelp:
-			return m.updateHelp(msg)
-		case modePromoteScope:
-			return m.updatePromoteScope(msg)
-		case modeSecretWarn:
-			return m.updateSecretWarn(msg)
-		case modeWithdrawConfirm:
-			return m.updateWithdrawConfirm(msg)
-		default:
-			return m.updateNormal(msg)
-		}
+		return withStoreTimeFetch(m.dispatchKey(msg))
 	}
 	return m, nil
+}
+
+// dispatchKey routes a keypress to the active mode's handler.
+func (m Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.mode {
+	case modeFilter:
+		return m.updateFilter(msg)
+	case modeNew:
+		return m.updateNew(msg)
+	case modeConfirm:
+		return m.updateConfirm(msg)
+	case modePalette:
+		return m.updatePalette(msg)
+	case modeHelp:
+		return m.updateHelp(msg)
+	case modePromoteScope:
+		return m.updatePromoteScope(msg)
+	case modeSecretWarn:
+		return m.updateSecretWarn(msg)
+	case modeWithdrawConfirm:
+		return m.updateWithdrawConfirm(msg)
+	default:
+		return m.updateNormal(msg)
+	}
 }
 
 // --- normal-mode keys ---

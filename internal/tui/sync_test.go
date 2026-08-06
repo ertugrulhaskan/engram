@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +16,8 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/team"
 )
+
+var errStoreTimeTest = errors.New("store time lookup failed")
 
 // TestSyncVocabulary pins the spec's display words — StateIncoming reads
 // "behind" and StateDiffers "unknown" (the Go enum names stay) — and the
@@ -87,6 +91,92 @@ func TestSyncPillBracketed(t *testing.T) {
 	}
 	if testing.Verbose() {
 		fmt.Printf("\n========== sync pills (behind + unknown) ==========\n%s\n", m.View())
+	}
+}
+
+// TestSyncStripPerState pins the preview band: the spec sentence, the offered
+// action chip, the gauge, and the honest per-state stamp.
+func TestSyncStripPerState(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cases := []struct {
+		name    string
+		state   team.SyncState
+		project string
+		want    []string
+		absent  []string
+	}{
+		{"behind", team.StateIncoming, "acme/app",
+			[]string{"The team copy moved ahead. Yours is untouched.", "[p pull]", "you ▬▬▬ ← ▬▬▬ team"},
+			[]string{"store advanced"}}, // no stamp until git has answered
+		{"synced", team.StateSynced, "acme/app",
+			[]string{"In sync with the team store.", "you ▬▬▬ = ▬▬▬ team", "edited "},
+			[]string{"[p pull]", "[P promote]", "[r resolve]"}},
+		{"conflict", team.StateDiverged, "acme/app",
+			[]string{"Both sides changed since you last synced.", "[r resolve]", "↔", "diverged "},
+			nil},
+		{"missing", team.StateMissing, "acme/app",
+			[]string{"Promoted once, but it is not in the store anymore.", "[P promote]", "✕", "not in store"},
+			nil},
+		{"unknown", team.StateDiffers, "acme/app",
+			[]string{"Shared before sync tracking existed, so there is no direction.", "[r resolve]", "no anchor"},
+			nil},
+	}
+	for _, c := range cases {
+		plain := ansi.Strip(actionModel(c.state, c.project).View())
+		for _, w := range c.want {
+			if !strings.Contains(plain, w) {
+				t.Errorf("%s: frame missing %q", c.name, w)
+			}
+		}
+		for _, a := range c.absent {
+			if strings.Contains(plain, a) {
+				t.Errorf("%s: frame unexpectedly contains %q", c.name, a)
+			}
+		}
+	}
+	// Personal rows get no band at all.
+	plain := ansi.Strip(actionModel(team.StateNone, "").View())
+	if strings.Contains(plain, "In sync") || strings.Contains(plain, "you ▬▬▬") {
+		t.Error("personal row rendered a sync strip")
+	}
+}
+
+// TestSyncStripStoreStamp covers the lazy "store advanced" stamp: the fetch is
+// marked as asked on selection, the stamp appears only after git answers, and a
+// failed lookup stays omitted.
+func TestSyncStripStoreStamp(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	m := actionModel(team.StateIncoming, "acme/app")
+	if !m.storeTimeAsked["m-1"] {
+		t.Fatal("selecting a behind row did not mark its store time as asked")
+	}
+
+	var cur tea.Model = m
+	cur, _ = cur.Update(storeTimeMsg{id: "m-1", t: time.Now().Add(-2 * time.Hour)})
+	if plain := ansi.Strip(cur.(Model).View()); !strings.Contains(plain, "store advanced 2h ago") {
+		t.Error("fetched store time did not render as the stamp")
+	}
+
+	m2 := actionModel(team.StateIncoming, "acme/app")
+	cur = m2
+	cur, _ = cur.Update(storeTimeMsg{id: "m-1", err: errStoreTimeTest})
+	if plain := ansi.Strip(cur.(Model).View()); strings.Contains(plain, "store advanced") {
+		t.Error("failed lookup still rendered a stamp")
+	}
+}
+
+// TestSyncStripViewportShrink: the viewport gives up exactly the band's rows,
+// and gets them back on a personal row.
+func TestSyncStripViewportShrink(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	m := actionModel(team.StateIncoming, "acme/app")
+	if got, want := m.viewport.Height, m.panesH-7; got != want {
+		t.Errorf("behind row: viewport height %d, want %d (band shown)", got, want)
+	}
+	var cur tea.Model = m
+	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	if got, want := cur.(Model).viewport.Height, m.panesH-4; got != want {
+		t.Errorf("personal row: viewport height %d, want %d (band hidden)", got, want)
 	}
 }
 

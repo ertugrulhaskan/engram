@@ -155,6 +155,12 @@ directly, so the index and your instructions don't get hand-corrupted.
 
   Personal memories show no pill, and the column vanishes until you set up a
   team store.
+- **Sync strip.** The preview of a shared memory carries a band under its
+  title: the state as a plain sentence, the offered action as a chip
+  (`[p pull]`), and a direction gauge — `you ▬▬▬ ← ▬▬▬ team`, the side that
+  moved filled in the state's color — with an honest timestamp (`store advanced
+  2h ago` comes from the store's git history and is omitted when git can't
+  answer, never guessed).
 - **Scope chip.** A color-coded `global` (teal) / `project` (azure) chip sits
   beside the sync pill, showing whether a shared memory is team-wide or tied to
   one project — the choice you make when you promote.

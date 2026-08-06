@@ -311,6 +311,16 @@ the selected row). The display words follow the design spec's vocabulary; the Go
 keeps its original spellings (`StateIncoming` reads `behind`, `StateDiffers` reads
 `unknown`) as a stable non-UI API.
 
+The preview backs the pill with a **sync strip**: a band under the title carrying the
+state's plain sentence, the offered action chip (`[p pull]`, from the same
+`offeredAction` source of truth as the status bar), and a direction gauge
+(`you ▬▬▬ ← ▬▬▬ team`, moved side filled in the state color, conflict both) with an
+honest timestamp. `edited`/`diverged` stamps come from the local file's mtime;
+`store advanced` is the store file's last **git commit time**
+(`team.StoreLastChange`, fetched lazily per selected row, cached until reload) —
+omitted whenever git can't answer, never fabricated. `missing`/`unknown` carry
+`not in store` / `no anchor` instead of a time.
+
 `[unknown]` is the honest fallback for a memory shared before the anchor existed:
 distinguishing behind from ahead needs the recorded base, so without it engram makes no
 direction claim. A color-coded `global` (OK green) / `project` (Info blue) **scope chip**
@@ -355,6 +365,7 @@ engram/
             scan.go          # ScanForSecrets: read a file and run internal/secrets over it (IO kept out of the TUI)
             pull.go          # Pull project team memories; anchor-driven fast-forward vs conflict (decidePull)
             status.go        # SyncStates + relationOf: read-only direction-aware sync state (synced/behind/ahead/conflict/unknown/missing)
+            storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
             withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)
@@ -365,7 +376,8 @@ engram/
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
             update.go        # Update dispatcher + per-mode key handlers
             view.go          # View, title bar, source tab strip, status bar, drift warning
-            offer.go         # offeredAction: sync state + scope → the one team key the UI advertises
+            offer.go         # offeredAction + state sentences/glyphs: sync state → what the UI advertises
+            synctime.go      # lazy per-selection fetch of the store's last-change time (sync strip stamp)
             items.go         # Item/row types, memory/plan → Item mapping, grouping, row build
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering and the manual rounded-dialog frame (frameLines)

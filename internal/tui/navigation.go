@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // switchSource changes the active source, remembering the per-source cursor and
@@ -139,6 +140,15 @@ func (m Model) currentMemDir() string {
 	return ""
 }
 
+// stripRows is how many preview rows the sync strip band occupies for an item:
+// two band lines plus a separating blank, or none for rows without sync state.
+func (m Model) stripRows(it Item) int {
+	if it.Kind == "memory" && it.Sync != team.StateNone {
+		return 3
+	}
+	return 0
+}
+
 func (m *Model) syncPreview() {
 	if !m.ready {
 		return
@@ -147,6 +157,14 @@ func (m *Model) syncPreview() {
 	if !ok {
 		m.viewport.SetContent("")
 		return
+	}
+	// The sync strip sits between the preview header and the body, so the
+	// viewport shrinks by its rows only while a stateful memory is selected
+	// (resize sets the 4-line-header baseline; this is the sole other writer).
+	if vpH := m.panesH - 4 - m.stripRows(it); vpH >= 1 {
+		m.viewport.Height = vpH
+	} else {
+		m.viewport.Height = 1
 	}
 	// Index drift applies to memories only; refresh the flag when the selected
 	// project changes (cached by memory dir so it only touches disk on a switch).

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -38,6 +39,14 @@ type Model struct {
 	renderer     *glamour.TermRenderer
 	previewCache map[string]string         // rendered body keyed by path; cleared on resize/theme/reload
 	syncStates   map[string]team.SyncState // memory path -> team sync state; recomputed on load/reload
+
+	// Store-timestamp cache for the sync strip's "store advanced …" stamp:
+	// engram id -> last store commit time, fetched lazily for the selected row
+	// (storeTimeCmd) and cleared on reload. storeTimeAsked marks ids already
+	// requested this cycle — including failures, so a broken lookup is asked
+	// once and the stamp is simply omitted, never fabricated or retried hot.
+	storeTimes     map[string]time.Time
+	storeTimeAsked map[string]bool
 
 	themeIdx       int
 	editorOverride string // optional editor command from config; "" = use env/host

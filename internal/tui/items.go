@@ -40,6 +40,7 @@ type Item struct {
 	Badge      string         // bracket label, e.g. "user"/"project"; "" = no badge column
 	BadgeColor string         // hex
 	Sync       team.SyncState // raw team-sync state (StateNone when not shared) — drives status bar / sync strip
+	SyncID     string         // engram id of a shared memory; keys the store-timestamp lookup
 	SyncBadge  string         // team-sync state word (e.g. "behind"), drawn as an outlined "[behind]" pill; "" = none
 	SyncColor  string         // hex state color for the pill text
 	Scope      string         // shared-scope chip: "global" / "project"; "" = not shared
@@ -207,7 +208,7 @@ func (m Model) memoryItems() []Item {
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			Sync: state, SyncBadge: word, SyncColor: syncColor, Scope: scope, ScopeColor: t.scopeColor(scope),
+			Sync: state, SyncID: mm.Shared.ID, SyncBadge: word, SyncColor: syncColor, Scope: scope, ScopeColor: t.scopeColor(scope),
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})

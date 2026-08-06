@@ -6,6 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
+
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 func (m Model) listPane() string {
@@ -303,18 +305,127 @@ func (m Model) previewPane() string {
 	}
 	meta += fg(t.Dim).Render(clip(rest, innerW-used))
 	title := m.renderTitle(it.Title, innerW)
-	block := lipgloss.JoinVertical(lipgloss.Left, meta, "", title, "", m.viewport.View())
+	// The header and body are padded blocks; the sync strip band between them
+	// renders full-bleed (its own Bg2 rows span the pane edge to edge), so it
+	// reads as a strip, not indented text. Total header rows: 4, or 7 with the
+	// band — syncPreview shrinks the viewport to match (stripRows).
+	head := lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
+		Render(lipgloss.JoinVertical(lipgloss.Left, meta, "", title, ""))
+	parts := []string{head}
+	if band := m.syncStrip(it); len(band) > 0 {
+		parts = append(parts, strings.Join(band, "\n"), "")
+	}
+	parts = append(parts, lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
+		Render(m.viewport.View()))
+	block := lipgloss.JoinVertical(lipgloss.Left, parts...)
 	// Width(previewW) so every preview line fills the pane — otherwise the joined
 	// frame has ragged line widths and a floated dialog leaves stale cells.
 	// Height+MaxHeight pin the pane to exactly panesH lines: a long preview can
 	// never push the whole frame past the terminal height. An overflowing frame
 	// scrolls the alt-screen, which desyncs Bubble Tea's line-diff renderer and
 	// leaves ghost rows (a trailing highlight) until the next full repaint.
-	rendered := lipgloss.NewStyle().PaddingLeft(previewPad).Width(m.previewW).
+	rendered := lipgloss.NewStyle().Width(m.previewW).
 		Height(m.panesH).MaxHeight(m.panesH).Render(block)
 	// Paint the whole pane BgPane; glamour's own fills (code blocks, chips)
 	// sit on top, and the reset-reassert in paintLine closes their bleed.
 	return paintBlock(rendered, m.previewW, t.BgPane)
+}
+
+// syncStrip is the preview's sync band for a memory with team state: a Bg2 band
+// under the title carrying the spec's plain sentence with the offered action as
+// a chip, then the direction gauge (`you ▬▬▬ ← ▬▬▬ team` — the side that moved
+// is filled in the state color, conflict fills both) with the honest timestamp.
+// Timestamps degrade by omission: "store advanced" appears only once git has
+// answered (storeTimes); missing and unknown state their facts instead.
+func (m Model) syncStrip(it Item) []string {
+	if m.stripRows(it) == 0 {
+		return nil
+	}
+	t := m.theme()
+	w := m.previewW
+	_, c := t.syncBadge(it.Sync)
+
+	// Row 1 budget: pads + dot + sentence + ≥1 gap + chip. Over-wide content
+	// must never leave here — lipgloss's Width() wraps long lines, which would
+	// grow the band and push the body down. The sentence clips first; the chip
+	// is dropped only when a pane is too narrow to share the row at all.
+	chipTxt := ""
+	if key, verb := offeredAction(it.Sync, it.Scope); key != "" {
+		chipTxt = "[" + key + " " + verb + "]"
+	}
+	sentAvail := w - 2*previewPad - 2 - runewidth.StringWidth(chipTxt) - 1
+	if chipTxt != "" && sentAvail < 12 {
+		chipTxt = ""
+		sentAvail = w - 2*previewPad - 2
+	}
+	if sentAvail < 1 {
+		sentAvail = 1
+	}
+	left1 := onbg(c, t.Bg2).Render(spaces(previewPad)+"● ") +
+		onbg(t.Fg, t.Bg2).Render(clip(stateSentence(it.Sync), sentAvail))
+	right1 := ""
+	if chipTxt != "" {
+		right1 = onbg(c, t.Bg2).Bold(true).Render(chipTxt) +
+			onbg(t.Dim, t.Bg2).Render(spaces(previewPad))
+	}
+
+	youC, teamC := t.Edge, t.Edge
+	switch it.Sync {
+	case team.StateIncoming, team.StateMissing:
+		teamC = c
+	case team.StateLocalAhead:
+		youC = c
+	case team.StateDiverged:
+		youC, teamC = c, c
+	}
+	left2 := onbg(t.Dim, t.Bg2).Render(spaces(previewPad)+"you ") +
+		onbg(youC, t.Bg2).Render("▬▬▬") +
+		onbg(c, t.Bg2).Render(" "+gaugeGlyph(it.Sync)+" ") +
+		onbg(teamC, t.Bg2).Render("▬▬▬") +
+		onbg(t.Dim, t.Bg2).Render(" team")
+	right2 := ""
+	// The stamp clips to what the gauge leaves over, and vanishes rather than
+	// crowding it on very narrow panes.
+	if stamp := clip(m.stripStamp(it), w-lipgloss.Width(left2)-previewPad-1); stamp != "" && runewidth.StringWidth(stamp) >= 4 {
+		right2 = onbg(t.Dim, t.Bg2).Render(stamp + spaces(previewPad))
+	}
+
+	return []string{bandLine(left1, right1, w, t.Bg2), bandLine(left2, right2, w, t.Bg2)}
+}
+
+// stripStamp is the sync strip's timestamp, honest per state: local knowledge
+// covers synced/ahead ("edited") and conflict ("diverged"); behind needs the
+// store side's last commit time and is omitted until git has answered; missing
+// and unknown have no time to claim, so they state the fact instead.
+func (m Model) stripStamp(it Item) string {
+	switch it.Sync {
+	case team.StateSynced, team.StateLocalAhead:
+		return "edited " + humanizeSince(it.Modified)
+	case team.StateDiverged:
+		return "diverged " + humanizeSince(it.Modified)
+	case team.StateIncoming:
+		if ts, ok := m.storeTimes[it.SyncID]; ok {
+			return "store advanced " + humanizeSince(ts)
+		}
+		return "" // not fetched (or the lookup failed) — never guessed
+	case team.StateMissing:
+		return "not in store"
+	case team.StateDiffers:
+		return "no anchor"
+	default:
+		return ""
+	}
+}
+
+// bandLine lays a left and right segment over a bg-filled row of exactly w
+// cells — barLine's shape, but for a pane-width band rather than the full bar.
+func bandLine(left, right string, w int, bg string) string {
+	gap := w - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 0 {
+		gap = 0
+	}
+	mid := lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(gap))
+	return left + mid + right
 }
 
 // renderTitle styles the preview title in the accent color, with `code` spans

@@ -28,3 +28,46 @@ func offeredAction(s team.SyncState, scope string) (key, verb string) {
 		return "", ""
 	}
 }
+
+// stateSentence is the design spec's plain sentence for a sync state, shown in
+// the preview's sync strip. Empty for StateNone (the strip doesn't render).
+func stateSentence(s team.SyncState) string {
+	switch s {
+	case team.StateSynced:
+		return "In sync with the team store."
+	case team.StateIncoming:
+		return "The team copy moved ahead. Yours is untouched."
+	case team.StateLocalAhead:
+		return "You have edits the team has not seen yet."
+	case team.StateDiverged:
+		return "Both sides changed since you last synced."
+	case team.StateMissing:
+		return "Promoted once, but it is not in the store anymore."
+	case team.StateDiffers:
+		return "Shared before sync tracking existed, so there is no direction."
+	default:
+		return ""
+	}
+}
+
+// gaugeGlyph is the direction glyph between the gauge's two bars: which side
+// moved, both, neither, or unknowable. Words can be misread ("behind" sounds
+// broken); the glyph on the gauge is not.
+func gaugeGlyph(s team.SyncState) string {
+	switch s {
+	case team.StateSynced:
+		return "="
+	case team.StateIncoming:
+		return "←"
+	case team.StateLocalAhead:
+		return "→"
+	case team.StateDiverged:
+		return "↔"
+	case team.StateMissing:
+		return "✕"
+	case team.StateDiffers:
+		return "?"
+	default:
+		return ""
+	}
+}

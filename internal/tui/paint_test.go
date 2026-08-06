@@ -11,6 +11,8 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
+	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // TestFullFramePainted guards the paint pass end to end: at a normal size,
@@ -25,7 +27,13 @@ func TestFullFramePainted(t *testing.T) {
 	defer lipgloss.SetColorProfile(old)
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	base := New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{})
+	mems := sampleMemories()
+	// Give the first (selected) memory a sync state so the preview's sync strip
+	// band is part of the painted frame in every theme.
+	mems[0].Shared = memory.EngramMeta{ID: "m-paint", Scope: "team", Project: "global"}
+	base := New(mems, samplePlans(), sampleDocs(), config.Config{})
+	base.syncStates = map[string]team.SyncState{mems[0].Path: team.StateIncoming}
+	base.rebuildRows()
 
 	const w, h = 100, 30
 	for themeKey := '1'; themeKey <= '3'; themeKey++ {

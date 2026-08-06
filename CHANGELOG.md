@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A sync strip in the preview** — a shared memory's preview now carries a band
+  under the title: the state in a plain sentence ("The team copy moved ahead.
+  Yours is untouched."), the offered action as a chip (`[p pull]`), and a
+  direction gauge — `you ▬▬▬ ← ▬▬▬ team`, the side that moved filled in the
+  state's color (conflict fills both) — with an honest timestamp. `edited` /
+  `diverged` come from the local file; **`store advanced 2h ago` is read from
+  the team store's git history** (fetched lazily for the selected row) and is
+  simply omitted when git can't answer — never guessed. `missing` and `unknown`
+  state their facts (`not in store`, `no anchor`) instead of claiming a time.
+
 ### Changed
 - **The status bar is contextual, with direct team keys** — `P` promote, `p`
   pull, and `r` resolve now work straight from the list (the `>` palette verbs

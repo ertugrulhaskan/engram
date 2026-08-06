@@ -10,6 +10,7 @@ import (
 
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // stressMemories prepends a memory with a very long title and long, wrappable
@@ -40,7 +41,13 @@ func TestFrameNeverExceedsTerminal(t *testing.T) {
 	// No SetColorProfile: line count and lipgloss.Width are color-independent, and
 	// a global profile change would leak into sibling tests in this package.
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	base := New(stressMemories(), samplePlans(), sampleDocs(), config.Config{})
+	mems := stressMemories()
+	// Give the worst-case (long) memory a sync state so the preview also
+	// carries the 3-row sync strip band — the tallest header the pane can have.
+	mems[0].Shared = memory.EngramMeta{ID: "m-stress", Scope: "team", Project: "global"}
+	base := New(mems, samplePlans(), sampleDocs(), config.Config{})
+	base.syncStates = map[string]team.SyncState{mems[0].Path: team.StateIncoming}
+	base.rebuildRows()
 
 	// Include very short terminals (h <= 12): panesH is floored above h-6 there,
 	// so without the height clamp the frame would overflow at any width — the
