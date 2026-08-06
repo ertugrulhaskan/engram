@@ -132,9 +132,11 @@ func (m Model) topBar() string {
 // sourceStrip is the persistent source tab row under the title bar: every
 // source with its live count, so switching is a visible affordance rather than
 // palette trivia. The active tab reads in Fg bold + underline with the count in
-// Accent; inactive tabs are Faint. The right side echoes the list-shaping state
-// (group/type for memories, plus the committed search for any source) or, when
-// there is nothing to echo, points at the palette.
+// Accent; inactive tabs are Faint. The row shares the title bar's Bg2 surface,
+// so the two read as one header block whose edge — the Bg2→Bg transition —
+// marks where the page begins (the prototype's tab-bar boundary, in cells).
+// The right side is always the palette affordance; the type/group state lives
+// in the chips row below (subRow).
 func (m Model) sourceStrip() string {
 	t := m.theme()
 	tabs := []struct {
@@ -146,24 +148,21 @@ func (m Model) sourceStrip() string {
 		{srcPlans, "plans", len(m.plans)},
 		{srcFiles, "files", len(m.docs)},
 	}
-	left := onbg(t.Faint, t.Bg).Render(" ")
+	left := t.bar(t.Faint).Render(" ")
 	for i, tab := range tabs {
 		if i > 0 {
-			left += onbg(t.Faint, t.Bg).Render("  ·  ")
+			left += t.bar(t.Faint).Render("  ·  ")
 		}
 		if tab.kind == m.srcKind {
-			left += onbg(t.Fg, t.Bg).Bold(true).Underline(true).Render(tab.label) +
-				onbg(t.Fg, t.Bg).Underline(true).Render(" ") +
-				onbg(t.Accent, t.Bg).Underline(true).Render(fmt.Sprintf("%d", tab.count))
+			left += t.bar(t.Fg).Bold(true).Underline(true).Render(tab.label) +
+				t.bar(t.Fg).Underline(true).Render(" ") +
+				t.bar(t.Accent).Underline(true).Render(fmt.Sprintf("%d", tab.count))
 		} else {
-			left += onbg(t.Faint, t.Bg).Render(fmt.Sprintf("%s %d", tab.label, tab.count))
+			left += t.bar(t.Faint).Render(fmt.Sprintf("%s %d", tab.label, tab.count))
 		}
 	}
-
-	// The right side is always the palette affordance, per the prototype — the
-	// type/group state lives in the chips row below (subRow).
-	right := onbg(t.Accent, t.Bg).Render("^K") + onbg(t.Faint, t.Bg).Render(" jump or run anything ")
-	return m.barLine(left, right, t.Bg)
+	right := t.bar(t.Accent).Render("^K") + t.bar(t.Faint).Render(" jump or run anything ")
+	return m.barLine(left, right, t.Bg2)
 }
 
 // subRow is the prototype's chips row over the list pane: the type/group
@@ -182,15 +181,18 @@ func (m Model) subRow() string {
 		if m.focus == focusList {
 			sigC = t.Accent // the row carries the list-pane focus signal (it replaced the underline)
 		}
-		// A chip's value reads accent when its shaping is active (a non-default
-		// type filter or grouping), dim otherwise — the prototype's active-chip
-		// highlight. Bold marks list focus.
+		// Chips render as contained Sel-surface blocks — the status bar's keycap
+		// idiom, standing in for the prototype's bordered chips so the shaping
+		// state reads as controls, not floating words. A chip's value reads
+		// accent when its shaping is active (a non-default type filter or
+		// grouping); bold marks list focus.
 		chip := func(label, val string, active bool) string {
-			c := t.Dim
+			c := t.Fg
 			if active {
 				c = t.Accent
 			}
-			return onbg(t.Faint, t.Bg).Render(label+": ") + onbg(c, t.Bg).Bold(m.focus == focusList).Render(val)
+			return onbg(t.Dim, t.Sel).Render(" "+label+": ") +
+				onbg(c, t.Sel).Bold(m.focus == focusList).Render(val+" ")
 		}
 		var chips string
 		switch m.srcKind {
@@ -203,7 +205,7 @@ func (m Model) subRow() string {
 			if m.groupBy == groupType {
 				group = "type"
 			}
-			chips = chip("type", typeScope, typeScope != "all") + onbg(t.Faint, t.Bg).Render("   ") +
+			chips = chip("type", typeScope, typeScope != "all") + onbg(t.Faint, t.Bg).Render(" ") +
 				chip("group", group, group != "project")
 		case srcPlans:
 			chips = chip("group", "recency", false)

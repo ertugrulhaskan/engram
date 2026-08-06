@@ -97,15 +97,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A persistent source tab strip replaces the top-bar counts** — the chrome grows
   from four to five rows: a title bar (brand, version, and the theme switcher, which
   moved up from the status bar), then a tab strip showing every source with its live
-  count (`memories 12 · plans 4 · files 6`), the active tab underlined. `shift+tab`
-  cycles sources from either pane; the palette's `/memory` `/plans` `/files`
-  commands still work. The strip's right side always shows the palette hint
-  (`^K jump or run anything`); the list-shaping state lives in a **chips row**
-  over the list pane — `type: all   group: project` (an active filter reads in
-  accent) with the `/ search` affordance at the pane edge, which shows the
-  committed query (`/ “q”`) while a search narrows the list. The status bar's
-  right corner now reads `? help`. Per-source cursor position, the type filter,
-  and the group mode all persist across switches; a search still clears.
+  count (`memories 12 · plans 4 · files 6`), the active tab underlined. The
+  strip shares the title bar's darker surface, so the two read as one header
+  block with a visible edge where the page begins. `shift+tab` cycles sources
+  from either pane; the palette's `/memory` `/plans` `/files` commands still
+  work. The strip's right side always shows the palette hint (`^K jump or run
+  anything`); the list-shaping state lives in a **chips row** over the list
+  pane — `type: all` `group: project` as contained blocks (an active filter
+  reads in accent) with the `/ search` affordance at the pane edge, which
+  shows the committed query (`/ “q”`) while a search narrows the list. The
+  status bar's right corner now reads `? help`. Per-source cursor position,
+  the type filter, and the group mode all persist across switches; a search
+  still clears.
 - **The TUI paints every cell with theme backgrounds** (`internal/tui/paint.go`) —
   list, preview, bars, rules, and dialogs each carry their theme surface color, so
   all three themes render identically regardless of the terminal's own palette

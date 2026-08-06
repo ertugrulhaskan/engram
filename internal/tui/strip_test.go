@@ -98,15 +98,15 @@ func TestSourceStripActiveTab(t *testing.T) {
 	th := cur.(Model).theme()
 
 	active := func(label string) string {
-		return onbg(th.Fg, th.Bg).Bold(true).Underline(true).Render(label)
+		return onbg(th.Fg, th.Bg2).Bold(true).Underline(true).Render(label)
 	}
-	inactive := func(s string) string { return onbg(th.Faint, th.Bg).Render(s) }
+	inactive := func(s string) string { return onbg(th.Faint, th.Bg2).Render(s) }
 
 	frame := cur.(Model).View()
 	if !strings.Contains(frame, active("memories")) {
 		t.Error("active memories tab not rendered Fg+bold+underline")
 	}
-	if !strings.Contains(frame, onbg(th.Accent, th.Bg).Underline(true).Render("5")) {
+	if !strings.Contains(frame, onbg(th.Accent, th.Bg2).Underline(true).Render("5")) {
 		t.Error("active tab count not rendered in Accent+underline")
 	}
 	if !strings.Contains(frame, inactive("plans 2")) || !strings.Contains(frame, inactive("files 2")) {
