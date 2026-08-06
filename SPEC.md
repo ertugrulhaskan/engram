@@ -140,7 +140,8 @@ type DocFile struct {
 
 > **Status:** implemented and merged to `main` — `init-team`, `promote`, `withdraw`,
 > `pull` (with clean-update fast-forward), the secret-scan guard, a **sync anchor**
-> (`syncedHash`) driving direction-aware badges (`✓`/`↓`/`↑`/`↕`/`!`, with `●` as the
+> (`syncedHash`) driving direction-aware state pills (`synced`/`behind`/`ahead`/
+> `conflict`/`missing`, with `unknown` as the
 > no-anchor fallback), the `global`/`project` scope chip, and the `>resolve` **conflict-
 > resolve** UX. Remaining: auto-pull for global-scoped memories (today taken via `>resolve`),
 > multi-select promote, and the remote-less alias fallback.
@@ -198,10 +199,10 @@ engram:
 `syncedHash` is the **sync anchor**: a short digest (`memory.ContentDigest`) of the
 memory's *shared content* — Claude's frontmatter and body, with engram's own block
 excluded so the anchor never hashes itself — recorded on every promote and pull. It is
-the common base engram compares against to distinguish a clean fast-forward (`↓`) from a
-real conflict (`↕`), and to split `●` differs into a direction. It is a within-version
+the common base engram compares against to distinguish a clean fast-forward (`behind`)
+from a real conflict, and to split `unknown` into a direction. It is a within-version
 change-detection optimization, not a security primitive: a memory without it (shared
-before this release) simply falls back to the direction-less `●`, and a digest that ever
+before this release) simply falls back to the direction-less `unknown`, and a digest that ever
 fails to line up degrades to a conservative conflict — never a silent overwrite.
 
 `id` is the **durable identity**: a memory keeps it across slug renames and
@@ -241,21 +242,21 @@ filename. The id is assigned once, on the first promote.
   them, remove any local team copy whose id was withdrawn upstream (see **withdraw**),
   and refresh the relevant `MEMORY.md`. For a memory already present locally, the
   **sync anchor** decides: only the store moved and the local is untouched → **fast-
-  forward** (take the store copy); only the local moved → left as `↑ ahead`; both moved
+  forward** (take the store copy); only the local moved → left as `ahead`; both moved
   (or no anchor) → left as a conflict, never overwritten. The summary counts new /
   updated / ahead / up-to-date / withdrawn / conflict / skipped. *(Pull walks
   `projects/` only; a local copy of a global memory is updated via `resolve`.)*
-- **resolve** *(`>resolve`)* — reconcile a `↕ conflict` / `● differs` / incoming-global
+- **resolve** *(`>resolve`)* — reconcile a `conflict` / `unknown` / behind-global
   memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
   engram block excluded) into a temp file bracketed by git-style markers
   (`<<<<<<< yours … ======= … >>>>>>> team`), opens `$EDITOR`, and on save writes the
   resolved content back — re-anchoring on the store version so "take theirs" reads as
-  `✓ synced` and a kept merge reads as `↑ ahead`. A file still holding a marker line, or
+  `synced` and a kept merge reads as `ahead`. A file still holding a marker line, or
   emptied, aborts with the memory untouched. *(Whole-content markers, not a line-level
   diff, so a frontmatter-only divergence is surfaced too.)*
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
   and engram never auto-pulls. On launch it does a cheap check against the team
-  repo and badges memories that have updates (a `↓ incoming` pill); files are only
+  repo and badges memories that have updates (a `[behind]` pill); files are only
   placed when you run `pull`.
 - **Rejected push** (non-fast-forward) → engram runs `git pull --rebase` and
   retries once; if that conflicts, it hands off to the user.
@@ -295,18 +296,23 @@ Every memory has a state relative to the team repo:
 *any* store copy), then `relationOf` — the single direction rule shared with pull's
 `decidePull` — reads the anchor to name the state:
 
-| Badge        | Meaning                                        | Suggested action |
+| Pill         | Meaning                                        | Suggested action |
 |--------------|------------------------------------------------|------------------|
 | *(none)*     | personal — local only, intentionally private   | —                |
-| `✓ synced`   | shared content matches a store copy            | —                |
-| `↓ incoming` | local is at the base; the store advanced       | pull / resolve   |
-| `↑ ahead`    | local advanced; the store is still at the base | promote          |
-| `↕ conflict` | both advanced past the base                    | `>resolve`       |
-| `● differs`  | differs, but **no anchor** to name a direction | `>resolve`       |
-| `! missing`  | `scope: team` but its id is in no store copy   | promote          |
+| `[synced]`   | shared content matches a store copy            | —                |
+| `[behind]`   | local is at the base; the store advanced       | pull / resolve   |
+| `[ahead]`    | local advanced; the store is still at the base | promote          |
+| `[conflict]` | both advanced past the base                    | `>resolve`       |
+| `[unknown]`  | differs, but **no anchor** to name a direction | `>resolve`       |
+| `[missing]`  | `scope: team` but its id is in no store copy   | promote          |
 
-`● differs` is the honest fallback for a memory shared before the anchor existed:
-distinguishing incoming from ahead needs the recorded base, so without it engram makes no
+The pill is the bracketed state word, outlined in the state's semantic color (bold on
+the selected row). The display words follow the design spec's vocabulary; the Go enum
+keeps its original spellings (`StateIncoming` reads `behind`, `StateDiffers` reads
+`unknown`) as a stable non-UI API.
+
+`[unknown]` is the honest fallback for a memory shared before the anchor existed:
+distinguishing behind from ahead needs the recorded base, so without it engram makes no
 direction claim. A color-coded `global` (OK green) / `project` (Info blue) **scope chip**
 sits beside the pill — per-theme semantic tokens, like the sync colors — tied to its
 presence (no orphan chip).
@@ -314,15 +320,15 @@ presence (no orphan chip).
 ### Collisions & conflicts
 
 - **Pull never overwrites a change.** Only a provable fast-forward (local digest equals
-  the recorded base) rewrites a local file; a `↑ ahead` or `↕ conflict` (or any anchor-
-  less differ) is left untouched. Matching is by `id`, not filename.
+  the recorded base) rewrites a local file; an `ahead` or `conflict` (or any anchor-less
+  `unknown`) is left untouched. Matching is by `id`, not filename.
 - **Resolving** (`>resolve`) brackets both versions' shared content with git-style markers in
   `$EDITOR` and re-anchors on save (see **resolve** under §7 Operations). An inline diff
   view is a later refinement.
 
 **Known limits.** The anchor is a 64-bit digest — ample for change detection, and a
 collision only ever degrades to a conservative conflict, never a silent overwrite. Global-
-scoped memories aren't auto-placed by pull, so an incoming global update is taken via `>resolve`.
+scoped memories aren't auto-placed by pull, so a behind global update is taken via `>resolve`.
 
 ## 8. Module layout
 
@@ -348,7 +354,7 @@ engram/
             promote.go       # Promote a memory into the store (global/ or projects/<key>/), stamp the anchor, commit, push
             scan.go          # ScanForSecrets: read a file and run internal/secrets over it (IO kept out of the TUI)
             pull.go          # Pull project team memories; anchor-driven fast-forward vs conflict (decidePull)
-            status.go        # SyncStates + relationOf: read-only direction-aware sync state (✓/↓/↑/↕/●/!)
+            status.go        # SyncStates + relationOf: read-only direction-aware sync state (synced/behind/ahead/conflict/unknown/missing)
             withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)

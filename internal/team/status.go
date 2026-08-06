@@ -42,9 +42,9 @@ func SyncStates(mems []memory.Memory) (map[string]SyncState, error) {
 		meta, ok, err := memory.ReadEngram(mm.Raw)
 		if err != nil {
 			// The engram block failed to parse. If a block is nonetheless present
-			// (corrupted by a bad merge or hand-edit), surface it as ● differs so it
-			// doesn't silently masquerade as a personal memory; a file with no block
-			// at all stays StateNone.
+			// (corrupted by a bad merge or hand-edit), surface it as StateDiffers
+			// (shown as "unknown") so it doesn't silently masquerade as a personal
+			// memory; a file with no block at all stays StateNone.
 			if memory.EngramPresent(mm.Raw) {
 				out[mm.Path] = StateDiffers
 			}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // rowKind distinguishes the three kinds of display rows in the list.
@@ -36,21 +37,21 @@ type Item struct {
 	Path     string // identity: selection, edit, delete
 	Modified time.Time
 
-	Badge      string // bracket label, e.g. "user"/"project"; "" = no badge column
-	BadgeColor string // hex
-	SyncBadge  string // team-sync pill label (e.g. "✓ synced"); "" = no sync badge on this row
-	SyncColor  string // hex pill background
-	SyncFg     string // hex pill foreground
-	Scope      string // shared-scope chip: "global" / "project"; "" = not shared
-	ScopeColor string // hex chip color (teal global / blue project); "" = not shared
-	GroupKey   string // "" = flat (no group headers)
-	GroupLabel string // header text for the first row of a group
-	GroupColor string // header color (hex)
-	Right      string // right-aligned column text (project when grouped by type, or date)
-	Context    string // preview meta context (project name, or "plan")
-	MemDir     string // memory dir for new/index/drift; "" for plans
-	ProjectDir string // decoded project dir, for launching an assistant in context; "" for plans
-	Kind       string // "memory" | "plan" — palette tag + feature gating
+	Badge      string         // bracket label, e.g. "user"/"project"; "" = no badge column
+	BadgeColor string         // hex
+	Sync       team.SyncState // raw team-sync state (StateNone when not shared) — drives status bar / sync strip
+	SyncBadge  string         // team-sync state word (e.g. "behind"), drawn as an outlined "[behind]" pill; "" = none
+	SyncColor  string         // hex state color for the pill text
+	Scope      string         // shared-scope chip: "global" / "project"; "" = not shared
+	ScopeColor string         // hex chip color (teal global / blue project); "" = not shared
+	GroupKey   string         // "" = flat (no group headers)
+	GroupLabel string         // header text for the first row of a group
+	GroupColor string         // header color (hex)
+	Right      string         // right-aligned column text (project when grouped by type, or date)
+	Context    string         // preview meta context (project name, or "plan")
+	MemDir     string         // memory dir for new/index/drift; "" for plans
+	ProjectDir string         // decoded project dir, for launching an assistant in context; "" for plans
+	Kind       string         // "memory" | "plan" — palette tag + feature gating
 }
 
 // fuzzyScore reports whether all runes of query appear in order in s (case-
@@ -194,18 +195,19 @@ func (m Model) memoryItems() []Item {
 			label, color = typeLabel(mm.Type), t.typeColor(mm.Type)
 			right = "· " + mm.Project.Name
 		}
-		syncLbl, syncBg, syncFg, _ := t.syncBadge(m.syncStates[mm.Path]) // "" for personal/unshared rows
+		state := m.syncStates[mm.Path]
+		word, syncColor := t.syncBadge(state) // "" for personal/unshared rows
 		// Tie the scope chip to the sync pill: only show it when the memory has a
 		// sync state (team-scoped AND the store is initialized), so it never appears
 		// as an orphan chip with no pill beside it.
 		scope := ""
-		if syncLbl != "" {
+		if word != "" {
 			scope = scopeLabel(mm.Shared)
 		}
 		items = append(items, Item{
 			Title: mm.Title, Body: mm.Body, Raw: mm.Raw, Path: mm.Path, Modified: mm.Modified,
 			Badge: typeName(mm.Type), BadgeColor: t.typeColor(mm.Type),
-			SyncBadge: syncLbl, SyncColor: syncBg, SyncFg: syncFg, Scope: scope, ScopeColor: t.scopeColor(scope),
+			Sync: state, SyncBadge: word, SyncColor: syncColor, Scope: scope, ScopeColor: t.scopeColor(scope),
 			GroupKey: key, GroupLabel: label, GroupColor: color,
 			Right: right, Context: mm.Project.Name, MemDir: mm.Project.MemoryDir, ProjectDir: mm.Project.Dir, Kind: "memory",
 		})

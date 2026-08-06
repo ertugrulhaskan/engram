@@ -45,8 +45,8 @@ func (m Model) listPane() string {
 		total = len(m.docs)
 	}
 	// Paint every list line to exactly listW over the theme surface — the
-	// selected row's Sel fill and the sync pills carry their own backgrounds
-	// on top of it (paintLine leaves explicit backgrounds alone).
+	// selected row's Sel fill carries its own background on top of it
+	// (paintLine leaves explicit backgrounds alone).
 	body := paintBlock(strings.Join(lines, "\n"), m.listW, t.Bg)
 	status := paintLine(fg(t.Dim).Render(fmt.Sprintf(" %d of %d shown", shown, total)), m.listW, t.Bg)
 	return lipgloss.JoinVertical(lipgloss.Left, body, status)
@@ -70,24 +70,21 @@ func (m Model) badgeColW() int {
 	return w
 }
 
-// syncColW is the width of the right-aligned team-sync pill: the widest SyncBadge
-// label in view plus one cell of padding on each side (so the filled pill has an
-// even margin). Measured with the same runewidth oracle memRow pads with, so the
-// column can't drift. Collapses to 0 when nothing in view carries a sync badge, so
-// the feature is invisible for anyone not using team sharing.
+// syncColW is the width of the right-aligned team-sync pill column: the widest
+// bracketed state word ("[conflict]") in view. Measured with the same runewidth
+// oracle memRow pads with, so the column can't drift. Collapses to 0 when
+// nothing in view carries a sync state, so the feature is invisible for anyone
+// not using team sharing.
 func (m Model) syncColW() int {
 	w := 0
 	for _, r := range m.rows {
 		if r.kind == rowMemory && r.item.SyncBadge != "" {
-			if l := runewidth.StringWidth(r.item.SyncBadge); l > w {
+			if l := runewidth.StringWidth("[" + r.item.SyncBadge + "]"); l > w {
 				w = l
 			}
 		}
 	}
-	if w == 0 {
-		return 0
-	}
-	return w + 2 // one space of pill padding on each side
+	return w
 }
 
 // scopeColW sizes the muted scope chip ("global" / "project") from the widest
@@ -252,13 +249,14 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 	if syncW > 0 {
 		out += st(t.Fg).Render(" ")
 		if it.SyncBadge != "" {
-			// A filled pill (its own bg/fg) so it reads as a badge on any row,
-			// selected or not. syncW = label + 2, so " label " fills exactly.
-			inner := padRight(it.SyncBadge, syncW-2)
-			out += lipgloss.NewStyle().
-				Background(lipgloss.Color(it.SyncColor)).
-				Foreground(lipgloss.Color(it.SyncFg)).
-				Render(" " + inner + " ")
+			// An outlined pill — the bracketed word in the state color — bold on
+			// the selected row so its state reads first. (The spec dims unselected
+			// pills to 75% opacity; bold-vs-regular is the terminal stand-in.)
+			pill := st(it.SyncColor)
+			if selected {
+				pill = pill.Bold(true)
+			}
+			out += pill.Render(padLeft("["+it.SyncBadge+"]", syncW))
 		} else {
 			out += st(t.Fg).Render(padRight("", syncW)) // blank, keeps the right edge aligned
 		}
@@ -280,21 +278,22 @@ func (m Model) previewPane() string {
 		meta = fg(it.BadgeColor).Bold(true).Render(b) + " "
 		used = runewidth.StringWidth(b) + 1
 	}
-	if _, bg, _, word := t.syncBadge(m.syncStates[it.Path]); word != "" {
+	if word, color := t.syncBadge(m.syncStates[it.Path]); word != "" {
 		if it.Scope != "" {
-			// Match the list: scope word in its own color (teal/blue), state in the
-			// sync color — e.g. "team global · synced". Reuse the Item's ScopeColor
-			// (set in memoryItems) so list and preview can't diverge.
+			// Match the list's pill treatment: the scope as a bracketed pill in its
+			// own color (teal/blue), the state word in the sync color — e.g.
+			// "team [global] · behind". Reuse the Item's ScopeColor (set in
+			// memoryItems) so list and preview can't diverge.
 			sc := it.ScopeColor
 			if sc == "" {
 				sc = t.Dim
 			}
-			meta += fg(t.Dim).Render("team ") + fg(sc).Bold(true).Render(it.Scope) +
-				fg(t.Dim).Render(" · ") + fg(bg).Bold(true).Render(word) + " "
-			used += runewidth.StringWidth("team "+it.Scope+" · "+word) + 1
+			meta += fg(t.Dim).Render("team ") + fg(sc).Bold(true).Render("["+it.Scope+"]") +
+				fg(t.Dim).Render(" · ") + fg(color).Bold(true).Render(word) + " "
+			used += runewidth.StringWidth("team ["+it.Scope+"] · "+word) + 1
 		} else {
 			tok := "team " + word // colored text in the preview, where there's room
-			meta += fg(bg).Bold(true).Render(tok) + " "
+			meta += fg(color).Bold(true).Render(tok) + " "
 			used += runewidth.StringWidth(tok) + 1
 		}
 	}

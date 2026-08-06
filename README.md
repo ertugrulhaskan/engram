@@ -137,18 +137,19 @@ directly, so the index and your instructions don't get hand-corrupted.
   `t` cycles the type filter through exactly this order:
   all → user → feedback → project → reference → unknown.
 
-- **Sync badge.** Once you share, a team-scoped memory shows a filled pill for
-  its state against the team store. A **sync anchor** (a content digest recorded
-  when you last promoted or pulled) lets engram name a direction:
+- **Sync pill.** Once you share, a team-scoped memory shows an outlined
+  `[state]` pill (the word in its state color) against the team store. A **sync
+  anchor** (a content digest recorded when you last promoted or pulled) lets
+  engram name a direction:
 
-  | Badge | State | What to do |
-  |-------|-------|------------|
-  | `✓` | synced | nothing |
-  | `↓` | incoming — the store advanced, your copy is untouched | `>pull` (or `>resolve`) |
-  | `↑` | ahead — you have unshared edits | `>promote` |
-  | `↕` | conflict — both sides moved | `>resolve` |
-  | `!` | missing — promoted but not in the store | `>promote` |
-  | `●` | differs — shared before the anchor existed, so no direction | `>resolve` |
+  | Pill | State | What to do |
+  |------|-------|------------|
+  | `[synced]` | in sync with the team store | nothing |
+  | `[behind]` | the store advanced, your copy is untouched | `>pull` (or `>resolve`) |
+  | `[ahead]` | you have unshared edits | `>promote` |
+  | `[conflict]` | both sides moved | `>resolve` |
+  | `[missing]` | promoted but not in the store | `>promote` |
+  | `[unknown]` | shared before the anchor existed, so no direction | `>resolve` |
 
   Personal memories show no pill, and the column vanishes until you set up a
   team store.
@@ -190,7 +191,7 @@ up yet:
   matching local projects. When only the store moved and your copy is untouched,
   pull **fast-forwards** it automatically; a copy you edited is left alone, and a
   genuine divergence is flagged as a conflict rather than overwritten. Pull walks
-  past *global* memories — take an incoming global memory with `>resolve`.
+  past *global* memories — take a behind global memory with `>resolve`.
 - **`>resolve`** — opens both versions of a conflict with git-style markers in
   your `$EDITOR` and writes your merge back, re-anchored so "take theirs" reads
   as synced.

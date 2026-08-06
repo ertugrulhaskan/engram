@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Sync states read as outlined word pills with the spec's vocabulary** — the
+  list's filled sync pill becomes a bracketed word in the state's color
+  (`[behind]`, bold on the selected row), and two states are renamed for
+  clarity: **incoming → behind** and **differs → unknown** (display only; the
+  `engram:` frontmatter and the Go API are unchanged). The preview's scope
+  reads as a matching bracketed pill (`team [global] · behind`).
 - **A persistent source tab strip replaces the top-bar counts** — the chrome grows
   from four to five rows: a title bar (brand, version, and the theme switcher, which
   moved up from the status bar), then a tab strip showing every source with its live

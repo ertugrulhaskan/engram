@@ -109,28 +109,31 @@ func (t Theme) cancel() lipgloss.Style {
 		Background(lipgloss.Color(t.OK))
 }
 
-// syncBadge maps a team sync state to its list label, the pill's background and
-// foreground colors, and the bare word used (as colored text) in the preview
-// meta. The label pairs a width-1-safe glyph with the word so state reads without
-// color. StateNone returns empty — personal/unshared memories carry no badge.
-// Semantic mapping per the design tokens: synced→OK, incoming→Info, ahead→Warn,
-// conflict/missing→Danger, differs (no anchor)→Faint.
-func (t Theme) syncBadge(s team.SyncState) (label, bg, fgc, word string) {
+// syncBadge maps a team sync state to its display word and semantic color,
+// per the design spec's vocabulary: StateIncoming reads "behind" and
+// StateDiffers "unknown" (display-only renames — the Go enum names are a
+// stable non-UI API and keep their spelling). The words are self-describing,
+// so state reads without color. Rendering is the caller's job: the list draws
+// the word as a bracketed outlined pill ("[behind]"), the preview as colored
+// text. StateNone returns empty — personal/unshared memories carry no badge.
+// Semantic mapping per the design tokens: synced→OK, behind→Info, ahead→Warn,
+// conflict/missing→Danger, unknown (no anchor)→Faint.
+func (t Theme) syncBadge(s team.SyncState) (word, color string) {
 	switch s {
 	case team.StateSynced:
-		return "✓ synced", t.OK, t.Bg, "synced"
+		return "synced", t.OK
 	case team.StateIncoming:
-		return "↓ incoming", t.Info, t.Bg, "incoming"
+		return "behind", t.Info
 	case team.StateLocalAhead:
-		return "↑ ahead", t.Warn, t.Bg, "ahead"
+		return "ahead", t.Warn
 	case team.StateDiverged:
-		return "↕ conflict", t.Danger, t.Bg, "conflict"
+		return "conflict", t.Danger
 	case team.StateDiffers:
-		return "● differs", t.Faint, t.Bg, "differs"
+		return "unknown", t.Faint
 	case team.StateMissing:
-		return "! missing", t.Danger, t.Bg, "missing"
+		return "missing", t.Danger
 	default:
-		return "", "", "", ""
+		return "", ""
 	}
 }
 
