@@ -218,6 +218,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The pull confirm names skipped memories too** — team memories whose project
   has no local match were only mentioned when there was nothing else to do, so
   a pull with other work silently omitted them from its "full accounting".
+- **`R` no longer claims a clean index when the check itself failed** — if the
+  drift check couldn't read the memory dir, the empty result was reported as
+  `index already in sync — nothing to write`, a statement about a check that
+  never completed. It now says `could not check the index: …` instead.
 - **The drift warning no longer disappears after visiting plans or files** —
   leaving the memories source cleared the drift flag but kept its cache key, so
   returning to the same project skipped the recompute and the warning stayed

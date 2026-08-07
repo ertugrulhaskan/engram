@@ -398,6 +398,11 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if dir == "" {
 			return m, nil
 		}
+		if dir == m.driftDir && m.driftErr != nil {
+			// The check failed, so we don't know whether the index is in sync.
+			// Saying it is would be a claim we can't back.
+			return m, m.setDanger("could not check the index: " + m.driftErr.Error())
+		}
 		if dir != m.driftDir || len(m.driftUnindexed)+len(m.driftDangling) == 0 {
 			return m, m.setStatus("index already in sync — nothing to write")
 		}

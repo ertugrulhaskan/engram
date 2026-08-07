@@ -172,6 +172,7 @@ func (m *Model) syncPreview() {
 		if it.MemDir != m.driftDir {
 			m.driftDir = it.MemDir
 			un, dang, err := memory.IndexDrift(it.MemDir)
+			m.driftErr = err
 			if err == nil {
 				m.driftUnindexed, m.driftDangling = un, dang
 			} else {
@@ -185,6 +186,7 @@ func (m *Model) syncPreview() {
 		// after a plans/files visit, leaving the warning permanently off.
 		m.driftOut = false
 		m.driftDir = ""
+		m.driftErr = nil
 	}
 	// The banner may have just appeared or vanished with the drift refresh,
 	// changing the list window height — re-clamp so the cursor row stays on

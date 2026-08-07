@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
@@ -259,5 +260,37 @@ func TestDriftBannerGeometry(t *testing.T) {
 	// would scroll the alt-screen — see TestFrameNeverExceedsTerminal).
 	if hWith != 23 {
 		t.Errorf("frame height %d, want 23", hWith)
+	}
+}
+
+// A failed drift check must not be reported as a clean index. When
+// memory.IndexDrift errors, the drift lists are blanked — which used to make R
+// answer "index already in sync — nothing to write", a claim about a check that
+// never completed. R now says the check failed instead.
+func TestReconcileDoesNotClaimSyncWhenCheckFailed(t *testing.T) {
+	dir, mem := driftedProject(t, "acme")
+	// Make the memory dir unreadable so IndexDrift fails. Running as root
+	// bypasses the permission bits, so skip there rather than assert nothing.
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: chmod cannot make the dir unreadable")
+	}
+	if err := os.Chmod(dir, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	var m tea.Model = New([]memory.Memory{mem}, nil, nil, config.Config{})
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	if got := m.(Model); got.driftErr == nil {
+		t.Skip("IndexDrift did not fail on an unreadable dir on this platform")
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+
+	out := ansi.Strip(m.(Model).View())
+	if strings.Contains(out, "index already in sync") {
+		t.Error("R claimed the index is in sync after the drift check failed")
+	}
+	if !strings.Contains(out, "could not check the index") {
+		t.Errorf("R did not report the failed check:\n%s", out)
 	}
 }

@@ -63,6 +63,7 @@ type Model struct {
 	driftUnindexed []string        // memory files on disk with no MEMORY.md bullet (added without an index line)
 	driftDangling  []string        // MEMORY.md bullets whose .md file is gone (deleted/renamed without updating the index)
 	driftDismissed map[string]bool // memory dirs whose banner was esc-dismissed; session-only, lazily initialized
+	driftErr       error           // the drift check itself failed — "couldn't check" is not "in sync", and R must not claim it is
 
 	// pull confirm (modePullConfirm)
 	pullPlan team.PullResult // the accounting shown pre-confirm; y applies this same walk
