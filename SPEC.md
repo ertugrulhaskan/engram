@@ -481,9 +481,13 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   light / dark / system themes and is keyboard-accessible; without JavaScript, dead
   controls are hidden and a direct mobile nav replaces the drawer. It stays in sync
   with the docs.
-- Served via **Netlify** (static hosting): build command **empty** (CSS is prebuilt &
-  committed), publish directory `www`, custom domain `engram.im`. Config is committed in
-  `netlify.toml`. Google Analytics is loaded **only after cookie consent** (see the
+- Served via **Cloudflare Pages** (static hosting, project `engram-im`): no build step
+  (CSS is prebuilt & committed), upload directory `www`, custom domain `engram.im`.
+  Deploys are manual — `npx wrangler pages deploy www --project-name=engram-im`. DNS
+  stays at Namecheap (their nameservers are required for the domain's email
+  forwarding), pointing at `engram-im.pages.dev`. Note Pages serves pages
+  extensionless and 308-redirects `/x.html` → `/x`, so links, canonicals and the
+  sitemap use `/privacy`, not `/privacy.html`. Google Analytics is loaded **only after cookie consent** (see the
   banner in `index.html` + `main.js`); the [Privacy Policy](../www/privacy.html) is
   `www/privacy.html`.
 - **Search / AI-answer surface.** `www/robots.txt` disallows nothing and names the AI
@@ -497,7 +501,7 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   consumes it today). All four restate page content, so they are on the docs-sync list in
   CLAUDE.md; the `FAQPage` answers must match the visible cards word-for-word.
 - **Published (Phase 3 done).** The repo is public, `v0.2.0` through `v0.3.0` are released, and the
-  site is **live at engram.im on Netlify** with SSL. For any *future* release, the tag push,
+  site is **live at engram.im on Cloudflare Pages** with SSL. For any *future* release, the tag push,
   visibility, and deploy stay the maintainer's deliberate steps — don't perform them
   unprompted (see the Releasing rules in CLAUDE.md / CONTRIBUTING.md).
 

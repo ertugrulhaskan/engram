@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The site moves from Netlify to Cloudflare Pages** (project `engram-im`) — same
+  static `www/` upload, no build step, deployed with
+  `npx wrangler pages deploy www --project-name=engram-im`. DNS stays at Namecheap,
+  because the domain's email forwarding depends on their nameservers. Pages serves
+  pages extensionless and 308-redirects `/privacy.html` → `/privacy`, so the footer
+  link, `<link rel="canonical">`, `og:url`, `sitemap.xml` and `llms.txt` now all use
+  `/privacy` — otherwise the canonical would point at a redirect. `netlify.toml` is
+  removed.
+
 ## [0.3.0] - 2026-08-06
 
 A design pass over the whole TUI — three themes on one token set, a two-row

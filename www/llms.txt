@@ -24,4 +24,4 @@ auto-learned memories through your own git remote.
 - [README](https://github.com/ertugrulhaskan/engram#readme): install, keybindings, usage
 - [Roadmap](https://github.com/ertugrulhaskan/engram/blob/main/ROADMAP.md): shipped and planned work
 - [Source](https://github.com/ertugrulhaskan/engram): MIT-licensed Go
-- [Privacy](https://engram.im/privacy.html): the site's analytics policy
+- [Privacy](https://engram.im/privacy): the site's analytics policy

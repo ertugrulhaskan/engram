@@ -75,9 +75,19 @@ npm run build:css    # compile www/css/input.css -> www/css/styles.css (minified
 npm run watch:css    # rebuild on change while editing
 ```
 
-`www/css/styles.css` is **committed** (Netlify serves `www/` statically with no build
-command — see `netlify.toml`), so rebuild and commit it whenever you change classes in
-`index.html` or `privacy.html`.
+`www/css/styles.css` is **committed** (Cloudflare Pages serves `www/` statically with no
+build step), so rebuild and commit it whenever you change classes in `index.html` or
+`privacy.html`.
+
+Deploying the site is manual and separate from `git push`:
+
+```sh
+npx wrangler pages deploy www --project-name=engram-im --branch=main
+```
+
+Pages serves pages **extensionless** and 308-redirects `/privacy.html` → `/privacy`, so
+internal links, `<link rel="canonical">`, `og:url`, `sitemap.xml` and `llms.txt` must all
+use `/privacy`. Keep them consistent or the canonical points at a redirect.
 
 **Sources are registered explicitly.** `input.css` imports Tailwind with
 `source(none)`, so the only scanned files are the three `@source` lines: the two HTML

@@ -69,7 +69,7 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 - [x] Make the GitHub repo public
 - [x] Push the release tag to trigger the GoReleaser publish workflow (`v0.2.0`, then `v0.2.1`)
 - [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
-- [x] Deploy the landing page to [engram.im](https://engram.im) (Netlify — live with SSL)
+- [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
 ## Phase 4 — Other assistants
