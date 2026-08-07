@@ -141,6 +141,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if r.Removed > 0 {
 			parts = append(parts, fmt.Sprintf("%d withdrawn removed", r.Removed))
 		}
+		if r.Demoted > 0 {
+			parts = append(parts, fmt.Sprintf("%d marked personal", r.Demoted))
+		}
 		if r.Conflicts > 0 {
 			parts = append(parts, fmt.Sprintf("%d conflict%s left alone", r.Conflicts, plural(r.Conflicts)))
 		}

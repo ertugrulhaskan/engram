@@ -24,9 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now fetches the store, runs the pull as a dry run (`team.PullPlan` — the
   identical walk with writes off), and opens a confirm listing exactly what
   will happen: what fast-forwards, what arrives new, what has local edits
-  (left alone), what diverged (flagged, not overwritten). `y` applies that
-  same walk with no second fetch, so the confirmed accounting is the applied
-  accounting. A pull with nothing to write skips the dialog and says why.
+  (left alone), what diverged (flagged, not overwritten), what you withdrew
+  elsewhere (kept and marked personal), and what has no local project to land
+  in. `y` applies that same walk with no second fetch, so the confirmed
+  accounting is the applied accounting — every write the apply makes is a line
+  in the dialog. A pull with nothing to write skips the dialog and says why.
 - **A resolve shows the first conflict hunk before `$EDITOR` opens** — the
   git-style markers render in the confirm, so the decision is made before the
   handoff; cancelling removes the merge temp file and touches nothing.
@@ -204,6 +206,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for remote-less projects, now live in SPEC §10 alongside the rest.
 
 ### Fixed
+- **A pull whose only work is demoting your own withdrawn memory now runs.**
+  When you withdraw a memory on one machine, your other checkouts still say
+  `scope: team`; a pull resets them to personal, keeping the file. That demote
+  was counted as no work at all, so a pull with nothing else pending reported
+  "nothing to pull" and never applied it — the copy stayed `scope: team`
+  indefinitely. It is now counted in the plan, named in the confirm dialog
+  ("1 you withdrew elsewhere — kept here, marked personal"), and reported in
+  the toast. It was also the one write the apply made without listing it in
+  the accounting the user confirmed.
+- **The pull confirm names skipped memories too** — team memories whose project
+  has no local match were only mentioned when there was nothing else to do, so
+  a pull with other work silently omitted them from its "full accounting".
 - **The drift warning no longer disappears after visiting plans or files** —
   leaving the memories source cleared the drift flag but kept its cache key, so
   returning to the same project skipped the recompute and the warning stayed

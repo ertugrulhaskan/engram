@@ -311,3 +311,87 @@ func TestPullPlanMatchesPull(t *testing.T) {
 		t.Error("a plan or conflict pull touched the locally edited file")
 	}
 }
+
+// TestPullDemotesOwnWithdrawnCopy pins the demote path end to end: when the
+// only pending work is resetting the owner's own withdrawn copy to
+// scope:personal, the plan must count it (a demote rewrites the engram: block,
+// so it is a write the user has to see) and the apply must actually perform it.
+// Previously the plan counted nothing here, so the TUI's zero-work gate skipped
+// PullApply entirely and the copy stayed scope:team forever.
+func TestPullDemotesOwnWithdrawnCopy(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = O\n\temail = owner@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	// A tombstone: the id is withdrawn upstream and present nowhere in the store.
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	tomb := filepath.Join(mate, withdrawnLedger)
+	if err := os.WriteFile(tomb, []byte("ID-9 mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "withdraw ID-9")
+	gitT(t, mate, "push")
+
+	// The owner's other checkout still says scope:team, unedited since its sync.
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "---\nname: mine\nengram:\n    id: ID-9\n    scope: team\n    owner: owner@example.com\n    project: github.com/acme/app\n---\n# Mine\n\nowned note\n"
+	dig, err := memory.ContentDigest(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withAnchor := strings.Replace(body, "    scope: team\n", "    scope: team\n    syncedHash: "+dig+"\n", 1)
+	local := filepath.Join(localMem, "mine.md")
+	if err := os.WriteFile(local, []byte(withAnchor), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	targets := []ProjectTarget{{Key: "github.com/acme/app", MemoryDir: localMem}}
+
+	// The plan must disclose the demote and write nothing.
+	plan, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan: %v", err)
+	}
+	if plan.Demoted != 1 {
+		t.Fatalf("plan = %+v, want Demoted=1 (a demote-only pull must not look like no work)", plan)
+	}
+	if got, _ := os.ReadFile(local); string(got) != withAnchor {
+		t.Error("PullPlan rewrote the file")
+	}
+
+	// The apply performs it, and agrees with the plan.
+	applied, err := PullApply(targets)
+	if err != nil {
+		t.Fatalf("PullApply: %v", err)
+	}
+	if applied != plan {
+		t.Errorf("apply %+v disagrees with plan %+v", applied, plan)
+	}
+	got, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok, _ := memory.ReadEngram(string(got))
+	if !ok || m.Scope != "personal" {
+		t.Errorf("scope = %q (ok=%v), want personal — the file must be kept and demoted", m.Scope, ok)
+	}
+	if !strings.Contains(string(got), "owned note") {
+		t.Error("demote lost the memory's body")
+	}
+}

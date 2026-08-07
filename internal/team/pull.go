@@ -27,6 +27,7 @@ type PullResult struct {
 	Conflicts int // local copy differs from team — left untouched for the user to resolve
 	Skipped   int // team memories whose project has no local match
 	Removed   int // local team copies deleted because they were withdrawn upstream (tombstoned)
+	Demoted   int // the owner's own withdrawn copies reset to scope:personal — kept, not deleted
 }
 
 // Pull fetches the team store and copies project-scoped team memories into the
@@ -244,11 +245,16 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 				// reset the copy on the machine it ran on). Demote it to personal —
 				// keeping the file — rather than deleting the owner's own memory.
 				if m.Owner != "" && me != "" && m.Owner == me {
+					// A demote keeps the file but still rewrites its engram:
+					// block, so it counts in both passes — the plan must show
+					// every write the apply will make.
 					if !write {
-						continue // a demote keeps the file, so the plan has nothing to count
+						res.Demoted++
+						continue
 					}
 					if stamped, err := memory.WriteEngram(string(lr), memory.EngramMeta{ID: m.ID, Scope: "personal"}); err == nil {
 						if os.WriteFile(localPath, []byte(stamped), 0o644) == nil {
+							res.Demoted++
 							touched[t.MemoryDir] = true
 						}
 					}

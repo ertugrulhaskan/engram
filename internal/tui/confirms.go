@@ -35,7 +35,7 @@ func (m Model) applyPullPlan(msg pullPlanMsg) (tea.Model, tea.Cmd) {
 		return m, m.setDanger("pull: " + msg.err.Error())
 	}
 	r := msg.res
-	if r.Placed+r.Updated+r.Removed == 0 {
+	if r.Placed+r.Updated+r.Removed+r.Demoted == 0 {
 		parts := []string{"nothing to pull"}
 		if r.Conflicts > 0 {
 			parts = append(parts, fmt.Sprintf("%d in conflict — resolve with r", r.Conflicts))
@@ -92,6 +92,11 @@ func (m Model) pullModal() string {
 			"1 withdrawn upstream — removed here.",
 			"%d withdrawn upstream — removed here."))
 	}
+	if r.Demoted > 0 {
+		body = append(body, pluralLine(r.Demoted,
+			"1 you withdrew elsewhere — kept here, marked personal.",
+			"%d you withdrew elsewhere — kept here, marked personal."))
+	}
 	if r.Ahead > 0 {
 		body = append(body, pluralLine(r.Ahead,
 			"1 has local edits — left alone.",
@@ -106,6 +111,13 @@ func (m Model) pullModal() string {
 		body = append(body, pluralLine(r.UpToDate,
 			"1 already up to date.",
 			"%d already up to date."))
+	}
+	if r.Skipped > 0 {
+		// The accounting claims to be full, so a memory with no local project
+		// to land in has to be named here too, not only on the no-work path.
+		body = append(body, pluralLine(r.Skipped,
+			"1 has no matching local project — skipped.",
+			"%d have no matching local project — skipped."))
 	}
 	body = append(body, "Global memories are skipped; take those with resolve.")
 	return m.dialog("←", "pull from the team store", t.Info,
