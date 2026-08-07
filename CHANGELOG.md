@@ -61,6 +61,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   README shows the two-row header, the bare badges, and the padded status bar.
 
 ### Changed
+- **Landing-page headings balance their lines, and body copy avoids widows** —
+  the hero headline used to split `Your AI's memory, in` / `one terminal.`,
+  filling the first line and orphaning the preposition away from "one terminal";
+  it now reads as two even lines. `text-wrap: balance` on headings and
+  `text-wrap: pretty` on prose are set once in `www/css/input.css` — inside
+  `@layer base`, so a per-element Tailwind utility can still override them, and
+  scoped past `.term` so the terminal mockups keep wrapping by character like the
+  real TUI. Display headings also drop their trailing full stop, which the card
+  headings already did.
 - **The landing page no longer claims Claude syncs auto memory through Anthropic
   servers** — official Claude Code documentation says auto memory is
   machine-local. The comparison and FAQ now accurately distinguish

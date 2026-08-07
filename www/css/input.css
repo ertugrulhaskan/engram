@@ -40,6 +40,34 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Page-wide wrap defaults. These live in `@layer base` on purpose: unlayered rules
+   beat every layered one in the cascade no matter how specific, so an unlayered
+   version of this would silently override Tailwind's own `text-balance` /
+   `text-pretty` utilities and make per-element opt-out impossible. In the base layer
+   the utilities win, so any single element can still be overridden from the markup. */
+@layer base {
+  /* Headings balance their lines rather than filling the first and leaving a stub on
+     the second. The monospace headline at md:text-6xl fits ~22 characters in its
+     768px measure, so "Your AI's memory, in one terminal." split 20/13 and orphaned
+     the preposition away from "one terminal."; balancing evens it to 17/16. Written
+     as a rule rather than a utility so every heading — including ones added later —
+     follows from one decision. No terminal mockup contains a heading, so this needs
+     no scope. Browsers without text-wrap fall back to normal wrapping. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  /* Prose avoids single-word orphans on the last line. Excluded inside `.term`:
+     those mockups reproduce the real TUI, where lines wrap by character and are
+     deliberately clipped with `truncate`, so re-flowing them for readability would
+     make them less faithful, not more. */
+  p:not(.term p) {
+    text-wrap: pretty;
+  }
+}
+
 /* Terminal-mockup palette (`.term` scope) — consumed as `text-t-*` / `bg-t-*`
    utilities via the inline theme tokens below. Both sets are product themes,
    verbatim from internal/tui/theme.go: light = Paperback, dark = Midnight. */
