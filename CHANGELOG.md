@@ -57,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or by `main.js` changed.
 - **README screenshot** (`docs/tui.png`) — a real capture of the TUI over staged,
   fictional demo data (an imaginary AI app). Regenerable after UI changes via the
-  vhs tape and fixtures in `docs/demo/`.
+  vhs tape and fixtures in `docs/demo/`; recaptured against the redesign, so the
+  README shows the two-row header, the bare badges, and the padded status bar.
 
 ### Changed
 - **Every dialog shares one anatomy with semantic colors** — an opaque panel
