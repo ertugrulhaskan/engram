@@ -496,7 +496,7 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
   summary for LLMs, kept as a low-cost hedge rather than a measured win (no major vendor
   consumes it today). All four restate page content, so they are on the docs-sync list in
   CLAUDE.md; the `FAQPage` answers must match the visible cards word-for-word.
-- **Published (Phase 3 done).** The repo is public, `v0.2.0`/`v0.2.1` are released, and the
+- **Published (Phase 3 done).** The repo is public, `v0.2.0` through `v0.3.0` are released, and the
   site is **live at engram.im on Netlify** with SSL. For any *future* release, the tag push,
   visibility, and deploy stay the maintainer's deliberate steps — don't perform them
   unprompted (see the Releasing rules in CLAUDE.md / CONTRIBUTING.md).
