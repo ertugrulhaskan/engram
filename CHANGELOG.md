@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gained `SoftwareApplication` and `FAQPage` structured data plus a visible **FAQ
   section** answering the six questions people actually ask — where Claude Code stores
   memories, how team sharing works, whether anything leaves the machine, how it differs
-  from Claude's server-side team memory, cost, and other assistants. The page title and
+  from sharing `CLAUDE.md`, cost, and other assistants. The page title and
   description now lead with "Claude Code memory" rather than burying it, and
   `privacy.html` gained the Open Graph and Twitter card tags it was missing.
 - **Landing-page CSS no longer scans the whole repo** (`www/css/input.css`) — Tailwind is
@@ -61,6 +61,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   README shows the two-row header, the bare badges, and the padded status bar.
 
 ### Changed
+- **The landing page no longer claims Claude syncs auto memory through Anthropic
+  servers** — official Claude Code documentation says auto memory is
+  machine-local. The comparison and FAQ now accurately distinguish
+  repo-committed `CLAUDE.md` instructions from auto-learned memories and explain
+  the gap engram fills with the user's own git remote.
 - **Every dialog shares one anatomy with semantic colors** — an opaque panel
   framed in the dialog's meaning (delete/secret/resolve in danger,
   promote/withdraw/reconcile in warn, pull in info, new/palette/help in
@@ -129,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed query (`/ “q”`) while a search narrows the list; the filter input
   replaces the chips while typing. A rule row closes the header and doubles as
   the focus signal — the focused pane's side draws in accent. `shift+tab`
-  cycles sources from either pane; the palette's `/memory` `/plans` `/files`
+  cycles sources from either pane; the palette's `/memories` `/plans` `/files`
   commands still work. The status bar sits in a padded band and carries the
   theme switcher in its right corner (`theme Midnight · 1–3 switch · ? help`).
   Per-source cursor position, the type filter, and the group mode all persist
@@ -173,14 +178,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the scroll-spy (which pins the *last* nav id active once the page bottom is reached)
   left "roadmap" highlighted while the reader was in the FAQ. The header nav tightens to
   `gap-4` until `lg` so five items still fit on one line at the `md` breakpoint.
-- **Landing-page terminal mockups now render the real TUI design** (`www/`): the demo
-  (browse / promote / pull), sync badges, and command palette mirror the actual frames —
-  top bar, group headers, type badges, selection chevron + highlight, sync pills, scope
-  chips, keybinding bottom bar, and the promote/palette dialogs — with colors from a new
-  `.term` token palette (dark = the TUI's Dracula theme from `internal/tui/theme.go`;
-  light = a GitHub Light mapping). The demo's tab panels now stack in one grid cell and
-  toggle visibility, so the auto-advancing switcher no longer reflows the page while
-  reading.
+- **Landing-page terminal mockups render the real TUI design** (`www/`): the
+  browse / promote / pull demo, sync guide, and command palette mirror the
+  current two-row source/control header, title-first preview, bare type labels,
+  outlined sync states, preview sync strip, shared dialog anatomy, padded
+  contextual footer, three-theme switcher, and sectioned prefix-optional
+  palette. The `.term` tokens come directly from `internal/tui/theme.go`
+  (Paperback in site light mode, Midnight in dark mode). Inactive stacked demo
+  panels and the closed mobile drawer are inert and hidden from assistive
+  technology. Small secondary text uses the stronger `Dim` token, and Paperback's
+  OK/Warn-derived labels use web-only darker foregrounds, so 12–14px terminal text
+  clears AA contrast without changing the app's source tokens; selected accent
+  text gets the same web-only treatment in both themes. The browse and palette
+  footers now match the TUI wording exactly.
+- **The landing page degrades cleanly without JavaScript** — controls that cannot
+  act (theme, demo/install tabs, copy buttons, and the mobile drawer trigger) are
+  hidden, a direct mobile navigation row replaces the drawer, the browse demo
+  remains visible, and the native FAQ accordion still works.
+- **The landing page distinguishes "no engram service" from "no server"** —
+  team sharing still uses the user's chosen git host. Promote copy now states
+  that engram performs the commit and push rather than implying a separate
+  manual push.
 - **Phase 4 roadmap reframed in two honest tiers** (ROADMAP, SPEC §10, README, and
   the engram.im roadmap card): local instruction-file sources first (`AGENTS.md`,
   `GEMINI.md`, `.github/copilot-instructions.md`, Cursor rules — files on disk, no

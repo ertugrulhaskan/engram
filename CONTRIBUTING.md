@@ -30,10 +30,11 @@ The TUI needs a real terminal — run it in your own terminal, not through a pip
 
 The site at [www/index.html](www/index.html) is styled with **Tailwind CSS, stock theme
 plus one exception**: the terminal mockups use the `.term` token palette defined in
-`www/css/input.css` (`t-*` utilities via `@theme inline`), whose values derive from the
-product — dark is the TUI's Dracula theme verbatim from `internal/tui/theme.go`, light
-is a GitHub Light mapping. Keep those hexes in sync with `theme.go`, and never claim the
-light palette is a TUI theme (it isn't — all five TUI themes are dark). Everything
+`www/css/input.css` (`t-*` utilities via `@theme inline`), whose values come verbatim
+from `internal/tui/theme.go`: Paperback in site light mode and Midnight in site dark
+mode. Keep those base hexes and semantic tokens in sync with `theme.go`; the
+web-only text overrides strengthen Paperback's small OK/Warn-derived labels and
+both themes' accent-on-selection text enough to meet web contrast requirements. Everything
 *outside* the terminal mockups stays stock: no custom colors or breakpoints there; map
 page colors to their nearest stock Tailwind shade. Character-cell widths in the mockups
 (`w-[12ch]`-style arbitrary values) are allowed — they model terminal columns. The site

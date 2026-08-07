@@ -24,78 +24,115 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+/* With JavaScript disabled, remove controls that cannot act and expose a simple
+   mobile link row instead of leaving the inert drawer as the only navigation. */
+.no-js [data-js-only] {
+  display: none !important;
+}
+
+.no-js [data-js-fallback] {
+  display: flex;
+}
+
+@media (min-width: 48rem) {
+  .no-js [data-js-fallback] {
+    display: none;
+  }
+}
+
 /* Terminal-mockup palette (`.term` scope) — consumed as `text-t-*` / `bg-t-*`
-   utilities via the inline theme tokens below. Values derive from the product:
-   dark = the TUI's default Dracula theme, verbatim from internal/tui/theme.go;
-   light = a GitHub Light mapping (site design choice — the TUI ships no light
-   theme, so page copy must never claim one). */
+   utilities via the inline theme tokens below. Both sets are product themes,
+   verbatim from internal/tui/theme.go: light = Paperback, dark = Midnight. */
 @theme inline {
   --color-t-bg: var(--t-bg);
   --color-t-bar: var(--t-bar);
+  --color-t-pane: var(--t-pane);
   --color-t-fg: var(--t-fg);
   --color-t-dim: var(--t-dim);
+  --color-t-faint: var(--t-faint);
   --color-t-border: var(--t-border);
   --color-t-accent: var(--t-accent);
   --color-t-sel: var(--t-sel);
+  --color-t-ok: var(--t-ok);
+  --color-t-info: var(--t-info);
+  --color-t-warn: var(--t-warn);
+  --color-t-danger: var(--t-danger);
+  --color-t-warn-bg: var(--t-warn-bg);
   --color-t-user: var(--t-user);
   --color-t-feedback: var(--t-feedback);
   --color-t-project: var(--t-project);
   --color-t-reference: var(--t-reference);
   --color-t-g1: var(--t-g1);
   --color-t-g2: var(--t-g2);
-  /* Sync-pill backgrounds + foregrounds are fixed across themes on purpose,
-     mirroring theme.go's constants (they signal state, not brand). Dark text on
-     the colored pills stays legible on both site themes. */
-  --color-t-sync-ok: #50c878;
-  --color-t-sync-warn: #e0af68;
-  --color-t-sync-in: #7aa2f7;
-  --color-t-sync-conflict: #db4b4b;
-  --color-t-sync-missing: #c0392b;
-  --color-t-pill-dark: #0e2118;
-  --color-t-pill-light: #ffffff;
-  /* Bare colored *text* (scope chips, the preview's sync word) can't stay fixed:
-     the TUI only ever renders on dark terminals, but the site's light mapping is
-     white — so these two get per-theme values that keep the hue readable. */
-  --color-t-scope-project: var(--t-scope-project);
-  --color-t-sync-ok-text: var(--t-sync-ok-text);
 }
 
 .term {
-  /* GitHub Light (Primer) mapping for the site's light mode. */
-  --t-bg: #ffffff;
-  --t-bar: #f6f8fa;
-  --t-fg: #1f2328;
-  --t-dim: #59636e;
-  --t-border: #d1d9e0;
-  --t-accent: #8250df;
-  --t-sel: #eaeef2;
-  --t-user: #1b7c83;
-  --t-feedback: #bc4c00;
-  --t-project: #1a7f37;
-  --t-reference: #8250df;
-  --t-g1: #1a7f37;
-  --t-g2: #1b7c83;
-  --t-scope-project: #0969da;
-  --t-sync-ok-text: #1a7f37;
+  /* Paperback — internal/tui/theme.go. */
+  --t-bg: #f5f2ec;
+  --t-bar: #ebe7dd;
+  --t-pane: #fbf9f5;
+  --t-fg: #2a2723;
+  --t-dim: #5c574e;
+  --t-faint: #928b7d;
+  --t-border: #dcd6c8;
+  --t-accent: #a8492a;
+  --t-sel: #e2ddd0;
+  --t-ok: #3f7d4e;
+  --t-info: #2f5d8a;
+  --t-warn: #a8722a;
+  --t-danger: #a83a2a;
+  --t-warn-bg: #eee6db;
+  --t-ok-text: #356a42;
+  --t-warn-text: #80551f;
+  --t-accent-on-sel: #9b4025;
+  --t-user: #2f5d8a;
+  --t-feedback: #a8722a;
+  --t-project: #3f7d4e;
+  --t-reference: #6b4a8a;
+  --t-g1: #3f7d4e;
+  --t-g2: #2f5d8a;
 }
 
 .dark .term {
-  /* Dracula — internal/tui/theme.go (Accent/Fg/Dim/BarBg/SelBg/Border, type
-     colors, Groups). --t-bg is the terminal background from docs/tui.png; the
-     TUI itself draws over the terminal's own background. */
-  --t-bg: #1d1e29;
+  /* Midnight — internal/tui/theme.go. */
+  --t-bg: #282a36;
   --t-bar: #21222c;
+  --t-pane: #2b2d3a;
   --t-fg: #f8f8f2;
-  --t-dim: #6272a4;
-  --t-border: #44475a;
+  --t-dim: #c6c8d1;
+  --t-faint: #6272a4;
+  --t-border: #3a3d4d;
   --t-accent: #bd93f9;
   --t-sel: #44475a;
+  --t-ok: #50fa7b;
+  --t-info: #8be9fd;
+  --t-warn: #ffb86c;
+  --t-danger: #ff5555;
+  --t-warn-bg: #3e383b;
+  --t-ok-text: var(--t-ok);
+  --t-warn-text: var(--t-warn);
+  --t-accent-on-sel: #cba9ff;
   --t-user: #8be9fd;
   --t-feedback: #ffb86c;
   --t-project: #50fa7b;
   --t-reference: #bd93f9;
   --t-g1: #50fa7b;
   --t-g2: #8be9fd;
-  --t-scope-project: #4a9eff; /* theme.go scopeProjectColor */
-  --t-sync-ok-text: #50c878; /* theme.go syncSyncedColor */
+}
+
+/* Preserve the app's exact theme tokens above, but strengthen Paperback's
+   semantic foregrounds for small web text. Midnight already clears AA. */
+.term .text-t-ok,
+.term .text-t-project {
+  color: var(--t-ok-text);
+}
+
+.term .text-t-warn,
+.term .text-t-feedback {
+  color: var(--t-warn-text);
+}
+
+.term .bg-t-sel.text-t-accent,
+.term .bg-t-sel .text-t-accent {
+  color: var(--t-accent-on-sel);
 }

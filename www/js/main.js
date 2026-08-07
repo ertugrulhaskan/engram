@@ -48,7 +48,11 @@
   function cur() { return lsGet() || 'system'; }
   function apply() {
     var t = lsGet(); // 'light' | 'dark' | undefined(system)
-    document.documentElement.classList.toggle('dark', t === 'dark' || (!t && media.matches));
+    var dark = t === 'dark' || (!t && media.matches);
+    document.documentElement.classList.toggle('dark', dark);
+    document.querySelectorAll('[data-term-theme]').forEach(function (s) {
+      s.textContent = dark ? 'Midnight' : 'Paperback';
+    });
     var c = cur();
     document.querySelectorAll('[data-sico]').forEach(function (s) {
       s.classList.toggle('hidden', s.getAttribute('data-sico') !== c);
@@ -122,7 +126,12 @@
   var offCls = ['text-neutral-600', 'dark:text-neutral-400'];
   function render(n, focusTab) {
     cur = n;
-    panels.forEach(function (p, i) { p.classList.toggle('invisible', i !== n); });
+    panels.forEach(function (p, i) {
+      var on = i === n;
+      p.classList.toggle('invisible', !on);
+      p.setAttribute('aria-hidden', on ? 'false' : 'true');
+      p.toggleAttribute('inert', !on);
+    });
     tabs.forEach(function (t, i) {
       var on = i === n;
       t.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -168,6 +177,8 @@
   if (!ham || !drawer) return;
   function open() {
     drawer.classList.remove('pointer-events-none');
+    drawer.removeAttribute('inert');
+    drawer.setAttribute('aria-hidden', 'false');
     bg.classList.remove('opacity-0');
     panel.classList.remove('translate-x-full');
     ham.setAttribute('aria-expanded', 'true');
@@ -176,6 +187,8 @@
   }
   function close() {
     drawer.classList.add('pointer-events-none');
+    drawer.setAttribute('inert', '');
+    drawer.setAttribute('aria-hidden', 'true');
     bg.classList.add('opacity-0');
     panel.classList.add('translate-x-full');
     ham.setAttribute('aria-expanded', 'false');

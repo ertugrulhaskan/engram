@@ -6,8 +6,12 @@
 Claude Code writes notes to itself as you work: what a project does, how you like
 things, decisions you've made. They land as Markdown under `~/.claude`, one folder per project.
 engram browses all of them in one two-pane TUI, and promotes the team-useful ones into a
-git repository your teammates already have access to. No servers, no accounts, no signup:
+git repository your teammates already have access to. No engram service or account:
 your git host is the auth.
+
+Claude Code shares team-written instructions through `CLAUDE.md` in the project repo,
+but its auto-learned memories are machine-local. engram lets you promote selected
+auto-learned memories through your own git remote.
 
 - Install (Homebrew): `brew install ertugrulhaskan/tap/engram`
 - Install (Go): `go install github.com/ertugrulhaskan/engram@latest`

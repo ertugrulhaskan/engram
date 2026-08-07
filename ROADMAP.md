@@ -55,7 +55,7 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] `withdraw` → take a promoted memory back: remove its copy from the team store, reset the local scope to personal, commit + push *(the reverse of `promote`; teammates who already pulled keep their copy)*
 - [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`; **fast-forward** a clean incoming update, leave a local-ahead copy, flag a real divergence
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
-- [x] **Sync anchor** (`syncedHash` in the `engram:` block) enabling direction-aware badges: `✓` synced / `↓` incoming / `↑` ahead / `↕` conflict / `!` missing *(direction-less `●` differs for pre-anchor memories)*
+- [x] **Sync anchor** (`syncedHash` in the `engram:` block) enabling direction-aware states: `[synced]` / `[behind]` / `[ahead]` / `[conflict]` / `[missing]` *(`[unknown]` for pre-anchor memories)*
 - [x] Conflict resolution UX (`>resolve`) — git-style markers in `$EDITOR`, re-anchored on save
 - [x] Scope chip (`global` / `project`) on shared rows
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
