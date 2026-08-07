@@ -255,8 +255,8 @@ func TestDriftBannerGeometry(t *testing.T) {
 	if hWith != hWithout {
 		t.Errorf("frame height changed with the banner: %d vs %d", hWith, hWithout)
 	}
-	// The frame convention is height-1 lines (a full-height frame would scroll
-	// the alt-screen — see TestFrameNeverExceedsTerminal).
+	// The frame convention is height-reservedRows lines (a full-height frame
+	// would scroll the alt-screen — see TestFrameNeverExceedsTerminal).
 	if hWith != 23 {
 		t.Errorf("frame height %d, want 23", hWith)
 	}

@@ -12,9 +12,21 @@ import (
 	"github.com/ertugrulhaskan/engram/internal/config"
 )
 
-// stripLine extracts the source-strip row (second chrome line) from a rendered
-// frame, with all styling removed.
+// stripLine extracts the tabs row (first header line) from a rendered frame,
+// with all styling removed.
 func stripLine(frame string) string {
+	lines := strings.Split(frame, "\n")
+	if len(lines) < 1 {
+		return ""
+	}
+	return ansi.Strip(lines[0])
+}
+
+func key(r string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r)} }
+
+// chipsLine extracts the controls row (second header line) from a rendered
+// frame, with all styling removed.
+func chipsLine(frame string) string {
 	lines := strings.Split(frame, "\n")
 	if len(lines) < 2 {
 		return ""
@@ -22,35 +34,25 @@ func stripLine(frame string) string {
 	return ansi.Strip(lines[1])
 }
 
-func key(r string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r)} }
-
-// chipsLine extracts the chips row (third chrome line, the subRow's list
-// segment) from a rendered frame, with all styling removed.
-func chipsLine(frame string) string {
-	lines := strings.Split(frame, "\n")
-	if len(lines) < 3 {
-		return ""
-	}
-	return ansi.Strip(lines[2])
-}
-
 // TestSourceStripContents pins the strip's information: every source with its
 // live count on the left, the palette hint always on the right (per the
 // prototype), and the list-shaping state (type/group chips, the search
-// affordance and committed query) on the chips row below it.
-func TestSourceStripContents(t *testing.T) {
+// affordance and committed query) on the controls row below it.
+func TestHeaderRowContents(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var cur tea.Model = New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{})
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	got := stripLine(cur.(Model).View())
-	for _, want := range []string{"memories 5", "plans 2", "files 2", "^K jump or run anything"} {
+	for _, want := range []string{"memories", "5", "plans", "2", "files", "engram"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("strip %q missing %q", got, want)
 		}
 	}
 	chips := chipsLine(cur.(Model).View())
-	for _, want := range []string{"type: all", "group: project", "/ search"} {
+	// The affordance is a keycap " / " plus the word, so the plain-text form
+	// carries the keycap's own padding — assert the parts, not one spacing.
+	for _, want := range []string{"type: all", "group: project", "/", "search", "^K jump or run anything"} {
 		if !strings.Contains(chips, want) {
 			t.Errorf("chips row %q missing %q", chips, want)
 		}
@@ -70,24 +72,25 @@ func TestSourceStripContents(t *testing.T) {
 	cur, _ = cur.Update(key("p"))
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	chips = chipsLine(cur.(Model).View())
-	if !strings.Contains(chips, "/ “p”") {
+	if !strings.Contains(chips, "“p”") {
 		t.Errorf("chips row %q missing committed query", chips)
 	}
 
-	// The palette hint survives on every source; plans chips show recency.
+	// The palette hint survives on every source; plans controls show recency.
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	if got := stripLine(cur.(Model).View()); !strings.Contains(got, "^K jump or run anything") {
-		t.Errorf("plans strip %q missing palette hint", got)
+	if got := chipsLine(cur.(Model).View()); !strings.Contains(got, "^K jump or run anything") {
+		t.Errorf("plans controls row %q missing palette hint", got)
 	}
 	if chips := chipsLine(cur.(Model).View()); !strings.Contains(chips, "group: recency") {
 		t.Errorf("plans chips row %q missing recency", chips)
 	}
 }
 
-// TestSourceStripActiveTab pins which tab carries the active treatment (Fg bold
-// underline label + Accent count) and that the rest stay Faint — under
+// TestSourceStripActiveTab pins which tab carries the active treatment (a
+// contained Sel block: bold Fg label + bold Accent count) and that the rest
+// stay on the header surface with bold labels and faint counts — under
 // TrueColor, since the assertion is about SGR styling.
-func TestSourceStripActiveTab(t *testing.T) {
+func TestTabsRowActiveTab(t *testing.T) {
 	old := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(old)
@@ -98,19 +101,21 @@ func TestSourceStripActiveTab(t *testing.T) {
 	th := cur.(Model).theme()
 
 	active := func(label string) string {
-		return onbg(th.Fg, th.Bg2).Bold(true).Underline(true).Render(label)
+		return onbg(th.Fg, th.Sel).Bold(true).Render("  " + label + "  ")
 	}
-	inactive := func(s string) string { return onbg(th.Faint, th.Bg2).Render(s) }
+	inactiveLabel := func(s string) string { return onbg(th.Fg, th.Bg2).Bold(true).Render("  " + s + "  ") }
+	inactiveCount := func(s string) string { return onbg(th.Faint, th.Bg2).Render(s + "  ") }
 
 	frame := cur.(Model).View()
 	if !strings.Contains(frame, active("memories")) {
-		t.Error("active memories tab not rendered Fg+bold+underline")
+		t.Error("active memories tab not rendered as a bold Sel block")
 	}
-	if !strings.Contains(frame, onbg(th.Accent, th.Bg2).Underline(true).Render("5")) {
-		t.Error("active tab count not rendered in Accent+underline")
+	if !strings.Contains(frame, onbg(th.Accent, th.Sel).Bold(true).Render("5  ")) {
+		t.Error("active tab count not rendered in bold Accent on the Sel block")
 	}
-	if !strings.Contains(frame, inactive("plans 2")) || !strings.Contains(frame, inactive("files 2")) {
-		t.Error("inactive tabs not rendered Faint")
+	if !strings.Contains(frame, inactiveLabel("plans")) || !strings.Contains(frame, inactiveCount("2")) ||
+		!strings.Contains(frame, inactiveLabel("files")) {
+		t.Error("inactive tabs not rendered on the header surface with separated count styling")
 	}
 
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
@@ -118,8 +123,8 @@ func TestSourceStripActiveTab(t *testing.T) {
 	if !strings.Contains(frame, active("plans")) {
 		t.Error("after shift+tab the plans tab is not the active one")
 	}
-	if !strings.Contains(frame, inactive("memories 5")) {
-		t.Error("after shift+tab the memories tab did not go Faint")
+	if !strings.Contains(frame, inactiveLabel("memories")) || !strings.Contains(frame, inactiveCount("5")) {
+		t.Error("after shift+tab the memories tab did not return to the inactive header style")
 	}
 }
 
@@ -186,5 +191,33 @@ func TestShiftTabClearsSearchAndWorksFromPreview(t *testing.T) {
 	}
 	if cur.(Model).focus != focusPreview {
 		t.Error("source switch stole the preview focus")
+	}
+}
+
+// TestFilterInputPaintedOnHeaderBand pins the filter branch's paintLine: while
+// typing a search, the input segment must still carry the header's Bg2 surface.
+// The input's text/prompt/placeholder styles are fg-only and barLine
+// backgrounds only the gap between segments, so without paintLine the row
+// opens with a terminal-default hole in the band (glaring on Paperback).
+func TestFilterInputPaintedOnHeaderBand(t *testing.T) {
+	old := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(old)
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	var cur tea.Model = New(sampleMemories(), samplePlans(), sampleDocs(), config.Config{})
+	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	cur, _ = cur.Update(key("/"))
+	if cur.(Model).mode != modeFilter {
+		t.Fatal("/ did not enter filter mode")
+	}
+
+	th := cur.(Model).theme()
+	lines := strings.Split(cur.(Model).View(), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("frame too short: %d lines", len(lines))
+	}
+	if !strings.HasPrefix(lines[1], bgSeq(th.Bg2)) {
+		t.Errorf("filter row does not open with the header band background: %q", lines[1])
 	}
 }

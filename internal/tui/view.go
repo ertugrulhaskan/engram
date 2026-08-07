@@ -16,7 +16,7 @@ func (m Model) View() string {
 	}
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, m.listPane(), m.dividerCol(), m.previewPane())
 	frame := lipgloss.JoinVertical(lipgloss.Left,
-		m.topBar(), m.sourceStrip(), m.subRow(), panes, m.bottomRule(), m.bottomBar())
+		m.tabsRow(), m.controlsRow(), m.headerRule(), panes, m.bottomBar())
 
 	// Modal dialogs float over the frame (VS Code-style) instead of replacing a
 	// pane, so the list and preview stay visible behind them.
@@ -54,17 +54,19 @@ func (m Model) View() string {
 	// on very narrow terminals). Then clamp the line count so the frame is never
 	// taller than the screen — a too-tall frame scrolls the alt-screen and
 	// desyncs the line-diff renderer, leaving ghost rows until the next full
-	// repaint. Normally the layout already yields exactly m.height-1 lines; this
-	// only bites on a very short terminal, where panesH is floored above h-5.
+	// repaint. Normally the layout already yields exactly m.height-reservedRows
+	// lines; this only bites on a very short terminal, where panesH is floored
+	// above h-chromeRows.
 	return clampFrameHeight(clampFrame(frame, m.width), m.height)
 }
 
 // clampFrameHeight drops any lines past the terminal's height budget so the
-// frame can never be taller than the screen. It keeps at most h-1 lines, leaving
-// the final terminal row unwritten (see resize: writing the last cell scrolls
-// the alt-screen on some terminals). Shorter frames pass through untouched.
+// frame can never be taller than the screen. It keeps at most h-reservedRows
+// lines, leaving the terminal's final row unwritten (see chromeRows: writing
+// the last cell scrolls the alt-screen on some terminals). Shorter frames pass
+// through untouched.
 func clampFrameHeight(frame string, h int) string {
-	limit := h - 1
+	limit := h - reservedRows
 	if limit < 1 {
 		limit = 1
 	}
@@ -113,31 +115,9 @@ func (m Model) overlay(frame, box string, top bool) string {
 	return placeOverlay(x, y, box, frame)
 }
 
-// topBar is the title bar: brand + version on the left, the theme switcher on
-// the right (moved here from the bottom bar when the source strip landed).
-// Drift now warns from the banner above the list, not from here.
-func (m Model) topBar() string {
-	t := m.theme()
-	left := t.bar(t.Accent).Bold(true).Render(" engram ")
-	if m.version != "" {
-		// Clip: release versions are short ("v0.2.1"), but a dev build carries a
-		// VCS pseudo-version long enough to crowd out the rest of the bar.
-		left += t.bar(t.Dim).Render(clip(m.version, 20) + " ")
-	}
-	right := t.bar(t.Dim).Render("theme ") + t.bar(t.Accent).Bold(true).Render(t.Name) +
-		t.bar(t.Dim).Render(" · 1–3 to switch ")
-	return m.barLine(left, right, t.Bg2)
-}
-
-// sourceStrip is the persistent source tab row under the title bar: every
-// source with its live count, so switching is a visible affordance rather than
-// palette trivia. The active tab reads in Fg bold + underline with the count in
-// Accent; inactive tabs are Faint. The row shares the title bar's Bg2 surface,
-// so the two read as one header block whose edge — the Bg2→Bg transition —
-// marks where the page begins (the prototype's tab-bar boundary, in cells).
-// The right side is always the palette affordance; the type/group state lives
-// in the chips row below (subRow).
-func (m Model) sourceStrip() string {
+// tabsRow is the first header row: source tabs on the left, app identity on the
+// right, all on one shared Bg2 band across the full width.
+func (m Model) tabsRow() string {
 	t := m.theme()
 	tabs := []struct {
 		kind  srcKind
@@ -151,48 +131,45 @@ func (m Model) sourceStrip() string {
 	left := t.bar(t.Faint).Render(" ")
 	for i, tab := range tabs {
 		if i > 0 {
-			left += t.bar(t.Faint).Render("  ·  ")
+			left += t.bar(t.Bg2).Render("  ")
 		}
 		if tab.kind == m.srcKind {
-			left += t.bar(t.Fg).Bold(true).Underline(true).Render(tab.label) +
-				t.bar(t.Fg).Underline(true).Render(" ") +
-				t.bar(t.Accent).Underline(true).Render(fmt.Sprintf("%d", tab.count))
+			left += onbg(t.Fg, t.Sel).Bold(true).Render("  "+tab.label+"  ") +
+				onbg(t.Accent, t.Sel).Bold(true).Render(fmt.Sprintf("%d  ", tab.count))
 		} else {
-			left += t.bar(t.Faint).Render(fmt.Sprintf("%s %d", tab.label, tab.count))
+			left += t.bar(t.Fg).Bold(true).Render("  "+tab.label+"  ") +
+				t.bar(t.Faint).Render(fmt.Sprintf("%d  ", tab.count))
 		}
 	}
-	right := t.bar(t.Accent).Render("^K") + t.bar(t.Faint).Render(" jump or run anything ")
+	right := t.bar(t.Accent).Bold(true).Render("engram")
+	if m.version != "" {
+		// Clip: release versions are short ("v0.2.1"), but a dev build carries a
+		// VCS pseudo-version long enough to crowd the header chrome.
+		right += t.bar(t.Dim).Render(" " + clip(m.version, 20))
+	}
 	return m.barLine(left, right, t.Bg2)
 }
 
-// subRow is the prototype's chips row over the list pane: the type/group
-// state on the left, the `/ search` affordance (or the committed query) at
-// the pane's right edge — replaced by the live input while filtering. The
-// chip values carry the list-pane focus signal (accent when focused — this
-// row replaced the old list-side focus underline); the preview side keeps
-// its rule, accented on focus.
-func (m Model) subRow() string {
+// controlsRow is the second header row: list-shaping controls fixed to the
+// left pane's width, with the palette affordance on the far right. The whole
+// row shares the header's Bg2 surface across both panes.
+func (m Model) controlsRow() string {
 	t := m.theme()
 	var left string
 	if m.mode == modeFilter {
 		left = padTo(m.search.View(), m.listW)
 	} else {
-		sigC := t.Faint
-		if m.focus == focusList {
-			sigC = t.Accent // the row carries the list-pane focus signal (it replaced the underline)
-		}
-		// Chips render as contained Sel-surface blocks — the status bar's keycap
-		// idiom, standing in for the prototype's bordered chips so the shaping
-		// state reads as controls, not floating words. A chip's value reads
-		// accent when its shaping is active (a non-default type filter or
-		// grouping); bold marks list focus.
+		// Chips render bare — label in Dim, value in Fg/Accent — per review
+		// feedback (the contained Sel blocks read too heavy next to the
+		// keycaps). A chip's value reads accent when its shaping is active
+		// (a non-default type filter or grouping); bold marks list focus.
 		chip := func(label, val string, active bool) string {
 			c := t.Fg
 			if active {
 				c = t.Accent
 			}
-			return onbg(t.Dim, t.Sel).Render(" "+label+": ") +
-				onbg(c, t.Sel).Bold(m.focus == focusList).Render(val+" ")
+			return onbg(t.Dim, t.Bg2).Render(" "+label+": ") +
+				onbg(c, t.Bg2).Bold(m.focus == focusList).Render(val+" ")
 		}
 		var chips string
 		switch m.srcKind {
@@ -205,43 +182,46 @@ func (m Model) subRow() string {
 			if m.groupBy == groupType {
 				group = "type"
 			}
-			chips = chip("type", typeScope, typeScope != "all") + onbg(t.Faint, t.Bg).Render(" ") +
+			chips = chip("type", typeScope, typeScope != "all") + onbg(t.Faint, t.Bg2).Render(" ") +
 				chip("group", group, group != "project")
 		case srcPlans:
 			chips = chip("group", "recency", false)
 		default:
 			chips = chip("group", "project", false)
 		}
-		chips = onbg(t.Faint, t.Bg).Render(" ") + chips
-		// Search affordance, clipped against what the chips leave over.
+		// Search affordance as a keycap — "press / to search", the status bar's
+		// key idiom — clipped against what the chips leave over. A committed
+		// query replaces the word so a narrowed list keeps its visible reason.
 		hint := "search"
 		if q := strings.TrimSpace(m.search.Value()); q != "" {
-			hint = "“" + q + "”" // the committed filter — a narrowed list keeps its visible reason
+			hint = "“" + q + "”"
 		}
-		avail := m.listW - lipgloss.Width(chips) - 4 // "/ " lead + trailing pad + 1 gap
+		avail := m.listW - lipgloss.Width(chips) - 6 // 1 gap + " / " keycap + 1 space each side
 		var right string
 		if avail >= 4 {
-			right = onbg(sigC, t.Bg).Render("/ ") + onbg(t.Faint, t.Bg).Render(clip(hint, avail)+" ")
+			right = onbg(t.Fg, t.Sel).Render(" / ") + onbg(t.Faint, t.Bg2).Render(" "+clip(hint, avail)+" ")
 		}
-		left = bandLine(chips, right, m.listW, t.Bg)
+		left = bandLine(chips, right, m.listW, t.Bg2)
 	}
-	rc := t.Edge
-	if m.focus == focusPreview {
-		rc = t.Accent
-	}
-	right := fg(rc).Render(strings.Repeat("─", m.previewW))
-	// Paint each side with its pane's surface so the row belongs to the panes
-	// below it; the ┬ connector sits on the preview side of the divide.
-	return paintLine(left, m.listW, t.Bg) +
-		paintLine(fg(t.Edge).Render("┬"), 1, t.BgPane) +
-		paintLine(right, m.previewW, t.BgPane)
+	right := t.bar(t.Accent).Render("^K") + t.bar(t.Faint).Render(" jump or run anything ")
+	return m.barLine(left, right, t.Bg2)
 }
 
-func (m Model) bottomRule() string {
+// headerRule sits between the header block and the panes — both panes' top
+// border on one shared row so the left and right sides align. Each side is
+// its pane's focus underline: accent when that pane has focus, Edge
+// otherwise; the ┬ connector joins them over the divider.
+func (m Model) headerRule() string {
 	t := m.theme()
-	return paintLine(fg(t.Edge).Render(strings.Repeat("─", m.listW)), m.listW, t.Bg) +
-		paintLine(fg(t.Edge).Render("┴"), 1, t.BgPane) +
-		paintLine(fg(t.Edge).Render(strings.Repeat("─", m.previewW)), m.previewW, t.BgPane)
+	lc, rc := t.Edge, t.Edge
+	if m.focus == focusList {
+		lc = t.Accent
+	} else {
+		rc = t.Accent
+	}
+	return paintLine(fg(lc).Render(strings.Repeat("─", m.listW)), m.listW, t.Bg2) +
+		paintLine(fg(t.Edge).Render("┬"), 1, t.Bg2) +
+		paintLine(fg(rc).Render(strings.Repeat("─", m.previewW)), m.previewW, t.Bg2)
 }
 
 func (m Model) bottomBar() string {
@@ -262,13 +242,20 @@ func (m Model) bottomBar() string {
 		left = m.hints(t)
 	}
 	right := m.bottomRight(t)
-	return m.barLine(left, right, t.Bg2)
+	// Padding rows above and below give the footer air (its "padding-top/
+	// bottom" in terminal cells); resize budgets panesH for all footerRows.
+	pad := m.barLine("", "", t.Bg2)
+	return pad + "\n" + m.barLine(left, right, t.Bg2) + "\n" + pad
 }
 
-// bottomRight is the status bar's right segment (`? help`) — its own method so
+// bottomRight is the status bar's right segment: theme switcher and help, so
 // hints() can measure it when deciding how many key hints fit.
 func (m Model) bottomRight(t Theme) string {
-	return t.bar(t.Fg).Render("?") + t.bar(t.Dim).Render(" help ")
+	return t.bar(t.Dim).Render("theme ") +
+		t.bar(t.Accent).Bold(true).Render(t.Name) +
+		t.bar(t.Dim).Render(" · 1–3 switch · ") +
+		t.bar(t.Fg).Render("?") +
+		t.bar(t.Dim).Render(" help ")
 }
 
 // statusStyle picks the footer color for the current status by its kind: danger
@@ -343,14 +330,10 @@ func (m Model) hints(t Theme) string {
 	return out
 }
 
-// barLine lays out a bar with a left and right segment over a filled background.
+// barLine lays out a full-width bar with a left and right segment over a
+// filled background — bandLine at the terminal's width.
 func (m Model) barLine(left, right, bg string) string {
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
-	if gap < 0 {
-		gap = 0
-	}
-	mid := lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(gap))
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+	return bandLine(left, right, m.width, bg)
 }
 
 func (m Model) dividerCol() string {

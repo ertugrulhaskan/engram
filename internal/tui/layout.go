@@ -25,13 +25,10 @@ func (m *Model) resize(w, h int) {
 		m.previewW = 1
 	}
 
-	// Chrome is 5 lines (title bar, source strip, sub row, bottom rule, bottom
-	// bar) and we leave the terminal's final row unwritten — filling the very
-	// last cell makes some terminals scroll the alt-screen buffer on each
-	// repaint, which shows up as blank scrollback with the UI pinned to the
-	// bottom. That single reservation is the whole scroll fix; no force-clear
-	// or frame clamp needed.
-	m.panesH = h - 6
+	// Chrome is headerRows (tabs, controls, rule) + footerRows (pad, status
+	// bar, pad), and reservedRows leaves the terminal's final row unwritten —
+	// see chromeRows for why that row must stay unwritten.
+	m.panesH = h - chromeRows
 	if m.panesH < 6 {
 		m.panesH = 6
 	}
@@ -57,11 +54,12 @@ func (m *Model) resize(w, h int) {
 	if vpH < 1 {
 		vpH = 1
 	}
-	// The viewport width must match the pane's content width (previewW - pad);
-	// inflating it past that made the viewport's lines wider than the pane, so
-	// previewPane's Width() re-wrapped every line and multiplied the pane's
-	// height — enough to push the frame past the terminal on narrow terminals.
-	innerW := m.previewW - previewPad
+	// The viewport width must match the pane's content width (previewW minus
+	// the symmetric pads); inflating it past that made the viewport's lines
+	// wider than the pane, so previewPane's Width() re-wrapped every line and
+	// multiplied the pane's height — enough to push the frame past the
+	// terminal on narrow terminals.
+	innerW := m.previewW - 2*previewPad
 	if innerW < 1 {
 		innerW = 1
 	}
@@ -81,7 +79,7 @@ func (m *Model) buildRenderer() {
 	if m.previewW <= 0 {
 		return
 	}
-	wrap := m.previewW - previewPad
+	wrap := m.previewW - 2*previewPad // symmetric margins — text never touches the pane's right edge
 	if wrap > maxReadCols {
 		wrap = maxReadCols
 	}

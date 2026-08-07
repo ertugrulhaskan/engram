@@ -26,6 +26,11 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
       themed multi-pane UI with live theme switching, config persisted under XDG
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
       tag-triggered release workflow — *runs at the Phase 3 release*
+- [ ] Design-system pass over the TUI *(in progress, unreleased)* — three themes
+      (Midnight / Paperback / CRT) over one named token set, every cell painted so
+      a light theme survives a dark terminal, a two-row header block, a contextual
+      status bar, one shared dialog anatomy, and confirms before every team write.
+      Landing page still to follow.
 
 ## Phase 1.5 — Assisted memory maintenance *(core shipped in `v0.1.0`; one item left)*
 

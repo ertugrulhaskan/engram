@@ -35,6 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written; the toast then reports what happened (`2 index lines written to
   app/MEMORY.md`). A clean index answers `index already in sync` instead of
   silently rebuilding.
+- **Landing-page search and AI-answer surface** (`www/`) — the site now ships
+  `robots.txt` (nothing disallowed; AI answer agents such as `OAI-SearchBot`,
+  `Claude-SearchBot` and `PerplexityBot` named explicitly, since they are separate
+  user-agents from the training crawlers), `sitemap.xml`, and `llms.txt`. `index.html`
+  gained `SoftwareApplication` and `FAQPage` structured data plus a visible **FAQ
+  section** answering the six questions people actually ask — where Claude Code stores
+  memories, how team sharing works, whether anything leaves the machine, how it differs
+  from Claude's server-side team memory, cost, and other assistants. The page title and
+  description now lead with "Claude Code memory" rather than burying it, and
+  `privacy.html` gained the Open Graph and Twitter card tags it was missing.
+- **Landing-page CSS no longer scans the whole repo** (`www/css/input.css`) — Tailwind is
+  now imported with `source(none)` and three explicit `@source` entries (the two pages
+  plus `www/js/main.js`, which toggles class names as string literals). Previously the
+  `@source` lines *added to* automatic detection rather than replacing it, so every Go
+  file and Markdown doc was scanned and ordinary English words were harvested as class
+  candidates — the shipped stylesheet carried junk utilities (`.grow`, `.table`,
+  `.static`, `.visible`, `.h-1`, …). Removes 12 unused rules; no class used by the pages
+  or by `main.js` changed.
+- **README screenshot** (`docs/tui.png`) — a real capture of the TUI over staged,
+  fictional demo data (an imaginary AI app). Regenerable after UI changes via the
+  vhs tape and fixtures in `docs/demo/`.
 
 ### Changed
 - **Every dialog shares one anatomy with semantic colors** — an opaque panel
@@ -94,21 +115,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the meta — the sync strip right below already states it in a sentence — and
   the `edited …` stamp stays only on personal rows, whose header has no strip
   to carry a timestamp.
-- **A persistent source tab strip replaces the top-bar counts** — the chrome grows
-  from four to five rows: a title bar (brand, version, and the theme switcher, which
-  moved up from the status bar), then a tab strip showing every source with its live
-  count (`memories 12 · plans 4 · files 6`), the active tab underlined. The
-  strip shares the title bar's darker surface, so the two read as one header
-  block with a visible edge where the page begins. `shift+tab` cycles sources
-  from either pane; the palette's `/memory` `/plans` `/files` commands still
-  work. The strip's right side always shows the palette hint (`^K jump or run
-  anything`); the list-shaping state lives in a **chips row** over the list
-  pane — `type: all` `group: project` as contained blocks (an active filter
-  reads in accent) with the `/ search` affordance at the pane edge, which
-  shows the committed query (`/ “q”`) while a search narrows the list. The
-  status bar's right corner now reads `? help`. Per-source cursor position,
-  the type filter, and the group mode all persist across switches; a search
-  still clears.
+- **A persistent source tab strip replaces the top-bar counts** — the chrome is
+  now a two-row header block on the darker bar surface: first the source tabs,
+  every source with its live count and the active tab as a filled block, with
+  the brand and version tucked into the right corner; under it a controls row
+  with the list-shaping chips — `type: all` `group: project`, labels dim,
+  values bright, accent when a non-default shaping is active — and the palette
+  hint (`^K jump or run anything`) always in its right corner. The `/ search`
+  affordance renders as a keycap ("press `/` to search") and shows the
+  committed query (`/ “q”`) while a search narrows the list; the filter input
+  replaces the chips while typing. A rule row closes the header and doubles as
+  the focus signal — the focused pane's side draws in accent. `shift+tab`
+  cycles sources from either pane; the palette's `/memory` `/plans` `/files`
+  commands still work. The status bar sits in a padded band and carries the
+  theme switcher in its right corner (`theme Midnight · 1–3 switch · ? help`).
+  Per-source cursor position, the type filter, and the group mode all persist
+  across switches; a search still clears.
 - **The TUI paints every cell with theme backgrounds** (`internal/tui/paint.go`) —
   list, preview, bars, rules, and dialogs each carry their theme surface color, so
   all three themes render identically regardless of the terminal's own palette
@@ -128,47 +150,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   older versions still resolve (the five retired theme names map to Midnight), and
   older binaries reading the new keys fall back to their default theme rather than
   erroring.
-
-### Fixed
-- **The drift warning no longer disappears after visiting plans or files** —
-  leaving the memories source cleared the drift flag but kept its cache key, so
-  returning to the same project skipped the recompute and the warning stayed
-  off until a reload. Present since the drift check shipped.
-- **A theme switch now updates the preview pane on the first keypress** — the
-  preview cache was refilled with the old theme's glamour rendering before the
-  new renderer was built, so the right pane only caught up on a second press of
-  `1`–`3`. Present since themes shipped, not introduced by the redesign.
-- **Switching themes no longer wipes unrelated settings from `config.json`** — the
-  save now round-trips the file, so `secretScanAction`/`secretScanScope` survive a
-  `1`–`3` keypress. Previously every theme switch rewrote the file with only `theme`
-  and `editor`.
-- **A hand-edited config with an unknown theme keeps the current theme** on settings
-  reload instead of resetting (the unknown value is also left in the file untouched).
-
-### Added
-- **Landing-page search and AI-answer surface** (`www/`) — the site now ships
-  `robots.txt` (nothing disallowed; AI answer agents such as `OAI-SearchBot`,
-  `Claude-SearchBot` and `PerplexityBot` named explicitly, since they are separate
-  user-agents from the training crawlers), `sitemap.xml`, and `llms.txt`. `index.html`
-  gained `SoftwareApplication` and `FAQPage` structured data plus a visible **FAQ
-  section** answering the six questions people actually ask — where Claude Code stores
-  memories, how team sharing works, whether anything leaves the machine, how it differs
-  from Claude's server-side team memory, cost, and other assistants. The page title and
-  description now lead with "Claude Code memory" rather than burying it, and
-  `privacy.html` gained the Open Graph and Twitter card tags it was missing.
-- **Landing-page CSS no longer scans the whole repo** (`www/css/input.css`) — Tailwind is
-  now imported with `source(none)` and three explicit `@source` entries (the two pages
-  plus `www/js/main.js`, which toggles class names as string literals). Previously the
-  `@source` lines *added to* automatic detection rather than replacing it, so every Go
-  file and Markdown doc was scanned and ordinary English words were harvested as class
-  candidates — the shipped stylesheet carried junk utilities (`.grow`, `.table`,
-  `.static`, `.visible`, `.h-1`, …). Removes 12 unused rules; no class used by the pages
-  or by `main.js` changed.
-- **README screenshot** (`docs/tui.png`) — a real capture of the TUI over staged,
-  fictional demo data (an imaginary AI app). Regenerable after UI changes via the
-  vhs tape and fixtures in `docs/demo/`.
-
-### Changed
 - **Landing-page copy rewritten in a plainer voice** (`www/index.html`, `www/privacy.html`,
   `www/llms.txt`): every em dash is gone from user-visible site copy, and the sentences it
   was holding together are now periods, colons, or the `·` separator the page already uses.
@@ -221,6 +202,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   multi-select promote as shipping first, and conflict resolution as opening two files).
   The questions still genuinely open, including monorepo sub-keys and alias coordination
   for remote-less projects, now live in SPEC §10 alongside the rest.
+
+### Fixed
+- **The drift warning no longer disappears after visiting plans or files** —
+  leaving the memories source cleared the drift flag but kept its cache key, so
+  returning to the same project skipped the recompute and the warning stayed
+  off until a reload. Present since the drift check shipped.
+- **A theme switch now updates the preview pane on the first keypress** — the
+  preview cache was refilled with the old theme's glamour rendering before the
+  new renderer was built, so the right pane only caught up on a second press of
+  `1`–`3`. Present since themes shipped, not introduced by the redesign.
+- **Switching themes no longer wipes unrelated settings from `config.json`** — the
+  save now round-trips the file, so `secretScanAction`/`secretScanScope` survive a
+  `1`–`3` keypress. Previously every theme switch rewrote the file with only `theme`
+  and `editor`.
+- **A hand-edited config with an unknown theme keeps the current theme** on settings
+  reload instead of resetting (the unknown value is also left in the file untouched).
 
 ## [0.2.1] - 2026-07-04
 

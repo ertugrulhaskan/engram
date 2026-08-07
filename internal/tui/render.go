@@ -380,7 +380,7 @@ func shortPath(it Item) string {
 
 func (m Model) previewPane() string {
 	t := m.theme()
-	innerW := m.previewW - previewPad
+	innerW := m.previewW - 2*previewPad // symmetric pads: header text keeps a right margin too
 	it, ok := m.selected()
 	if !ok {
 		empty := lipgloss.NewStyle().Width(m.previewW).Height(m.panesH).Render(fg(t.Dim).Render("  nothing selected"))
@@ -530,14 +530,17 @@ func (m Model) stripStamp(it Item) string {
 }
 
 // bandLine lays a left and right segment over a bg-filled row of exactly w
-// cells — barLine's shape, but for a pane-width band rather than the full bar.
+// cells — the shape both the full-width bars and the pane-width bands use.
+// The whole row goes through paintLine, not just the gap: segments carrying
+// fg-only styling (a textinput's text/prompt/placeholder) would otherwise
+// leave their cells on the terminal's own background, punching a hole in the
+// band — invisible white-on-white in the light theme.
 func bandLine(left, right string, w int, bg string) string {
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 0 {
 		gap = 0
 	}
-	mid := lipgloss.NewStyle().Background(lipgloss.Color(bg)).Render(spaces(gap))
-	return left + mid + right
+	return paintLine(left+spaces(gap)+right, w, bg)
 }
 
 // renderTitle styles the preview title in the accent color, with `code` spans

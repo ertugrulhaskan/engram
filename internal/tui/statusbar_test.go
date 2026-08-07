@@ -28,10 +28,11 @@ func actionModel(state team.SyncState, project string) Model {
 	return cur.(Model)
 }
 
-// bottomLine returns the rendered status bar with styling stripped.
+// bottomLine returns the rendered status bar with styling stripped. The footer
+// is a 3-row block (padding, bar, padding), so the bar is the second-to-last line.
 func bottomLine(m Model) string {
 	lines := strings.Split(m.View(), "\n")
-	return ansi.Strip(lines[len(lines)-1])
+	return ansi.Strip(lines[len(lines)-2])
 }
 
 // TestStatusBarOffersActionPerState pins offeredAction end to end: the status

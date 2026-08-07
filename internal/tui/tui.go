@@ -50,8 +50,23 @@ const (
 
 const (
 	badgeWidth  = 9  // width of the widest bare "reference" badge word
-	previewPad  = 2  // left margin between the divider and preview content
+	previewPad  = 2  // preview margin, applied on both sides (content width is previewW-2*previewPad)
 	maxReadCols = 88 // cap the prose line length on wide terminals for readability
+)
+
+// The frame's row budget, in one place: View() joins headerRows + panesH +
+// footerRows, and resize() sizes panesH from the same numbers, so adding or
+// removing a chrome row can't leave the two disagreeing.
+const (
+	headerRows = 3 // tabs row, controls row, header rule
+	footerRows = 3 // padding, status bar, padding
+	// reservedRows keeps the terminal's final row unwritten. Filling the very
+	// last cell makes some terminals scroll the alt-screen buffer on every
+	// repaint, which desyncs Bubble Tea's line-diff renderer and shows up as
+	// blank scrollback with ghost rows until a resize (fixed in d11da02 — do
+	// not reclaim this row).
+	reservedRows = 1
+	chromeRows   = headerRows + footerRows + reservedRows
 )
 
 // typeCycle is the order the `t` key steps through. "" means "all types".
