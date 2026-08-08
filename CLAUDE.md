@@ -13,14 +13,19 @@ points after each step** (don't fold them into one silent summary):
 1. **Review the code** with `context7` (verify Bubble Tea / lipgloss / glamour and any
    other library APIs against current docs — don't trust memory) and `sequential-thinking`
    (reason through correctness, edge cases, and the `internal/*` layering rules below).
-2. **`/code-review`** on the working diff; address what it finds.
-3. **`/security-review`** over the pending branch changes.
+2. **Review the working diff.** `/code-review` is **user-invocable only** — an agent can't
+   run it. So the agent does a careful manual diff pass instead and **says so explicitly**
+   in its report, never wording it as though the skill ran; ask the maintainer to run
+   `/code-review` when the diff warrants it.
+3. **`/security-review`** over the pending branch changes. This one *is* agent-runnable —
+   run the real skill, never a folded-in inline assessment.
 4. **Sync the docs** — see "Keep the docs in sync" below (CHANGELOG, ROADMAP, SPEC,
    README, this file, memories, plans).
 
-This is in addition to the `gofmt -w . && go vet ./... && go test ./...` gate in "Code
-rules". It's followed guidance, not a hook — the review skills are interactive and can't
-run unattended, so the discipline lives here.
+This is in addition to the formatting/vet/test gate in "Code rules". **That half is the
+only machine-enforced part:** `.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...`,
+and `go test ./...` on every push to `main` and every PR. Steps 1–4 have no enforcement at
+all — `.git/hooks/` holds only the stock samples — so the discipline lives here.
 
 ## Keep the docs in sync — before you commit
 
@@ -51,7 +56,9 @@ behind the shipped index-sync and release work.
 - **Never modify a user's memory files** except on an explicit user action
   (edit/create/delete/promote/withdraw). Only ever *add* frontmatter keys engram owns;
   never rewrite Claude's fields.
-- Run `gofmt -w .`, `go vet ./...`, and `go test ./...` before committing.
+- Run `gofmt -w .` before committing, and keep `go vet ./...` / `go test ./...` green.
+  CI (`.github/workflows/ci.yml`) enforces all three, but only *after* the push — running
+  them locally is what saves a red build.
 - Commit messages: conventional prefixes, present tense ("add x", not "added x").
 
 ## Release / publishing
