@@ -19,12 +19,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bumps all of them together.
 - **The site moves from Netlify to Cloudflare Pages** (project `engram-im`) — same
   static `www/` upload, no build step, deployed with
-  `npx wrangler pages deploy www --project-name=engram-im`. DNS stays at Namecheap,
-  because the domain's email forwarding depends on their nameservers. Pages serves
-  pages extensionless and 308-redirects `/privacy.html` → `/privacy`, so the footer
-  link, `<link rel="canonical">`, `og:url`, `sitemap.xml` and `llms.txt` now all use
-  `/privacy` — otherwise the canonical would point at a redirect. `netlify.toml` is
-  removed.
+  `npx wrangler pages deploy www --project-name=engram-im`. The DNS zone moved to
+  Cloudflare too (Namecheap stays the registrar only): Pages can't verify an apex
+  pointed by an ALIAS record, because that flattens to A records and verification
+  wants a literal CNAME. Pages serves pages extensionless and 308-redirects
+  `/privacy.html` → `/privacy`, so the footer link, `<link rel="canonical">`,
+  `og:url`, `sitemap.xml` and `llms.txt` now all use `/privacy` — otherwise the
+  canonical would point at a redirect. `netlify.toml` is removed.
+- **The privacy policy names the right host.** It still credited Netlify with the
+  site's server logs and linked Netlify's privacy policy; both now say Cloudflare.
+  The hosting move updated this file's canonical and `og:url` but missed the two
+  host references in the body.
+
+### Known issues
+- **Email to `@engram.im` is silently dropped.** The domain's five `eforward*` MX
+  records survive the nameserver move, but Namecheap's forwarding needs Namecheap's
+  nameservers, so mail is accepted and discarded rather than bounced. No published
+  address depends on it — `SECURITY.md`, `CODE_OF_CONDUCT.md` and the privacy page
+  all use a direct address. Fix is to drop the MX records, or drop them and enable
+  Cloudflare Email Routing.
 
 ## [0.3.0] - 2026-08-06
 
