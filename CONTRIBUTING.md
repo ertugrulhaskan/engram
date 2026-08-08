@@ -155,15 +155,29 @@ To cut a release:
 
 1. Update [`CHANGELOG.md`](CHANGELOG.md): move `[Unreleased]` items into a new
    dated version section and refresh the compare/tag links.
-2. Tag and push **the specific tag** (never `git push --tags` — that would also push
+2. Bump the hardcoded version strings on the site —
+   `grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+' www/index.html` finds them all: the hero release
+   pill and the `engram vX.Y.Z` in each terminal mockup's header. Nothing generates
+   these, so they only stay honest by hand. (Match the whole `vX.Y.Z` shape, not a
+   `v0.`-prefixed one — a `v0.` pattern silently finds nothing the day the project
+   reaches 1.0.0 and reads as "nothing to bump".)
+3. Tag and push **the specific tag** (never `git push --tags` — that would also push
    any un-pushed local tags and fire stray releases):
    ```sh
    git tag -a vX.Y.Z -m "engram vX.Y.Z"
    git push origin vX.Y.Z
    ```
-3. The `release` workflow runs GoReleaser, which builds cross-platform binaries
+4. The `release` workflow runs GoReleaser, which builds cross-platform binaries
    (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
    archives + checksums, and pushes an updated formula to the Homebrew tap.
+5. Deploy the site, so the version strings from step 2 actually reach visitors —
+   deploys are manual and are *not* triggered by `git push` or by the release
+   workflow:
+   ```sh
+   npx wrangler pages deploy www --project-name=engram-im --branch=main
+   ```
+   Until this runs, engram.im keeps advertising the previous version next to an
+   install command that now installs the new one.
 
 Validate config and do a full local dry-run (no publish) before tagging:
 

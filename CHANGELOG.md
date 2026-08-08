@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The hero pill above the headline now carries the release**, not a second copy of
+  the pitch: `v0.3.0 out now · free and open source`, linking to the latest GitHub
+  release. It previously read "your team's AI memory, in one place", which said the
+  same thing as the headline directly under it and the subhead under that. The
+  version is hardcoded like the ones in the terminal mockups, so cutting a release
+  bumps all of them together.
 - **The site moves from Netlify to Cloudflare Pages** (project `engram-im`) — same
   static `www/` upload, no build step, deployed with
   `npx wrangler pages deploy www --project-name=engram-im`. DNS stays at Namecheap,
