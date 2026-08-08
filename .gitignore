@@ -16,7 +16,10 @@ vendor/
 # Node (landing-page Tailwind build tooling; built CSS in www/ is committed)
 node_modules/
 
-# Netlify CLI build cache, created by `netlify deploy` (site deploys are manual)
+# Site deploy tooling caches (site deploys are manual, never from CI)
+# wrangler, for Cloudflare Pages — the current host
+.wrangler/
+# leftover from the pre-2026-08 Netlify host; the local dir is safe to delete
 .netlify/
 
 # Claude Code personal settings (verbose/debug, env)
