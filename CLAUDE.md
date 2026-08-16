@@ -13,6 +13,12 @@ points after each step** (don't fold them into one silent summary):
 1. **Review the code** with `context7` (verify Bubble Tea / lipgloss / glamour and any
    other library APIs against current docs — don't trust memory) and `sequential-thinking`
    (reason through correctness, edge cases, and the `internal/*` layering rules below).
+   **The repo ships no MCP config** — there's no `.mcp.json`, because a project-scoped one
+   can only pass the context7 key as `${CONTEXT7_API_KEY}`, which isn't expanded at
+   MCP-launch time and reaches the server as a literal string. Register both servers
+   yourself instead, with your own key:
+   `claude mcp add context7 -s user -e CONTEXT7_API_KEY=… -- npx -y @upstash/context7-mcp@latest`
+   and `claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking`.
 2. **Review the working diff.** `/code-review` is **user-invocable only** — an agent can't
    run it. So the agent does a careful manual diff pass instead and **says so explicitly**
    in its report, never wording it as though the skill ran; ask the maintainer to run

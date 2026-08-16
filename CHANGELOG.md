@@ -31,6 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The hosting move updated this file's canonical and `og:url` but missed the two
   host references in the body.
 
+### Removed
+- **The project `.mcp.json` is gone.** It registered the `context7` and
+  `sequential-thinking` servers at project scope, passing the context7 key as
+  `${CONTEXT7_API_KEY}` — but Claude Code doesn't expand `${VAR}` in that file, so the
+  server received the literal placeholder and rejected it as an invalid key. The config
+  was version-controlled but non-functional for everyone. Contributors now register both
+  servers themselves at user or local scope, with their own key; CLAUDE.md's review gate
+  carries the commands. No secret was ever committed — the file held only the placeholder.
+
 ### Known issues
 - **Email to `@engram.im` is silently dropped.** The domain's five `eforward*` MX
   records survive the nameserver move, but Namecheap's forwarding needs Namecheap's
