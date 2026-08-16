@@ -331,7 +331,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "e":
-		if m.srcKind == srcFiles { // CLAUDE.md / MEMORY.md are read-only here
+		if m.srcKind == srcFiles { // instruction docs are read-only here
 			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
 		}
 		if m.srcKind != srcMemories { // plans are view + delete only
@@ -342,7 +342,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "n":
-		if m.srcKind == srcFiles { // read-only: no creating CLAUDE.md / MEMORY.md here
+		if m.srcKind == srcFiles { // read-only: no creating instruction docs here
 			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
 		}
 		if m.srcKind != srcMemories {
@@ -357,7 +357,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.input.Focus()
 	case "d":
-		if m.srcKind == srcFiles { // read-only: never delete a CLAUDE.md / MEMORY.md
+		if m.srcKind == srcFiles { // read-only: never delete an instruction doc
 			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
 		}
 		if _, ok := m.selected(); ok {

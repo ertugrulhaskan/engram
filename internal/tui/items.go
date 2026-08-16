@@ -135,7 +135,7 @@ func (m Model) activeItems() []Item {
 	}
 }
 
-// docItems maps the read-only Claude docs (CLAUDE.md / MEMORY.md) into Items,
+// docItems maps the read-only instruction docs (CLAUDE.md / AGENTS.md / MEMORY.md) into Items,
 // grouped by scope (global first, then per project) — the source is already
 // sorted that way so the groups stay contiguous. These rows are view-only; the
 // `e`/`d` handlers point the user at @Claude instead.
@@ -144,9 +144,14 @@ func (m Model) docItems() []Item {
 	items := make([]Item, 0, len(m.docs))
 	colorFor := t.groupColorer()
 	for _, d := range m.docs {
+		// Badge names the provider for non-Claude rules, so AGENTS.md and
+		// CLAUDE.md don't both read "rules" in the same project group.
 		badge, bcolor := "rules", t.TFeedback
-		if d.Kind == memory.DocIndex {
+		switch {
+		case d.Kind == memory.DocIndex:
 			badge, bcolor = "index", t.TReference
+		case d.Provider == memory.ProviderAgents:
+			badge, bcolor = "agents", t.TProject
 		}
 		items = append(items, Item{
 			Title: d.Title, Body: d.Body, Raw: d.Body, Path: d.Path, Modified: d.Modified,

@@ -125,15 +125,20 @@ type Project struct {
     Remote    string // git remote URL — Phase 2, empty in Phase 1
 }
 
-// DocFile is a read-only CLAUDE.md / MEMORY.md surfaced in the /files source
-// (Phase 1.5). No frontmatter — Claude manages these, engram never hand-edits them.
+// DocFile is a read-only instruction file surfaced in the /files source
+// (Phase 1.5; AGENTS.md added in Phase 4 tier 1). No frontmatter — an assistant
+// manages these, engram never hand-edits them.
 type DocFile struct {
     Path, Title, Body string
-    Kind              DocKind // "rules" (CLAUDE.md) | "index" (MEMORY.md)
-    Scope             string  // "global" or the project name
+    Kind              DocKind     // "rules" (CLAUDE.md, AGENTS.md) | "index" (MEMORY.md)
+    Provider          DocProvider // "claude" | "agents" — whose doc it is
+    Scope             string      // "global" or the project name
     ProjectName, ProjectDir, MemoryDir string
     Modified          time.Time
 }
+// Kind and Provider are deliberately separate dimensions: AGENTS.md and CLAUDE.md
+// are the same *kind* (rules) from different ecosystems. Collapsing them would
+// force a new DocKind per vendor as tier 1 grows.
 ```
 
 ## 7. Sharing design (Phase 2)
@@ -356,7 +361,7 @@ engram/
             discover.go      # walk projects, decode paths, fs signature
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile
-            docs.go          # read-only CLAUDE.md/MEMORY.md discovery + signature (the /files source)
+            docs.go          # read-only CLAUDE.md/AGENTS.md/MEMORY.md discovery + signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
@@ -444,19 +449,32 @@ are genuinely misfiled. `claude` is a new **optional** runtime dependency: absen
 action shows a hint and does nothing. On exit engram reloads (and resets the drift cache)
 so changes appear immediately.
 
-### 8.2 `/files` read-only source (Phase 1.5)
+### 8.2 `/files` read-only source (Phase 1.5; `AGENTS.md` in Phase 4 tier 1)
 
-A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the files Claude
-*manages* rather than the ones you author: the global `~/.claude/CLAUDE.md`, each project's
-`CLAUDE.md` (only when its decoded dir resolves on disk — the same lossy-key limitation as
-§8.1), and each project's `MEMORY.md`. `memory.DiscoverDocs`/`DocsSignature` walk these (the
+A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the instruction
+files an assistant *manages* rather than the ones you author: the global
+`~/.claude/CLAUDE.md`, each project's `CLAUDE.md` and `AGENTS.md` (each only when its decoded
+dir resolves on disk — the same lossy-key limitation as §8.1), and each project's
+`MEMORY.md`. Within a scope they sort `CLAUDE.md` → `AGENTS.md` → `MEMORY.md` (`docRank`),
+and the list badge names each: `rules`, `agents`, `index`.
+`memory.DiscoverDocs`/`DocsSignature` walk these (the
 signature folds into `combinedSig`, so external/`@Claude` edits — including to `CLAUDE.md`,
-which lives outside the memory tree — trigger the poll reload). They are **view-only**: the
+which lives outside the memory tree — trigger the poll reload). **`DocsSignature` must stay in
+step with `DiscoverDocs`:** a file surfaced by one but missed by the other displays correctly
+and then never refreshes, a staleness bug no rendering test catches. They are **view-only**: the
 `e` and `d` keys return a hint to edit via `@Claude` rather than launching the editor or the
 delete-confirm modal, so the index and instruction files aren't hand-corrupted. Selecting a
 doc still carries its `ProjectDir`/`MemoryDir`, so launching `@Claude` from `/files` opens in
 the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / index-sync;
 "read-only" only governs direct hand-editing.
+
+**Discovery is Claude-anchored, and tier 1 inherits that.** The walk enumerates
+`~/.claude/projects/*` and reaches a project's working dir only by decoding that key, so
+`AGENTS.md` is found only for projects Claude Code already knows about. A repo that uses
+Codex or Cursor but has never been opened in Claude Code has no entry to discover from and
+does not appear. This is an accepted limit for now, not an oversight — lifting it means a
+configured set of scanned roots independent of `~/.claude`. Public copy must therefore not
+imply standalone multi-assistant support.
 
 ## 9. Distribution
 

@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`AGENTS.md` now shows in the `/files` source** — the first step of Phase 4 tier 1
+  (other assistants). Each project's `AGENTS.md` is listed read-only next to its
+  `CLAUDE.md`, carrying an `agents` badge so the two don't both read `rules`, and sorted
+  `CLAUDE.md` → `AGENTS.md` → `MEMORY.md` within a project. `AGENTS.md` is the cross-tool
+  instruction standard read by Codex, Cursor and Copilot (and by Claude Code itself).
+  External edits trigger the same poll reload as the other docs.
+
+  **Scope limit, stated plainly:** engram finds `AGENTS.md` only for projects it already
+  knows about — ones with a folder under `~/.claude/projects/`. A repo you have never
+  opened in Claude Code will not appear, because the walk starts from that folder. Lifting
+  that needs a configured set of scanned roots, which is tracked separately.
+
 ### Changed
 - **The hero pill above the headline now carries the release**, not a second copy of
   the pitch: `v0.3.0 out now · free and open source`, linking to the latest GitHub

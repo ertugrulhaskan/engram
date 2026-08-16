@@ -119,12 +119,18 @@ them anymore:
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
   `>withdraw` — covered in [Team sharing](#team-sharing) below.
 
-### `/files` — read-only view of Claude's own files
+### `/files` — read-only view of your instruction files
 
-`/files` lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md`
-(when its directory resolves on disk), and each project's `MEMORY.md` index.
+`/files` lists the global `~/.claude/CLAUDE.md`, each project's `CLAUDE.md` and
+`AGENTS.md` (each when its directory resolves on disk), and each project's
+`MEMORY.md` index. A badge names each one: `rules`, `agents`, `index`.
 These are **view-only** — `e`/`d` point you at `@Claude` instead of editing them
 directly, so the index and your instructions don't get hand-corrupted.
+
+`AGENTS.md` is the cross-tool instruction standard read by Codex, Cursor,
+Copilot and others (Claude Code reads it too). engram surfaces it **for projects
+it already knows about** — that is, ones with a folder under
+`~/.claude/projects/`. A repo you've never opened in Claude Code won't appear.
 
 ## Reading the list
 

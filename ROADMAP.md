@@ -77,10 +77,18 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 Goal: one place for AI context beyond Claude Code — local files first, server-side
 memories as each product allows.
 
-- [ ] Pluggable "source" abstraction (Claude Code is the first source)
-- [ ] Local instruction-file sources — `AGENTS.md` (Codex / cross-tool standard),
-      `GEMINI.md` (Gemini CLI), `.github/copilot-instructions.md`, Cursor rules
-      (`.cursor/rules/*.mdc`): files on disk, so no API is needed
+- [ ] Pluggable "source" abstraction (Claude Code is the first source) — *deliberately
+      deferred until a third concrete source exists; designing the interface against one
+      real and several hypothetical implementations would encode guesses*
+- [x] **`AGENTS.md`** (Codex / cross-tool standard) — read-only in `/files`, with an
+      `agents` badge. Found for projects engram already knows about (those with a
+      `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear
+- [ ] Remaining local instruction-file sources — `GEMINI.md` (Gemini CLI),
+      `.github/copilot-instructions.md`, Cursor rules (`.cursor/rules/*.mdc`): files on
+      disk, so no API is needed. Cursor rules are a directory of frontmatter-bearing
+      `.mdc` files, so they need more than the `DocFile` shape
+- [ ] Lift the Claude-anchored discovery limit (a configured set of scanned roots), so
+      projects Claude Code has never opened can appear
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
       since none of them exposes a memory API today (until/unless that changes)
 - [ ] Read-only at first; editing/sharing per source as feasible
