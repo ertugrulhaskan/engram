@@ -16,7 +16,10 @@ auto-learned memories through your own git remote.
 - Install (Homebrew): `brew install ertugrulhaskan/tap/engram`
 - Install (Go): `go install github.com/ertugrulhaskan/engram@latest`
 - Platforms: macOS and Linux. Windows binaries ship but are untested; use WSL.
-- Assistants: Claude Code today. `AGENTS.md` and `GEMINI.md` are next. No assistant
+- Assistants: Claude Code, plus each project's `AGENTS.md` read-only — the cross-tool
+  instruction file Codex, Cursor and Copilot also read. `AGENTS.md` is found for projects
+  engram already tracks (those with a folder under `~/.claude/projects/`), so a repo never
+  opened in Claude Code does not appear. `GEMINI.md` and Cursor rules are next. No assistant
   exposes a memory API, so other sources arrive as local files first, export/import later.
 
 ## Docs

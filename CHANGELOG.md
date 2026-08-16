@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opened in Claude Code will not appear, because the walk starts from that folder. Lifting
   that needs a configured set of scanned roots, which is tracked separately.
 
+  The site says so too: the roadmap card "Other assistants" moves from `next` to `started`,
+  the FAQ answer changes from "Not yet" to "Partly" and names the scope limit outright, and
+  `llms.txt` matches. The `FAQPage` schema was updated in lockstep with the visible card and
+  re-checked word-for-word.
+
 ### Changed
 - **The hero pill above the headline now carries the release**, not a second copy of
   the pitch: `v0.3.0 out now · free and open source`, linking to the latest GitHub
