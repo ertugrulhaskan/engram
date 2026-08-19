@@ -25,7 +25,11 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Browse plan-mode plans too: multi-source switcher + command palette (`ctrl+p`),
       themed multi-pane UI with live theme switching, config persisted under XDG
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
-      tag-triggered release workflow — *runs at the Phase 3 release*
+      tag-triggered release workflow — *runs at the Phase 3 release*. **The cask step
+      is currently broken:** it published the cask automatically for `v0.2.0` and
+      `v0.2.1`, then began returning 403 at `v0.3.0` after the tap token was replaced,
+      so `v0.3.0`'s cask was applied by hand. Binaries and the GitHub release itself
+      are unaffected
 - [x] Design-system pass over the TUI *(shipped in `v0.3.0`)* — three themes
       (Midnight / Paperback / CRT) over one named token set, every cell painted so
       a light theme survives a dark terminal, a two-row header block, a contextual
@@ -62,13 +66,16 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
 - [ ] Auto-pull for global-scoped memories *(today `>pull` walks `projects/` only; global updates are taken via `>resolve`)*
 
-## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` + `v0.2.1` released, [engram.im](https://engram.im) live)*
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.3.0` released, [engram.im](https://engram.im) live)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 
 - [x] Make the GitHub repo public
-- [x] Push the release tag to trigger the GoReleaser publish workflow (`v0.2.0`, then `v0.2.1`)
-- [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`)
+- [x] Push the release tag to trigger the GoReleaser publish workflow (`v0.2.0`,
+      `v0.2.1`, then `v0.3.0`)
+- [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`) — *the published cask is
+      current; the push was automatic through `v0.2.1`, but `v0.3.0` was bumped by
+      hand (see the cask caveat under Phase 1)*
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
@@ -85,9 +92,10 @@ memories as each product allows.
       `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear
 - [x] **`GEMINI.md`** (Gemini CLI) and **`.github/copilot-instructions.md`** (GitHub
       Copilot) — read-only in `/files` with `gemini` / `copilot` badges, on the same
-      `projectRuleFiles` table, so both inherit the discovery limit above. Each project's
-      own file only: a vendor's global equivalent (`~/.gemini/GEMINI.md`) sits outside the
-      `~/.claude` tree the walk is anchored to
+      `projectRuleFiles` table, so both inherit the discovery limit above. **This item
+      covers each project's own file and nothing else** — a vendor's global equivalent
+      (`~/.gemini/GEMINI.md`) sits outside the `~/.claude` tree the walk is anchored to,
+      and is tracked as its own unticked item below
 - [ ] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
       `.github/instructions/*.instructions.md`: both are *directories* of
       frontmatter-bearing files rather than one file at a fixed path, so they need more
@@ -98,8 +106,9 @@ memories as each product allows.
       Depth is 1 on purpose: the reload poll re-runs the scan every 2s
 - [ ] The vendors' **global** instruction files (`~/.gemini/GEMINI.md` and equivalents) —
       scan roots find *projects*, and a global file belongs to no project, so it needs its
-      own configured-file notion. This is what still blocks the `GEMINI.md` item above from
-      being complete
+      own configured-file notion. This is the remaining half of vendor-file support: the
+      per-project item above is done on its own terms, but a vendor's files are not fully
+      covered until this lands
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
       since none of them exposes a memory API today (until/unless that changes)
 - [ ] Read-only at first; editing/sharing per source as feasible

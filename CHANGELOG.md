@@ -79,6 +79,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-checked word-for-word.
 
 ### Fixed
+- **ROADMAP.md no longer misstates what shipped.** An audit of all 41 checkboxes
+  against the code, git, the published cask and the live site found the code claims
+  accurate but the file wrong in three places. Phase 3 stopped at `v0.2.1` and never
+  learned about `v0.3.0` — while Phase 1 already said "shipped in `v0.3.0`", so the
+  file contradicted itself. The release-tooling item claimed GoReleaser publishes the
+  Homebrew cask with no caveat; that step worked for `v0.2.0` and `v0.2.1` but has
+  returned 403 since `v0.3.0`, whose cask was applied by hand — both it and the tap
+  item now say so. And the `GEMINI.md` item was ticked while the text two
+  entries below said that item was not complete; the per-project scope it actually
+  covers is now stated, and the global-file item no longer contradicts it.
+
+  The `v0.3.0` docs sync updated `www/`, the derived files and README but not ROADMAP,
+  which is how this survived.
 - **The preview meta no longer repeats the project name.** A file sitting in a project's
   root has a parent directory whose name *is* the project, so the generic
   "project/parent/file" location line rendered `acme-site/acme-site/AGENTS.md`. It has read
