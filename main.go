@@ -68,6 +68,8 @@ func main() {
 		}
 	}
 
+	cfg := config.Load()
+
 	mems, err := memory.Discover("")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
@@ -78,7 +80,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)
 	}
-	docs, err := memory.DiscoverDocs("")
+	docs, err := memory.DiscoverDocs("", cfg.ScanRoots)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)
@@ -88,7 +90,7 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(tui.New(mems, plans, docs, config.Load()).WithVersion(appVersion()), tea.WithAltScreen())
+	p := tea.NewProgram(tui.New(mems, plans, docs, cfg).WithVersion(appVersion()), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
 		os.Exit(1)

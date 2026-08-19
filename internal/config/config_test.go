@@ -2,6 +2,7 @@ package config
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -47,11 +48,24 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("missing config should be zero, got %+v", c)
 	}
 
-	want := Config{Theme: "crt", Editor: "code --wait"}
+	// ScanRoots included: it is a slice, so Config is no longer comparable with
+	// != — reflect.DeepEqual is now the round-trip check, and it also proves the
+	// slice survives the JSON round trip rather than coming back nil.
+	want := Config{Theme: "crt", Editor: "code --wait", ScanRoots: []string{"~/code", "/srv/work"}}
 	if err := Save(want); err != nil {
 		t.Fatal(err)
 	}
-	if got := Load(); got != want {
+	if got := Load(); !reflect.DeepEqual(got, want) {
 		t.Errorf("round trip: got %+v, want %+v", got, want)
+	}
+
+	// An omitted scanRoots must load as nil, not an empty non-nil slice, so a
+	// config written before this field existed still round-trips unchanged.
+	bare := Config{Theme: "midnight"}
+	if err := Save(bare); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(); got.ScanRoots != nil {
+		t.Errorf("absent scanRoots loaded as %#v, want nil", got.ScanRoots)
 	}
 }

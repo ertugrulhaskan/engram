@@ -136,11 +136,27 @@ index. A badge names each one:
 These are **view-only** — `e`/`d` point you at `@Claude` instead of editing them
 directly, so the index and your instructions don't get hand-corrupted.
 
-engram surfaces the non-Claude files **for projects it already knows about** —
-that is, ones with a folder under `~/.claude/projects/`. A repo you've never
-opened in Claude Code won't appear. It reads each project's own file only, so a
-vendor's global equivalent (`~/.gemini/GEMINI.md`) isn't listed, and neither are
-the path-scoped rule *directories* (`.github/instructions/`, `.cursor/rules/`).
+By default engram surfaces these **for projects it already knows about** — ones
+with a folder under `~/.claude/projects/`. To include repos you've never opened
+in Claude Code, add scan roots to `~/.config/engram/config.json`:
+
+```json
+{ "scanRoots": ["~/Documents/workspace", "~/work"] }
+```
+
+Each root **and its immediate children** are checked, and a directory counts as a
+project only if it carries one of the instruction files above. Depth is 1 on
+purpose — engram re-checks this every couple of seconds to notice external edits,
+so a recursive walk over a big workspace would be wasteful. Dotted directories
+are skipped, and a project Claude already knows about is never listed twice.
+Scanned projects show instruction files only; they have no `MEMORY.md`.
+
+Roots must be absolute (after `~`); a relative one is ignored, since it would
+depend on where you launched engram. Symlinked directories aren't followed.
+
+engram reads each project's own file only, so a vendor's global equivalent
+(`~/.gemini/GEMINI.md`) isn't listed, and neither are the path-scoped rule
+*directories* (`.github/instructions/`, `.cursor/rules/`).
 
 ## Reading the list
 

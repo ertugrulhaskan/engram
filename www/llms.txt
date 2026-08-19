@@ -19,8 +19,9 @@ auto-learned memories through your own git remote.
 - Assistants: Claude Code, plus each project's `AGENTS.md`, `GEMINI.md` and
   `.github/copilot-instructions.md` read-only — the instruction files Codex, Cursor, the
   Gemini CLI and GitHub Copilot read. They are found for projects engram already tracks
-  (those with a folder under `~/.claude/projects/`), so a repo never opened in Claude Code
-  does not appear. Cursor rules are next. No assistant exposes a memory API, so other
+  (those with a folder under `~/.claude/projects/`), and a `scanRoots` config setting points
+  engram at any other folder, so a repo never opened in Claude Code appears too. Cursor
+  rules are next. No assistant exposes a memory API, so other
   sources arrive as local files first, export/import later.
 
 ## Docs

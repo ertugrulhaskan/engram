@@ -92,8 +92,14 @@ memories as each product allows.
       `.github/instructions/*.instructions.md`: both are *directories* of
       frontmatter-bearing files rather than one file at a fixed path, so they need more
       than the `DocFile` shape and the `projectRuleFiles` table
-- [ ] Lift the Claude-anchored discovery limit (a configured set of scanned roots), so
-      projects Claude Code has never opened can appear
+- [x] Lift the Claude-anchored discovery limit — a configured `scanRoots` list, so
+      projects Claude Code has never opened can appear. Each root and its immediate
+      children are checked; a directory qualifies only if it carries an instruction file.
+      Depth is 1 on purpose: the reload poll re-runs the scan every 2s
+- [ ] The vendors' **global** instruction files (`~/.gemini/GEMINI.md` and equivalents) —
+      scan roots find *projects*, and a global file belongs to no project, so it needs its
+      own configured-file notion. This is what still blocks the `GEMINI.md` item above from
+      being complete
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
       since none of them exposes a memory API today (until/unless that changes)
 - [ ] Read-only at first; editing/sharing per source as feasible

@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Projects Claude Code has never opened can now appear, via configured scan roots.**
+  A new `scanRoots` list in the config (`~/.config/engram/config.json`) names extra
+  directories to look for projects in. Each root **and its immediate children** are
+  checked, and a directory counts as a project only when it carries an instruction file
+  (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md` or `.github/copilot-instructions.md`). A leading
+  `~` is expanded; a root must be absolute once expanded, and symlinked
+  directories are not followed.
+
+  ```json
+  { "scanRoots": ["~/Documents/workspace", "~/work"] }
+  ```
+
+  This lifts the limit every tier-1 source inherited: engram previously reached a project
+  only by decoding a folder key under `~/.claude/projects/`, so a repo you had never opened
+  in Claude Code was invisible no matter which assistant's files it held.
+
+  **Depth is deliberately 1.** The fingerprint that drives the reload poll re-runs this
+  every 2 seconds, so a recursive walk would re-read a whole workspace tree tens of times a
+  minute. One `ReadDir` per root plus a few stats stays negligible. Dotted directories are
+  skipped, a project Claude already knows about is never listed twice (Claude's copy wins,
+  since it is the one with a memory folder), and scan roots are **additive** — they still
+  work when `~/.claude` is missing entirely. Scanned projects contribute instruction files
+  only; they have no memory folder, so no `MEMORY.md` row.
+
+  The config is re-read each poll tick on purpose, so adding a root takes effect live
+  rather than at the next restart.
+
 - **`GEMINI.md` and `.github/copilot-instructions.md` now show in the `/files` source** —
   Phase 4 tier 1 continues. Each project's Gemini CLI context file and repo-wide GitHub
   Copilot instructions are listed read-only alongside its `CLAUDE.md` and `AGENTS.md`,
@@ -50,6 +77,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the FAQ answer changes from "Not yet" to "Partly" and names the scope limit outright, and
   `llms.txt` matches. The `FAQPage` schema was updated in lockstep with the visible card and
   re-checked word-for-word.
+
+### Fixed
+- **The preview meta no longer repeats the project name.** A file sitting in a project's
+  root has a parent directory whose name *is* the project, so the generic
+  "project/parent/file" location line rendered `acme-site/acme-site/AGENTS.md`. It has read
+  that way for every project's own `CLAUDE.md` since the `/files` source shipped; listing
+  whole projects from a scan root is what finally made it obvious. Nested files keep their
+  parent (`acme/.github/copilot-instructions.md`, `acme/memory/thing.md`).
 
 ### Changed
 - **The `/files` labels no longer name only `CLAUDE.md`.** The command palette entry read

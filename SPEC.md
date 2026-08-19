@@ -372,6 +372,7 @@ engram/
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile
             docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source)
+            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
@@ -487,13 +488,30 @@ doc still carries its `ProjectDir`/`MemoryDir`, so launching `@Claude` from `/fi
 the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / index-sync;
 "read-only" only governs direct hand-editing.
 
-**Discovery is Claude-anchored, and tier 1 inherits that.** The walk enumerates
-`~/.claude/projects/*` and reaches a project's working dir only by decoding that key, so
-these files are found only for projects Claude Code already knows about. A repo that uses
-Codex or Cursor but has never been opened in Claude Code has no entry to discover from and
-does not appear. This is an accepted limit for now, not an oversight — lifting it means a
-configured set of scanned roots independent of `~/.claude`. Public copy must therefore not
-imply standalone multi-assistant support.
+**Discovery is Claude-anchored by default, and tier 1 inherits that.** The walk enumerates
+`~/.claude/projects/*` and reaches a project's working dir only by decoding that key, so by
+default these files are found only for projects Claude Code already knows about.
+
+**`scanRoots` lifts that.** `config.ScanRoots` names extra directories; `scanRootProjects`
+checks each root **and its immediate children**, keeping a directory only when it carries a
+`projectRuleFiles` entry (`hasRuleFile`). `allProjects` unions the two sources — Claude's
+walk first, then the scanned ones it has not already claimed — and both docs scans go
+through it, which is what keeps them in lockstep now that two mechanisms feed one list.
+
+Three properties worth stating, because each is a decision rather than an accident:
+
+- **Depth 1.** `DocsSignature` re-runs the scan on every 2s poll tick, so a recursive walk
+  would re-read a whole workspace tree tens of times a minute. Dotted directories are
+  skipped outright.
+- **Additive, not fallback.** Scan roots are walked even when `~/.claude/projects` is
+  missing, so a user who has never run Claude Code still sees their instruction files.
+- **No memory dir.** A scanned project has none, so it contributes instruction files only.
+  Both docs scans guard this: `filepath.Join("", "MEMORY.md")` is the *relative* path
+  `MEMORY.md`, which would read whatever sits in the process's working directory.
+
+Still not covered: the vendors' **global** files (`~/.gemini/GEMINI.md` and the like). Scan
+roots find projects, and a global file belongs to no project. Public copy must therefore
+still not imply standalone multi-assistant support out of the box — `scanRoots` is opt-in.
 
 ## 9. Distribution
 

@@ -127,3 +127,29 @@ func TestDocBadgesNameTheProvider(t *testing.T) {
 		t.Errorf("MEMORY.md badge colour matches the vendor colour %q — the index must read differently", vendor)
 	}
 }
+
+// TestShortPathNoRepeatedProject covers the preview meta's location line. A file
+// in the project ROOT has a parent dir whose base is the project name itself, so
+// the generic "project/parent/file" shape doubled it — "acme/acme/AGENTS.md".
+// That affected every project's own CLAUDE.md since the /files source shipped;
+// it only became obvious once whole projects were listed from a scan root.
+func TestShortPathNoRepeatedProject(t *testing.T) {
+	cases := []struct {
+		name string
+		it   Item
+		want string
+	}{
+		{"project-root rules file", Item{Path: "/code/acme/AGENTS.md", Context: "acme"}, "acme/AGENTS.md"},
+		{"project-root CLAUDE.md", Item{Path: "/code/acme/CLAUDE.md", Context: "acme"}, "acme/CLAUDE.md"},
+		{"nested keeps its parent", Item{Path: "/code/acme/.github/copilot-instructions.md", Context: "acme"}, "acme/.github/copilot-instructions.md"},
+		{"memory keeps its parent", Item{Path: "/x/y/memory/thing.md", Context: "acme"}, "acme/memory/thing.md"},
+		{"global doc", Item{Path: "/home/me/.claude/CLAUDE.md", Context: "global"}, "global/.claude/CLAUDE.md"},
+		{"no context", Item{Path: "/code/acme/AGENTS.md"}, "AGENTS.md"},
+		{"no path", Item{Context: "acme"}, ""},
+	}
+	for _, c := range cases {
+		if got := shortPath(c.it); got != c.want {
+			t.Errorf("%s: shortPath = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

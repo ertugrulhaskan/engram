@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/ertugrulhaskan/engram/internal/config"
 	"github.com/ertugrulhaskan/engram/internal/memory"
 	"github.com/ertugrulhaskan/engram/internal/plan"
 	"github.com/ertugrulhaskan/engram/internal/team"
@@ -25,7 +26,10 @@ type pollResultMsg struct {
 func combinedSig() (string, error) {
 	ms, err := memory.Signature("")
 	ps, _ := plan.Signature("")
-	ds, _ := memory.DocsSignature("") // CLAUDE.md edits aren't under the memory tree
+	// Config is re-read per tick on purpose: it is a tiny file next to a ~1ms
+	// scan, and it means adding a scanRoot in /settings takes effect live rather
+	// than at the next restart.
+	ds, _ := memory.DocsSignature("", config.Load().ScanRoots) // CLAUDE.md edits aren't under the memory tree
 	return ms + "|" + ps + "|" + ds, err
 }
 
@@ -60,8 +64,8 @@ func reloadCmd() tea.Cmd {
 		if err != nil {
 			return reloadMsg{err: err} // keep the current state rather than blanking plans
 		}
-		docs, _ := memory.DiscoverDocs("") // best-effort; don't fail the reload over docs
-		sync, _ := team.SyncStates(mems)   // best-effort; empty when no team store
+		docs, _ := memory.DiscoverDocs("", config.Load().ScanRoots) // best-effort; don't fail the reload over docs
+		sync, _ := team.SyncStates(mems)                            // best-effort; empty when no team store
 		// Capture the signature alongside the data so the reload updates the
 		// poll baseline atomically (no reload -> sig-changed -> reload loop).
 		sig, _ := combinedSig()

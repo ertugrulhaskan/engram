@@ -58,7 +58,7 @@ func encodeForTest(dir string) string {
 func TestDiscoverDocs(t *testing.T) {
 	projectsRoot, realProjDir := buildClaudeTree(t)
 
-	docs, err := DiscoverDocs(projectsRoot)
+	docs, err := DiscoverDocs(projectsRoot, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestDiscoverDocs(t *testing.T) {
 func TestDocsOrderWithinProject(t *testing.T) {
 	projectsRoot, realProjDir := buildClaudeTree(t)
 
-	docs, err := DiscoverDocs(projectsRoot)
+	docs, err := DiscoverDocs(projectsRoot, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestDocsSignatureCoversRuleFiles(t *testing.T) {
 		t.Run(rf.rel, func(t *testing.T) {
 			projectsRoot, realProjDir := buildClaudeTree(t)
 
-			before, err := DocsSignature(projectsRoot)
+			before, err := DocsSignature(projectsRoot, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -202,7 +202,7 @@ func TestDocsSignatureCoversRuleFiles(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			after, err := DocsSignature(projectsRoot)
+			after, err := DocsSignature(projectsRoot, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -254,7 +254,7 @@ func TestDecodeProjectPathDots(t *testing.T) {
 func TestDocsSignatureChangesOnEdit(t *testing.T) {
 	projectsRoot, _ := buildClaudeTree(t)
 
-	sig1, err := DocsSignature(projectsRoot)
+	sig1, err := DocsSignature(projectsRoot, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestDocsSignatureChangesOnEdit(t *testing.T) {
 	if err := os.WriteFile(g, []byte("# global rules, expanded\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := DocsSignature(projectsRoot)
+	sig2, err := DocsSignature(projectsRoot, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

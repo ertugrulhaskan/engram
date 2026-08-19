@@ -364,6 +364,10 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 // "engram/memory/tui-layering.md" shape: project name, the file's parent dir
 // base, and the filename, derived from the real path (never assembled from
 // assumptions about the layout).
+//
+// The parent dir is dropped when it repeats the project name, which is exactly
+// the case for a file sitting in the project root: an AGENTS.md at
+// /code/acme-site would otherwise read "acme-site/acme-site/AGENTS.md".
 func shortPath(it Item) string {
 	if it.Path == "" {
 		return ""
@@ -372,7 +376,8 @@ func shortPath(it Item) string {
 	if it.Context == "" {
 		return base
 	}
-	if dir := filepath.Base(filepath.Dir(it.Path)); dir != "." && dir != string(filepath.Separator) {
+	dir := filepath.Base(filepath.Dir(it.Path))
+	if dir != "." && dir != string(filepath.Separator) && dir != it.Context {
 		return it.Context + "/" + dir + "/" + base
 	}
 	return it.Context + "/" + base

@@ -10,6 +10,44 @@ import (
 	"strings"
 )
 
+// projectEntry is one project engram knows about, as found by the projects walk:
+// the memory directory that identifies it, plus the working directory its folder
+// key decodes to (which may no longer exist on disk).
+type projectEntry struct {
+	MemoryDir string // <projectsRoot>/<encoded>/memory — always a real directory
+	Dir       string // decoded working directory; may not exist
+	Name      string // display name, filepath.Base(Dir)
+}
+
+// eachProject walks projectsRoot and calls fn once per project that has a
+// memory/ directory — the single definition of "a project engram knows about".
+// Discover, Signature, DiscoverDocs and DocsSignature all go through here, so
+// they cannot disagree about which projects exist; they used to re-implement
+// this same walk four times, which is what made that drift possible.
+//
+// The ReadDir error is returned unwrapped rather than swallowed, because the
+// four callers deliberately differ on a missing root: two return an empty
+// result, one returns the docs it already has, and Signature returns "" rather
+// than the hash of nothing. Each keeps its own os.IsNotExist branch.
+func eachProject(projectsRoot string, fn func(projectEntry)) error {
+	entries, err := os.ReadDir(projectsRoot)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		memDir := filepath.Join(projectsRoot, e.Name(), "memory")
+		if info, err := os.Stat(memDir); err != nil || !info.IsDir() {
+			continue
+		}
+		dir := decodeProjectPath(e.Name())
+		fn(projectEntry{MemoryDir: memDir, Dir: dir, Name: filepath.Base(dir)})
+	}
+	return nil
+}
+
 // Discover walks every Claude project under root and returns all memories found.
 // If root is empty it defaults to ~/.claude/projects.
 func Discover(root string) ([]Memory, error) {
@@ -21,32 +59,14 @@ func Discover(root string) ([]Memory, error) {
 		root = filepath.Join(home, ".claude", "projects")
 	}
 
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil // no projects dir yet → no memories (not an error)
-		}
-		return nil, err
-	}
-
 	var mems []Memory
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		memDir := filepath.Join(root, e.Name(), "memory")
-		if info, err := os.Stat(memDir); err != nil || !info.IsDir() {
-			continue
-		}
+	err := eachProject(root, func(p projectEntry) {
+		proj := Project{Dir: p.Dir, Name: p.Name, MemoryDir: p.MemoryDir}
+		index := parseIndex(p.MemoryDir)
 
-		proj := Project{Dir: decodeProjectPath(e.Name()), MemoryDir: memDir}
-		proj.Name = filepath.Base(proj.Dir)
-
-		index := parseIndex(memDir)
-
-		files, err := os.ReadDir(memDir)
+		files, err := os.ReadDir(p.MemoryDir)
 		if err != nil {
-			continue
+			return
 		}
 		for _, f := range files {
 			if f.IsDir() {
@@ -56,13 +76,19 @@ func Discover(root string) ([]Memory, error) {
 			if name == "MEMORY.md" || !strings.HasSuffix(name, ".md") {
 				continue
 			}
-			m, err := parseFile(filepath.Join(memDir, name), index)
+			m, err := parseFile(filepath.Join(p.MemoryDir, name), index)
 			if err != nil {
 				continue
 			}
 			m.Project = proj
 			mems = append(mems, m)
 		}
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // no projects dir yet → no memories (not an error)
+		}
+		return nil, err
 	}
 
 	sort.Slice(mems, func(i, j int) bool {
@@ -89,26 +115,11 @@ func Signature(root string) (string, error) {
 		root = filepath.Join(home, ".claude", "projects")
 	}
 
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil // no projects dir → empty fingerprint, matches plan.Signature
-		}
-		return "", err
-	}
-
 	h := fnv.New64a()
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		memDir := filepath.Join(root, e.Name(), "memory")
-		if info, err := os.Stat(memDir); err != nil || !info.IsDir() {
-			continue
-		}
-		files, err := os.ReadDir(memDir)
+	err := eachProject(root, func(p projectEntry) {
+		files, err := os.ReadDir(p.MemoryDir)
 		if err != nil {
-			continue
+			return
 		}
 		for _, f := range files {
 			if f.IsDir() || !strings.HasSuffix(f.Name(), ".md") {
@@ -119,8 +130,14 @@ func Signature(root string) (string, error) {
 				continue
 			}
 			fmt.Fprintf(h, "%s\x00%d\x00%d\n",
-				filepath.Join(memDir, f.Name()), info.ModTime().UnixNano(), info.Size())
+				filepath.Join(p.MemoryDir, f.Name()), info.ModTime().UnixNano(), info.Size())
 		}
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // no projects dir → empty fingerprint, matches plan.Signature
+		}
+		return "", err
 	}
 	return strconv.FormatUint(h.Sum64(), 16), nil
 }
@@ -207,4 +224,111 @@ func tokensHavePrefix(tokens, prefix []string) bool {
 func pathExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+// expandHome resolves a leading "~" against the user's home directory. Config
+// values are hand-written, so "~/code" is the form people actually type.
+func expandHome(p string) string {
+	if p != "~" && !strings.HasPrefix(p, "~/") {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	if p == "~" {
+		return home
+	}
+	return filepath.Join(home, p[2:])
+}
+
+// hasRuleFile reports whether dir carries at least one of the instruction files
+// engram surfaces. This is what qualifies a scanned directory as a project:
+// without it every folder under a scan root would be listed, including empty
+// ones and build output.
+func hasRuleFile(dir string) bool {
+	for _, rf := range projectRuleFiles {
+		if pathExists(filepath.Join(dir, rf.rel)) {
+			return true
+		}
+	}
+	return false
+}
+
+// scanRootProjects finds projects under the configured scan roots: each root
+// itself, plus its immediate children. Directories already claimed by Claude's
+// own walk are skipped, so a project in both places appears once — Claude's copy
+// wins, because it is the one carrying a memory directory.
+//
+// Depth is deliberately 1. DocsSignature re-runs this on every poll tick, so a
+// recursive walk would re-read a whole workspace tree several times a minute;
+// one ReadDir per root plus a few stats per candidate stays negligible. Dotted
+// directories are skipped — .git and friends are never projects.
+//
+// Two things are deliberately not supported, both because the alternative is
+// surprising rather than useful:
+//
+//   - A root must be absolute (after "~" expansion). A relative root would
+//     resolve against the process working directory, so the project list would
+//     change depending on where engram was launched from, and every resulting
+//     DocFile.Path would be relative. Non-absolute roots are skipped.
+//   - Symlinked *directories* are not descended into. os.ReadDir reports a
+//     symlink as a link rather than a directory, so a linked project directory
+//     is not picked up as a candidate. Note this does not extend to the
+//     instruction files themselves: a project whose AGENTS.md is a symlink is
+//     qualified and that file is read through the link, like any other file the
+//     user can already read. Containment is not a security boundary here —
+//     engram runs as the user and only renders the content locally — but do not
+//     read this as "the scan cannot leave the root", because it can.
+//
+// The returned entries have no MemoryDir: a directory Claude Code has never
+// opened has no memory folder, so these contribute instruction files only.
+func scanRootProjects(roots []string, claimed map[string]bool) []projectEntry {
+	var out []projectEntry
+	seen := map[string]bool{}
+	for _, root := range roots {
+		root = strings.TrimSpace(expandHome(root))
+		if root == "" || !filepath.IsAbs(root) {
+			continue
+		}
+		candidates := []string{filepath.Clean(root)}
+		if entries, err := os.ReadDir(root); err == nil {
+			for _, e := range entries {
+				if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+					candidates = append(candidates, filepath.Join(root, e.Name()))
+				}
+			}
+		}
+		for _, dir := range candidates {
+			if claimed[dir] || seen[dir] || !hasRuleFile(dir) {
+				continue
+			}
+			seen[dir] = true
+			out = append(out, projectEntry{Dir: dir, Name: filepath.Base(dir)})
+		}
+	}
+	// Stable order regardless of ReadDir order or how the roots were listed.
+	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
+	return out
+}
+
+// allProjects enumerates every project engram surfaces: the ones Claude Code
+// knows about under projectsRoot, then any additional ones found under
+// scanRoots. Both docs scans go through this, which is what keeps them in
+// lockstep once two different discovery mechanisms feed the same list.
+//
+// Scan roots are additive and independent: they are walked even when
+// projectsRoot is missing or unreadable, so a user with no ~/.claude still sees
+// their configured projects. The projectsRoot error is returned for the caller
+// to interpret, since the callers deliberately differ on it.
+func allProjects(projectsRoot string, scanRoots []string, fn func(projectEntry)) error {
+	claimed := map[string]bool{}
+	err := eachProject(projectsRoot, func(p projectEntry) {
+		claimed[p.Dir] = true
+		fn(p)
+	})
+	for _, p := range scanRootProjects(scanRoots, claimed) {
+		fn(p)
+	}
+	return err
 }

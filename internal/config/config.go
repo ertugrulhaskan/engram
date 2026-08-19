@@ -18,6 +18,18 @@ type Config struct {
 	// Secret-scan guard on promote. Empty means the default.
 	SecretScanAction string `json:"secretScanAction,omitempty"` // "block" (default) | "block-strict" | "warn" | "off"
 	SecretScanScope  string `json:"secretScanScope,omitempty"`  // "secrets" (default) | "secrets+pii"
+
+	// ScanRoots are extra directories to look for projects in, beyond the ones
+	// Claude Code already knows about under ~/.claude/projects. Each root and its
+	// immediate children are checked; a directory counts as a project only when it
+	// carries an instruction file (CLAUDE.md, AGENTS.md, GEMINI.md, or
+	// .github/copilot-instructions.md). A leading "~" is expanded, and a root
+	// must be absolute once expanded — a relative one would resolve against
+	// wherever engram happened to be launched from, so it is ignored.
+	//
+	// Depth is deliberately 1: this is re-checked on every poll tick, so a
+	// recursive walk would run several times a minute for the life of the session.
+	ScanRoots []string `json:"scanRoots,omitempty"`
 }
 
 // ScanAction returns the configured promote-time secret-scan action, defaulting

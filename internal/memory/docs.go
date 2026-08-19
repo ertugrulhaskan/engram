@@ -110,12 +110,15 @@ func claudeLayout(root string) (claudeHome, projectsRoot string, err error) {
 // global-first, then by project, then in projectRuleFiles order with MEMORY.md
 // last.
 //
-// The non-Claude files are discovered only for projects Claude Code already
-// knows about, since the walk enumerates ~/.claude/projects/*; a repo never
-// opened in Claude Code has no entry here to discover from. Only each project's
-// root file is read — the vendors' global equivalents (~/.gemini/GEMINI.md and
-// the like) live outside the Claude home this walk is anchored to.
-func DiscoverDocs(root string) ([]DocFile, error) {
+// scanRoots adds projects Claude Code has never opened: each root and its
+// immediate children are surfaced when they carry an instruction file (see
+// scanRootProjects). Those have no memory directory, so they contribute
+// instruction files only — no MEMORY.md row.
+//
+// Only each project's root file is read — the vendors' global equivalents
+// (~/.gemini/GEMINI.md and the like) are not per-project and are still not
+// covered.
+func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 	claudeHome, projectsRoot, err := claudeLayout(root)
 	if err != nil {
 		return nil, err
@@ -137,29 +140,21 @@ func DiscoverDocs(root string) ([]DocFile, error) {
 
 	read(filepath.Join(claudeHome, "CLAUDE.md"), "CLAUDE.md", DocRules, ProviderClaude, "global", "", "", "")
 
-	entries, err := os.ReadDir(projectsRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return docs, nil
-		}
-		return docs, err
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		memDir := filepath.Join(projectsRoot, e.Name(), "memory")
-		if info, err := os.Stat(memDir); err != nil || !info.IsDir() {
-			continue
-		}
-		projDir := decodeProjectPath(e.Name())
-		projName := filepath.Base(projDir)
-		if pathExists(projDir) {
+	err = allProjects(projectsRoot, scanRoots, func(p projectEntry) {
+		if pathExists(p.Dir) {
 			for _, rf := range projectRuleFiles {
-				read(filepath.Join(projDir, rf.rel), rf.title, DocRules, rf.provider, projName, projName, projDir, memDir)
+				read(filepath.Join(p.Dir, rf.rel), rf.title, DocRules, rf.provider, p.Name, p.Name, p.Dir, p.MemoryDir)
 			}
 		}
-		read(filepath.Join(memDir, "MEMORY.md"), "MEMORY.md", DocIndex, ProviderClaude, projName, projName, projDir, memDir)
+		// A scan-root project has no memory dir. Guard it: filepath.Join("",
+		// "MEMORY.md") is the *relative* path "MEMORY.md", which would read
+		// whatever happens to sit in the working directory.
+		if p.MemoryDir != "" {
+			read(filepath.Join(p.MemoryDir, "MEMORY.md"), "MEMORY.md", DocIndex, ProviderClaude, p.Name, p.Name, p.Dir, p.MemoryDir)
+		}
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return docs, err // deliberately unsorted: same as before the walk was shared
 	}
 
 	sort.SliceStable(docs, func(i, j int) bool {
@@ -180,7 +175,7 @@ func DiscoverDocs(root string) ([]DocFile, error) {
 // them. Both walk projectRuleFiles, which is what keeps them in step: a file
 // surfaced there but missed here would reload only on restart.
 // (MEMORY.md is also covered by Signature; the overlap is harmless.)
-func DocsSignature(root string) (string, error) {
+func DocsSignature(root string, scanRoots []string) (string, error) {
 	claudeHome, projectsRoot, err := claudeLayout(root)
 	if err != nil {
 		return "", err
@@ -193,27 +188,18 @@ func DocsSignature(root string) (string, error) {
 	}
 	add(filepath.Join(claudeHome, "CLAUDE.md"))
 
-	entries, err := os.ReadDir(projectsRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return strconv.FormatUint(h.Sum64(), 16), nil
-		}
-		return "", err
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		memDir := filepath.Join(projectsRoot, e.Name(), "memory")
-		if info, err := os.Stat(memDir); err != nil || !info.IsDir() {
-			continue
-		}
-		if projDir := decodeProjectPath(e.Name()); pathExists(projDir) {
+	err = allProjects(projectsRoot, scanRoots, func(p projectEntry) {
+		if pathExists(p.Dir) {
 			for _, rf := range projectRuleFiles {
-				add(filepath.Join(projDir, rf.rel))
+				add(filepath.Join(p.Dir, rf.rel))
 			}
 		}
-		add(filepath.Join(memDir, "MEMORY.md"))
+		if p.MemoryDir != "" { // see the guard in DiscoverDocs
+			add(filepath.Join(p.MemoryDir, "MEMORY.md"))
+		}
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
 	}
 	return strconv.FormatUint(h.Sum64(), 16), nil
 }
