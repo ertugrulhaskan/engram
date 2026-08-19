@@ -93,9 +93,9 @@ memories as each product allows.
 - [x] **`GEMINI.md`** (Gemini CLI) and **`.github/copilot-instructions.md`** (GitHub
       Copilot) — read-only in `/files` with `gemini` / `copilot` badges, on the same
       `projectRuleFiles` table, so both inherit the discovery limit above. **This item
-      covers each project's own file and nothing else** — a vendor's global equivalent
-      (`~/.gemini/GEMINI.md`) sits outside the `~/.claude` tree the walk is anchored to,
-      and is tracked as its own unticked item below
+      covers each project's own file and nothing else** — the vendors' global equivalents
+      sit outside the `~/.claude` tree the walk is anchored to and are their own item
+      below, now also done
 - [ ] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
       `.github/instructions/*.instructions.md`: both are *directories* of
       frontmatter-bearing files rather than one file at a fixed path, so they need more
@@ -104,11 +104,14 @@ memories as each product allows.
       projects Claude Code has never opened can appear. Each root and its immediate
       children are checked; a directory qualifies only if it carries an instruction file.
       Depth is 1 on purpose: the reload poll re-runs the scan every 2s
-- [ ] The vendors' **global** instruction files (`~/.gemini/GEMINI.md` and equivalents) —
-      scan roots find *projects*, and a global file belongs to no project, so it needs its
-      own configured-file notion. This is the remaining half of vendor-file support: the
-      per-project item above is done on its own terms, but a vendor's files are not fully
-      covered until this lands
+- [x] The vendors' **global** instruction files — `~/.gemini/GEMINI.md` and
+      `~/.codex/AGENTS.md`, read from a `globalRuleFiles` table and listed in the `global`
+      scope beside `~/.claude/CLAUDE.md`. No configured-file notion was needed after all:
+      both sit at fixed paths under the home dir, so the same table pattern that covers the
+      per-project files covers these. They are read straight from the home dir, so they show
+      up with no `~/.claude` and no scan roots. Copilot is absent because it has no home-dir
+      instructions file (VS Code stores user-level instructions in profile settings), and
+      Codex's `CODEX_HOME` / `AGENTS.override.md` precedence isn't honoured
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
       since none of them exposes a memory API today (until/unless that changes)
 - [ ] Read-only at first; editing/sharing per source as feasible

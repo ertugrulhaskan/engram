@@ -8,14 +8,20 @@ import (
 	"time"
 )
 
-// buildClaudeTree lays out a temp ~/.claude: a global CLAUDE.md, one project
-// whose real dir exists (carrying every projectRuleFiles entry) plus a
-// MEMORY.md, and one project whose decoded dir does NOT exist (so its rules
+// buildClaudeTree lays out a temp home dir: a ~/.claude with a global CLAUDE.md,
+// one project whose real dir exists (carrying every projectRuleFiles entry) plus
+// a MEMORY.md, and one project whose decoded dir does NOT exist (so its rules
 // files are unreachable, but its MEMORY.md still shows). Returns the projects
 // root to pass to DiscoverDocs.
-func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
+//
+// The nesting matters: claudeLayout walks up from the projects root to ~/.claude
+// and again to the home dir, so the fixture must be <tmp>/.claude/projects. Root
+// the tree one level shallower and the globalRuleFiles lookups escape the temp
+// dir and read the developer's real ~/.gemini/GEMINI.md.
+func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir, home string) {
 	t.Helper()
-	claudeHome := t.TempDir()
+	home = t.TempDir()
+	claudeHome := filepath.Join(home, ".claude")
 	projectsRoot = filepath.Join(claudeHome, "projects")
 
 	write := func(path, body string) {
@@ -27,13 +33,18 @@ func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 		}
 	}
 
-	// Global rules.
+	// Global rules: Claude's own, plus one file per globalRuleFiles entry in the
+	// home dir. Seeded from the table so a new vendor is covered without editing
+	// the fixture — the same contract projectRuleFiles has below.
 	write(filepath.Join(claudeHome, "CLAUDE.md"), "# global rules\n")
+	for _, rf := range globalRuleFiles {
+		write(filepath.Join(home, rf.rel), "# global "+string(rf.provider)+"\n")
+	}
 
 	// A project whose real dir exists on disk, carrying one instruction file per
 	// projectRuleFiles entry. Bodies are seeded from the table so a new entry is
 	// covered here without editing the fixture.
-	realProjDir = filepath.Join(claudeHome, "code", "app") // -<claudeHome>-code-app decodes here
+	realProjDir = filepath.Join(home, "code", "app") // -<home>-code-app decodes here
 	for _, rf := range projectRuleFiles {
 		write(filepath.Join(realProjDir, rf.rel), "# app "+string(rf.provider)+"\n")
 	}
@@ -43,7 +54,7 @@ func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 	// A project whose decoded dir does not exist (only MEMORY.md is reachable).
 	write(filepath.Join(projectsRoot, "-Users-ghost-gone", "memory", "MEMORY.md"), "# ghost index\n")
 
-	return projectsRoot, realProjDir
+	return projectsRoot, realProjDir, home
 }
 
 // encodeForTest mirrors Claude Code's project-folder encoding: "/", ".", and any
@@ -56,7 +67,7 @@ func encodeForTest(dir string) string {
 }
 
 func TestDiscoverDocs(t *testing.T) {
-	projectsRoot, realProjDir := buildClaudeTree(t)
+	projectsRoot, realProjDir, _ := buildClaudeTree(t)
 
 	docs, err := DiscoverDocs(projectsRoot, nil)
 	if err != nil {
@@ -126,7 +137,7 @@ func TestDiscoverDocs(t *testing.T) {
 // two-way comparison left that order dependent on read order, which would make
 // the list shuffle between reloads.
 func TestDocsOrderWithinProject(t *testing.T) {
-	projectsRoot, realProjDir := buildClaudeTree(t)
+	projectsRoot, realProjDir, _ := buildClaudeTree(t)
 
 	docs, err := DiscoverDocs(projectsRoot, nil)
 	if err != nil {
@@ -185,7 +196,7 @@ func TestProjectRuleFilesContents(t *testing.T) {
 func TestDocsSignatureCoversRuleFiles(t *testing.T) {
 	for _, rf := range projectRuleFiles {
 		t.Run(rf.rel, func(t *testing.T) {
-			projectsRoot, realProjDir := buildClaudeTree(t)
+			projectsRoot, realProjDir, _ := buildClaudeTree(t)
 
 			before, err := DocsSignature(projectsRoot, nil)
 			if err != nil {
@@ -252,7 +263,7 @@ func TestDecodeProjectPathDots(t *testing.T) {
 }
 
 func TestDocsSignatureChangesOnEdit(t *testing.T) {
-	projectsRoot, _ := buildClaudeTree(t)
+	projectsRoot, _, _ := buildClaudeTree(t)
 
 	sig1, err := DocsSignature(projectsRoot, nil)
 	if err != nil {
@@ -269,5 +280,217 @@ func TestDocsSignatureChangesOnEdit(t *testing.T) {
 	}
 	if sig1 == sig2 {
 		t.Errorf("signature unchanged after editing CLAUDE.md: %q", sig1)
+	}
+}
+
+// TestGlobalRuleFilesContents pins the global table the way
+// TestProjectRuleFilesContents pins the project one. Every other global test
+// drives off globalRuleFiles, so deleting a row would leave them all passing
+// while silently covering less. This is the one place that asserts *which*
+// home-dir files engram promises to surface.
+func TestGlobalRuleFilesContents(t *testing.T) {
+	want := []ruleFile{
+		{filepath.Join(".codex", "AGENTS.md"), "AGENTS.md", ProviderAgents},
+		{filepath.Join(".gemini", "GEMINI.md"), "GEMINI.md", ProviderGemini},
+	}
+	if len(globalRuleFiles) != len(want) {
+		t.Fatalf("globalRuleFiles has %d entries, want %d: %+v", len(globalRuleFiles), len(want), globalRuleFiles)
+	}
+	for i, w := range want {
+		if globalRuleFiles[i] != w {
+			t.Errorf("globalRuleFiles[%d] = %+v, want %+v", i, globalRuleFiles[i], w)
+		}
+	}
+}
+
+// TestDiscoverDocsFindsVendorGlobals is the point of globalRuleFiles: a vendor's
+// home-dir instruction file applies to every project, so it belongs in /files
+// next to ~/.claude/CLAUDE.md. It must land in the global scope carrying no
+// project — an empty ProjectDir is what tells the TUI there is no repo to open,
+// so a wrong value here would point @Claude at an unrelated project.
+func TestDiscoverDocsFindsVendorGlobals(t *testing.T) {
+	projectsRoot, _, home := buildClaudeTree(t)
+
+	docs, err := DiscoverDocs(projectsRoot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byProvider := map[DocProvider]DocFile{}
+	for _, d := range docs {
+		if d.Scope == "global" {
+			byProvider[d.Provider] = d
+		}
+	}
+	if _, ok := byProvider[ProviderClaude]; !ok {
+		t.Error("the global CLAUDE.md stopped being discovered")
+	}
+	for _, rf := range globalRuleFiles {
+		d, ok := byProvider[rf.provider]
+		if !ok {
+			t.Errorf("no global doc discovered for %s (provider %q)", rf.rel, rf.provider)
+			continue
+		}
+		if d.Title != rf.title {
+			t.Errorf("%s title = %q, want %q", rf.rel, d.Title, rf.title)
+		}
+		if want := filepath.Join(home, rf.rel); d.Path != want {
+			t.Errorf("%s path = %q, want %q", rf.rel, d.Path, want)
+		}
+		if want := "global " + string(rf.provider); !strings.Contains(d.Body, want) {
+			t.Errorf("%s body = %q, want it to contain %q", rf.rel, d.Body, want)
+		}
+		if d.Kind != DocRules {
+			t.Errorf("%s kind = %q, want %q", rf.rel, d.Kind, DocRules)
+		}
+		if d.ProjectName != "" || d.ProjectDir != "" || d.MemoryDir != "" {
+			t.Errorf("%s belongs to no project, got name=%q dir=%q mem=%q",
+				rf.rel, d.ProjectName, d.ProjectDir, d.MemoryDir)
+		}
+	}
+
+	// Every global doc sorts ahead of every project doc, and within the global
+	// scope they follow docRank (Claude's own rules, then the other vendors').
+	var globals []string
+	seenProject := false
+	for _, d := range docs {
+		if d.Scope == "global" {
+			if seenProject {
+				t.Errorf("global doc %q sorted after a project doc", d.Title)
+			}
+			globals = append(globals, string(d.Provider))
+			continue
+		}
+		seenProject = true
+	}
+	want := []string{string(ProviderClaude)}
+	for _, rf := range globalRuleFiles {
+		want = append(want, string(rf.provider))
+	}
+	if len(globals) != len(want) {
+		t.Fatalf("global docs = %v, want %v", globals, want)
+	}
+	for i := range want {
+		if globals[i] != want[i] {
+			t.Fatalf("global docs = %v, want %v", globals, want)
+		}
+	}
+}
+
+// TestDocsSignatureCoversGlobalRuleFiles is the lockstep guard for the global
+// table, matching TestDocsSignatureCoversRuleFiles for the project one. A global
+// file surfaced by the walk but missing from the fingerprint would render on
+// launch and then never refresh — and a *global* file is the one most likely to
+// be edited outside engram, since every project sees it.
+func TestDocsSignatureCoversGlobalRuleFiles(t *testing.T) {
+	for _, rf := range globalRuleFiles {
+		t.Run(rf.rel, func(t *testing.T) {
+			projectsRoot, _, home := buildClaudeTree(t)
+
+			before, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			path := filepath.Join(home, rf.rel)
+			if err := os.WriteFile(path, []byte("# global "+string(rf.provider)+", revised\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			newer := time.Now().Add(2 * time.Second)
+			if err := os.Chtimes(path, newer, newer); err != nil {
+				t.Fatal(err)
+			}
+
+			after, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if before == after {
+				t.Errorf("DocsSignature unchanged after editing %s (%q) — the poll reload will miss external edits", rf.rel, before)
+			}
+		})
+	}
+}
+
+// TestDiscoverDocsStaysInsideTheFixtureHome guards the trap that reading the
+// home dir introduced. claudeLayout derives home by walking up twice from the
+// projects root, so a fixture rooted one level too shallow resolves home to the
+// directory holding the temp tree — and the run would read the developer's own
+// ~/.gemini/GEMINI.md, passing or failing based on their machine. Pinning every
+// discovered path inside the fixture keeps that non-hermetic version from
+// creeping back in.
+func TestDiscoverDocsStaysInsideTheFixtureHome(t *testing.T) {
+	projectsRoot, _, home := buildClaudeTree(t)
+
+	docs, err := DiscoverDocs(projectsRoot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(docs) == 0 {
+		t.Fatal("fixture produced no docs")
+	}
+	for _, d := range docs {
+		rel, err := filepath.Rel(home, d.Path)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			t.Errorf("doc %q lies outside the fixture home %q — the walk escaped into the real filesystem", d.Path, home)
+		}
+	}
+}
+
+// TestGlobalRuleFilesSurviveMissingClaudeHome pins the one claim the README,
+// SPEC, ROADMAP and changelog all make about these files: unlike per-project
+// discovery, they are read straight from the home dir, so they appear with no
+// ~/.claude tree and no scanRoots configured. That is the whole reason they are
+// a separate table rather than another scan root — scan roots find *projects*,
+// and these belong to none. Four doc surfaces assert it; this is what makes it
+// true rather than aspirational.
+func TestGlobalRuleFilesSurviveMissingClaudeHome(t *testing.T) {
+	home := t.TempDir()
+	for _, rf := range globalRuleFiles {
+		path := filepath.Join(home, rf.rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("# global "+string(rf.provider)+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missing := filepath.Join(home, ".claude", "projects") // never created
+
+	docs, err := DiscoverDocs(missing, nil)
+	if err != nil {
+		t.Fatalf("DiscoverDocs with no ~/.claude = %v, want the vendors' global files", err)
+	}
+	if len(docs) != len(globalRuleFiles) {
+		t.Fatalf("docs = %+v, want exactly the %d globalRuleFiles entries", docs, len(globalRuleFiles))
+	}
+	for i, rf := range globalRuleFiles {
+		if docs[i].Provider != rf.provider || docs[i].Scope != "global" {
+			t.Errorf("docs[%d] = provider %q scope %q, want %q/global", i, docs[i].Provider, docs[i].Scope, rf.provider)
+		}
+	}
+
+	// The fingerprint must cover them too, or an external edit never reloads.
+	before, err := DocsSignature(missing, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before == "" {
+		t.Fatal("DocsSignature = \"\" with no ~/.claude; want the hash covering the vendors' global files")
+	}
+	edited := filepath.Join(home, globalRuleFiles[0].rel)
+	if err := os.WriteFile(edited, []byte("# revised\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	newer := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(edited, newer, newer); err != nil {
+		t.Fatal(err)
+	}
+	after, err := DocsSignature(missing, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before == after {
+		t.Error("DocsSignature unchanged after editing a global file with no ~/.claude — the poll reload will miss it")
 	}
 }

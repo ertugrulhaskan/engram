@@ -12,7 +12,7 @@ import (
 // A plain file, and a directory without memory/, must both be skipped — that
 // gate used to be written out four times, and this is now the only copy.
 func TestEachProjectSkipsNonProjects(t *testing.T) {
-	projectsRoot, realProjDir := buildClaudeTree(t)
+	projectsRoot, realProjDir, _ := buildClaudeTree(t)
 
 	// A directory with no memory/ subdir, and a stray file, next to the real ones.
 	if err := os.MkdirAll(filepath.Join(projectsRoot, "-Users-me-nomem"), 0o755); err != nil {
@@ -56,7 +56,7 @@ func TestEachProjectSkipsNonProjects(t *testing.T) {
 // the walk, one could pick up a project the other missed, and nothing would say
 // so — the list and the preview would simply disagree.
 func TestScansAgreeOnProjectSet(t *testing.T) {
-	projectsRoot, _ := buildClaudeTree(t)
+	projectsRoot, _, _ := buildClaudeTree(t)
 
 	// Seed a real memory file so Discover has something to return per project.
 	slugs, err := os.ReadDir(projectsRoot)
@@ -119,7 +119,10 @@ func TestScansAgreeOnProjectSet(t *testing.T) {
 // in particular is contractual — it matches plan.Signature so the combined
 // fingerprint stays stable.
 func TestMissingProjectsRootBehaviour(t *testing.T) {
-	claudeHome := t.TempDir()
+	claudeHome := filepath.Join(t.TempDir(), ".claude") // see buildClaudeTree on why this nests
+	if err := os.MkdirAll(claudeHome, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(claudeHome, "CLAUDE.md"), []byte("# global\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +266,7 @@ func TestScanRootDocsHaveNoIndexRow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	missing := filepath.Join(t.TempDir(), "projects") // no ~/.claude at all
+	missing := filepath.Join(t.TempDir(), ".claude", "projects") // no ~/.claude at all
 	docs, err := DiscoverDocs(missing, []string{root})
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +297,7 @@ func TestScanRootsSurviveMissingClaudeHome(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	missing := filepath.Join(t.TempDir(), "projects")
+	missing := filepath.Join(t.TempDir(), ".claude", "projects")
 
 	docs, err := DiscoverDocs(missing, []string{root})
 	if err != nil {

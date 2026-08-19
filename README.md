@@ -121,7 +121,7 @@ them anymore:
 
 ### `/files` — read-only view of your instruction files
 
-`/files` lists the global `~/.claude/CLAUDE.md`, each project's instruction
+`/files` lists your **global** instruction files, each project's instruction
 files (when its directory resolves on disk), and each project's `MEMORY.md`
 index. A badge names each one:
 
@@ -132,6 +132,15 @@ index. A badge names each one:
 | `GEMINI.md` | `gemini` | Gemini CLI |
 | `.github/copilot-instructions.md` | `copilot` | GitHub Copilot |
 | `MEMORY.md` | `index` | Claude Code (engram keeps it in sync) |
+
+Three of these also have a **global** form that applies to every project, listed
+first under `global`: `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` and
+`~/.gemini/GEMINI.md`. These are read straight from your home folder, so they
+show up even if you've never opened a project in Claude Code. Copilot has no
+home-folder equivalent — VS Code keeps user-level instructions in its profile
+settings rather than a file — and engram reads Codex's default
+`~/.codex/AGENTS.md` only, not a relocated `CODEX_HOME` or an
+`AGENTS.override.md`.
 
 These are **view-only** — `e`/`d` point you at `@Claude` instead of editing them
 directly, so the index and your instructions don't get hand-corrupted.
@@ -154,9 +163,9 @@ Scanned projects show instruction files only; they have no `MEMORY.md`.
 Roots must be absolute (after `~`); a relative one is ignored, since it would
 depend on where you launched engram. Symlinked directories aren't followed.
 
-engram reads each project's own file only, so a vendor's global equivalent
-(`~/.gemini/GEMINI.md`) isn't listed, and neither are the path-scoped rule
-*directories* (`.github/instructions/`, `.cursor/rules/`).
+The path-scoped rule *directories* (`.github/instructions/`, `.cursor/rules/`)
+aren't listed — they're folders of frontmatter-bearing files rather than one file
+at a fixed path, so they need more than a flat row.
 
 ## Reading the list
 
@@ -297,7 +306,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
-- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md` and Copilot's are browsable; Cursor rules next), then server-side memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md` and Copilot's are browsable, per project and globally; Cursor rules next), then server-side memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing
 

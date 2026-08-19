@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The vendors' global instruction files are now in `/files`.** `~/.gemini/GEMINI.md`
+  (Gemini CLI) and `~/.codex/AGENTS.md` (Codex) are listed in the `global` scope beside
+  `~/.claude/CLAUDE.md`, with the same `gemini` / `agents` badges their per-project
+  counterparts carry. This is the half of vendor-file support that was missing: engram
+  showed a project's `GEMINI.md` but not the global one that applies to *every* project.
+
+  Unlike per-project discovery, these are read straight from your home folder — so they
+  appear with no `~/.claude` tree and no `scanRoots` configured. They belong to no project,
+  so `@Claude` on one opens in `~/.claude` — the same place it already opened for the global
+  `CLAUDE.md` — rather than in an unrelated repo.
+
+  Two deliberate gaps: **Copilot** has no home-folder instructions file (VS Code keeps
+  user-level instructions in profile settings), and Codex's `CODEX_HOME` relocation and
+  `AGENTS.override.md` precedence are not honoured — engram reads the default
+  `~/.codex/AGENTS.md` only.
 - **Projects Claude Code has never opened can now appear, via configured scan roots.**
   A new `scanRoots` list in the config (`~/.config/engram/config.json`) names extra
   directories to look for projects in. Each root **and its immediate children** are

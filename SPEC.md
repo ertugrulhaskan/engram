@@ -149,6 +149,16 @@ var projectRuleFiles = []ruleFile{
     {"GEMINI.md",                            "GEMINI.md",               ProviderGemini},
     {".github/copilot-instructions.md", "copilot-instructions.md", ProviderCopilot},
 }
+
+// globalRuleFiles is the matching table for the vendors' *global* instruction
+// files — the ones that apply to every project and so live in the home dir,
+// outside the ~/.claude tree the project walk is anchored to. Claude's own
+// ~/.claude/CLAUDE.md is read separately, since it sits under claudeHome rather
+// than home. Both docs scans walk this table too, for the same lockstep reason.
+var globalRuleFiles = []ruleFile{
+    {".codex/AGENTS.md",  "AGENTS.md",  ProviderAgents},
+    {".gemini/GEMINI.md", "GEMINI.md",  ProviderGemini},
+}
 ```
 
 ## 7. Sharing design (Phase 2)
@@ -472,9 +482,21 @@ and the list badge names each: `rules`, `agents`, `gemini`, `copilot`, `index`. 
 vendor badges share one colour — the colour says "someone else's rules", the label says whose,
 so a new vendor costs a word rather than another hue in a deliberately small palette.
 
-Only each project's own file is read. A vendor's *global* equivalent (`~/.gemini/GEMINI.md`
-and the like) lives outside the `~/.claude` tree this walk is anchored to, so it does not
-appear. The **path-scoped** variants are also out: Copilot's
+The vendors' **global** files are read as well, from the `globalRuleFiles` table:
+`~/.codex/AGENTS.md` and `~/.gemini/GEMINI.md` join `~/.claude/CLAUDE.md` in the `global`
+scope. `claudeLayout` puts them in reach by resolving the home dir — it walks up from the
+projects root to `~/.claude` and up once more — so the tree stays redirectable to a temp
+dir in tests. A global doc belongs to no project, so it carries empty
+`ProjectName`/`ProjectDir`/`MemoryDir`, exactly as `~/.claude/CLAUDE.md` always has. The
+TUI reads that as "no repo to open": `assistantContext` returns `claudeHome()` when both
+dirs are empty, so `@Claude` launches in `~/.claude` rather than in an unrelated project.
+
+Two vendor limits are deliberate. Copilot has no home-dir equivalent — VS Code keeps
+user-level instructions in profile settings, not a file at a fixed path — and Codex's
+`CODEX_HOME` relocation and its `AGENTS.override.md` precedence are not honoured, so
+engram surfaces the default file only.
+
+The **path-scoped** variants are also out: Copilot's
 `.github/instructions/*.instructions.md` and Cursor's `.cursor/rules/*.mdc` are directories of
 frontmatter-bearing files, which need more than `DocFile`'s flat shape.
 `memory.DiscoverDocs`/`DocsSignature` walk these (the
@@ -509,9 +531,11 @@ Three properties worth stating, because each is a decision rather than an accide
   Both docs scans guard this: `filepath.Join("", "MEMORY.md")` is the *relative* path
   `MEMORY.md`, which would read whatever sits in the process's working directory.
 
-Still not covered: the vendors' **global** files (`~/.gemini/GEMINI.md` and the like). Scan
-roots find projects, and a global file belongs to no project. Public copy must therefore
-still not imply standalone multi-assistant support out of the box — `scanRoots` is opt-in.
+Still not covered: the **path-scoped** rule directories named above, and Cursor entirely.
+Note that the global files are the one part of tier 1 that is *not* Claude-anchored — they are
+read straight from the home dir, so they appear even with no `~/.claude` and no `scanRoots`.
+Per-project discovery still is anchored, so public copy must go on not implying standalone
+multi-assistant support out of the box — `scanRoots` is opt-in.
 
 ## 9. Distribution
 

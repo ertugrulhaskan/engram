@@ -49,9 +49,11 @@ type DocFile struct {
 	Modified    time.Time
 }
 
-// ruleFile is one instruction file engram surfaces read-only from a project dir.
+// ruleFile is one instruction file engram surfaces read-only, at a fixed path
+// under some base dir — a project dir for projectRuleFiles, the user's home dir
+// for globalRuleFiles.
 type ruleFile struct {
-	rel      string // path relative to the project dir
+	rel      string // path relative to that base dir
 	title    string // display name (the file's own basename)
 	provider DocProvider
 }
@@ -73,10 +75,31 @@ var projectRuleFiles = []ruleFile{
 	{filepath.Join(".github", "copilot-instructions.md"), "copilot-instructions.md", ProviderCopilot},
 }
 
+// globalRuleFiles lists the vendors' *global* instruction files — the ones that
+// apply to every project and therefore live in the user's home dir, outside the
+// ~/.claude tree the project walk is anchored to. Claude's own
+// ~/.claude/CLAUDE.md is read separately because it sits under claudeHome
+// rather than home, so it is deliberately absent here.
+//
+// As with projectRuleFiles, DiscoverDocs and DocsSignature both walk this one
+// table, which is what keeps discovery and the reload fingerprint in lockstep.
+//
+// Absent on purpose:
+//   - Copilot — VS Code keeps user-level instructions in profile settings, not
+//     a markdown file at a fixed path in the home dir, so there is nothing to
+//     read.
+//   - Codex's CODEX_HOME relocation and its AGENTS.override.md (which wins over
+//     AGENTS.md when both exist) — engram surfaces the default file only.
+var globalRuleFiles = []ruleFile{
+	{filepath.Join(".codex", "AGENTS.md"), "AGENTS.md", ProviderAgents},
+	{filepath.Join(".gemini", "GEMINI.md"), "GEMINI.md", ProviderGemini},
+}
+
 // docRank orders docs within one scope: the instruction files in
 // projectRuleFiles order, then the memory index last. Ranking off the table
 // (rather than a hand-written switch) means a new entry sorts correctly without
-// a second edit here.
+// a second edit here. It ranks the global scope too — globalRuleFiles reuses
+// the same providers, so the one table orders both scopes consistently.
 func docRank(d DocFile) int {
 	if d.Kind == DocIndex {
 		return len(projectRuleFiles)
@@ -89,37 +112,47 @@ func docRank(d DocFile) int {
 	return len(projectRuleFiles)
 }
 
-// claudeLayout resolves the ~/.claude home and its projects/ root. If root is
-// empty both default under ~/.claude; otherwise root is the projects dir and the
-// home is its parent (so a test can point the whole thing at a temp tree).
-func claudeLayout(root string) (claudeHome, projectsRoot string, err error) {
+// claudeLayout resolves the user's home dir, the ~/.claude home under it, and
+// the projects/ root under that. If root is empty all three derive from the real
+// home dir; otherwise root is the projects dir, ~/.claude is its parent and home
+// is the parent of that — so a test can point the whole tree, vendor dirs
+// included, at a temp dir.
+//
+// That last hop is why a fixture must nest its projects root as
+// <tmp>/.claude/projects. A shallower fixture would resolve home to whatever
+// directory happens to hold the temp tree, and the globalRuleFiles lookups would
+// read the developer's real ~/.gemini/GEMINI.md mid-test.
+func claudeLayout(root string) (home, claudeHome, projectsRoot string, err error) {
 	if root != "" {
-		return filepath.Dir(root), root, nil
+		claudeHome = filepath.Dir(root)
+		return filepath.Dir(claudeHome), claudeHome, root, nil
 	}
-	home, err := os.UserHomeDir()
+	home, err = os.UserHomeDir()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	claudeHome = filepath.Join(home, ".claude")
-	return claudeHome, filepath.Join(claudeHome, "projects"), nil
+	return home, claudeHome, filepath.Join(claudeHome, "projects"), nil
 }
 
 // DiscoverDocs returns the read-only instruction docs: the global
-// ~/.claude/CLAUDE.md, and per project every projectRuleFiles entry that exists
-// (only when the project dir resolves on disk) plus its MEMORY.md. Sorted
-// global-first, then by project, then in projectRuleFiles order with MEMORY.md
-// last.
+// ~/.claude/CLAUDE.md plus every globalRuleFiles entry that exists, and per
+// project every projectRuleFiles entry that exists (only when the project dir
+// resolves on disk) plus its MEMORY.md. Sorted global-first, then by project,
+// then in projectRuleFiles order with MEMORY.md last.
 //
 // scanRoots adds projects Claude Code has never opened: each root and its
 // immediate children are surfaced when they carry an instruction file (see
 // scanRootProjects). Those have no memory directory, so they contribute
 // instruction files only — no MEMORY.md row.
 //
-// Only each project's root file is read — the vendors' global equivalents
-// (~/.gemini/GEMINI.md and the like) are not per-project and are still not
-// covered.
+// A global doc belongs to no project, so it carries empty ProjectName,
+// ProjectDir and MemoryDir — the same shape ~/.claude/CLAUDE.md has always had.
+// The TUI already reads that as "no project to open" (assistantContext returns
+// claudeHome() when both dirs are empty), so @Claude launches in ~/.claude
+// rather than pointing at someone else's repo.
 func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
-	claudeHome, projectsRoot, err := claudeLayout(root)
+	home, claudeHome, projectsRoot, err := claudeLayout(root)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +172,9 @@ func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 	}
 
 	read(filepath.Join(claudeHome, "CLAUDE.md"), "CLAUDE.md", DocRules, ProviderClaude, "global", "", "", "")
+	for _, rf := range globalRuleFiles {
+		read(filepath.Join(home, rf.rel), rf.title, DocRules, rf.provider, "global", "", "", "")
+	}
 
 	err = allProjects(projectsRoot, scanRoots, func(p projectEntry) {
 		if pathExists(p.Dir) {
@@ -172,11 +208,11 @@ func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 
 // DocsSignature fingerprints the same files DiscoverDocs surfaces (path + modtime
 // + size), reading no contents — so polling notices an external edit to any of
-// them. Both walk projectRuleFiles, which is what keeps them in step: a file
-// surfaced there but missed here would reload only on restart.
+// them. Both walk projectRuleFiles and globalRuleFiles, which is what keeps them
+// in step: a file surfaced there but missed here would reload only on restart.
 // (MEMORY.md is also covered by Signature; the overlap is harmless.)
 func DocsSignature(root string, scanRoots []string) (string, error) {
-	claudeHome, projectsRoot, err := claudeLayout(root)
+	home, claudeHome, projectsRoot, err := claudeLayout(root)
 	if err != nil {
 		return "", err
 	}
@@ -187,6 +223,9 @@ func DocsSignature(root string, scanRoots []string) (string, error) {
 		}
 	}
 	add(filepath.Join(claudeHome, "CLAUDE.md"))
+	for _, rf := range globalRuleFiles {
+		add(filepath.Join(home, rf.rel))
+	}
 
 	err = allProjects(projectsRoot, scanRoots, func(p projectEntry) {
 		if pathExists(p.Dir) {
