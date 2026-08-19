@@ -141,7 +141,7 @@ func (m Model) paletteCommands() []palCommand {
 	return []palCommand{
 		{"memories", "memory", sig(palItem{glyphColor: t.TProject, label: "memories", sub: "browse your Claude memories", action: palSwitch, src: srcMemories})},
 		{"plans", "", sig(palItem{glyphColor: t.TReference, label: "plans", sub: "browse your plan-mode plans", action: palSwitch, src: srcPlans})},
-		{"files", "", sig(palItem{glyphColor: t.TUser, label: "files", sub: "CLAUDE.md & MEMORY.md — read-only", action: palSwitch, src: srcFiles})},
+		{"files", "", sig(palItem{glyphColor: t.TUser, label: "files", sub: "instruction files & MEMORY.md — read-only", action: palSwitch, src: srcFiles})},
 		{"settings", "", sig(palItem{glyphColor: t.TFeedback, label: "settings", sub: "open the config file (theme, editor)", action: palSettings})},
 	}
 }

@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GEMINI.md` and `.github/copilot-instructions.md` now show in the `/files` source** —
+  Phase 4 tier 1 continues. Each project's Gemini CLI context file and repo-wide GitHub
+  Copilot instructions are listed read-only alongside its `CLAUDE.md` and `AGENTS.md`,
+  badged `gemini` and `copilot`, sorted `CLAUDE.md` → `AGENTS.md` → `GEMINI.md` →
+  `copilot-instructions.md` → `MEMORY.md` within a project. External edits trigger the
+  same poll reload as the other docs.
+
+  The four vendor badges deliberately share one colour: the colour says "someone else's
+  rules", the label says whose, so a new vendor costs a word rather than another hue in a
+  small palette.
+
+  **Two scope limits, stated plainly.** These inherit the `AGENTS.md` limit — engram finds
+  them only for projects it already knows about, ones with a folder under
+  `~/.claude/projects/`. And it reads each project's *own* file only: a vendor's global
+  equivalent (`~/.gemini/GEMINI.md`) sits outside the `~/.claude` tree the walk is anchored
+  to. The path-scoped rule *directories* — Copilot's `.github/instructions/*.instructions.md`
+  and Cursor's `.cursor/rules/*.mdc` — are still out, because a directory of
+  frontmatter-bearing files needs more than the flat `DocFile` shape.
+
+  Internally the per-project instruction files moved to one `projectRuleFiles` table that
+  discovery, the change fingerprint and the sort rank all read, so adding a vendor is one
+  row instead of four edits that can drift apart.
+
 - **`AGENTS.md` now shows in the `/files` source** — the first step of Phase 4 tier 1
   (other assistants). Each project's `AGENTS.md` is listed read-only next to its
   `CLAUDE.md`, carrying an `agents` badge so the two don't both read `rules`, and sorted
@@ -29,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-checked word-for-word.
 
 ### Changed
+- **The `/files` labels no longer name only `CLAUDE.md`.** The command palette entry read
+  "CLAUDE.md & MEMORY.md — read-only" and the `@Claude` seed prompt said the user was
+  browsing their "CLAUDE.md / MEMORY.md files" — both were already wrong once `AGENTS.md`
+  landed and would have been wronger with four instruction files. They now read
+  "instruction files & MEMORY.md — read-only" and "instruction and index files".
 - **The hero pill above the headline now carries the release**, not a second copy of
   the pitch: `v0.3.0 out now · free and open source`, linking to the latest GitHub
   release. It previously read "your team's AI memory, in one place", which said the

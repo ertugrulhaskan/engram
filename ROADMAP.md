@@ -83,10 +83,15 @@ memories as each product allows.
 - [x] **`AGENTS.md`** (Codex / cross-tool standard) — read-only in `/files`, with an
       `agents` badge. Found for projects engram already knows about (those with a
       `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear
-- [ ] Remaining local instruction-file sources — `GEMINI.md` (Gemini CLI),
-      `.github/copilot-instructions.md`, Cursor rules (`.cursor/rules/*.mdc`): files on
-      disk, so no API is needed. Cursor rules are a directory of frontmatter-bearing
-      `.mdc` files, so they need more than the `DocFile` shape
+- [x] **`GEMINI.md`** (Gemini CLI) and **`.github/copilot-instructions.md`** (GitHub
+      Copilot) — read-only in `/files` with `gemini` / `copilot` badges, on the same
+      `projectRuleFiles` table, so both inherit the discovery limit above. Each project's
+      own file only: a vendor's global equivalent (`~/.gemini/GEMINI.md`) sits outside the
+      `~/.claude` tree the walk is anchored to
+- [ ] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
+      `.github/instructions/*.instructions.md`: both are *directories* of
+      frontmatter-bearing files rather than one file at a fixed path, so they need more
+      than the `DocFile` shape and the `projectRuleFiles` table
 - [ ] Lift the Claude-anchored discovery limit (a configured set of scanned roots), so
       projects Claude Code has never opened can appear
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,

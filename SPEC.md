@@ -126,19 +126,29 @@ type Project struct {
 }
 
 // DocFile is a read-only instruction file surfaced in the /files source
-// (Phase 1.5; AGENTS.md added in Phase 4 tier 1). No frontmatter — an assistant
-// manages these, engram never hand-edits them.
+// (Phase 1.5; the non-Claude files added in Phase 4 tier 1). No frontmatter — an
+// assistant manages these, engram never hand-edits them.
 type DocFile struct {
     Path, Title, Body string
-    Kind              DocKind     // "rules" (CLAUDE.md, AGENTS.md) | "index" (MEMORY.md)
-    Provider          DocProvider // "claude" | "agents" — whose doc it is
+    Kind              DocKind     // "rules" (the instruction files) | "index" (MEMORY.md)
+    Provider          DocProvider // "claude" | "agents" | "gemini" | "copilot"
     Scope             string      // "global" or the project name
     ProjectName, ProjectDir, MemoryDir string
     Modified          time.Time
 }
-// Kind and Provider are deliberately separate dimensions: AGENTS.md and CLAUDE.md
-// are the same *kind* (rules) from different ecosystems. Collapsing them would
+// Kind and Provider are deliberately separate dimensions: every instruction file
+// is the same *kind* (rules) from a different ecosystem. Collapsing them would
 // force a new DocKind per vendor as tier 1 grows.
+
+// projectRuleFiles is the single table of per-project instruction files, in
+// display order. DiscoverDocs, DocsSignature and docRank all read it, so adding
+// a vendor is one row rather than four edits that can drift apart.
+var projectRuleFiles = []ruleFile{
+    {"CLAUDE.md",                            "CLAUDE.md",               ProviderClaude},
+    {"AGENTS.md",                            "AGENTS.md",               ProviderAgents},
+    {"GEMINI.md",                            "GEMINI.md",               ProviderGemini},
+    {".github/copilot-instructions.md", "copilot-instructions.md", ProviderCopilot},
+}
 ```
 
 ## 7. Sharing design (Phase 2)
@@ -361,7 +371,7 @@ engram/
             discover.go      # walk projects, decode paths, fs signature
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile
-            docs.go          # read-only CLAUDE.md/AGENTS.md/MEMORY.md discovery + signature (the /files source)
+            docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source)
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
@@ -449,14 +459,23 @@ are genuinely misfiled. `claude` is a new **optional** runtime dependency: absen
 action shows a hint and does nothing. On exit engram reloads (and resets the drift cache)
 so changes appear immediately.
 
-### 8.2 `/files` read-only source (Phase 1.5; `AGENTS.md` in Phase 4 tier 1)
+### 8.2 `/files` read-only source (Phase 1.5; the non-Claude files in Phase 4 tier 1)
 
 A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the instruction
 files an assistant *manages* rather than the ones you author: the global
-`~/.claude/CLAUDE.md`, each project's `CLAUDE.md` and `AGENTS.md` (each only when its decoded
-dir resolves on disk — the same lossy-key limitation as §8.1), and each project's
-`MEMORY.md`. Within a scope they sort `CLAUDE.md` → `AGENTS.md` → `MEMORY.md` (`docRank`),
-and the list badge names each: `rules`, `agents`, `index`.
+`~/.claude/CLAUDE.md`, each project's `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and
+`.github/copilot-instructions.md` (each only when its decoded dir resolves on disk — the same
+lossy-key limitation as §8.1), and each project's `MEMORY.md`. Within a scope they sort in
+`projectRuleFiles` order with `MEMORY.md` last (`docRank`, which ranks off that same table),
+and the list badge names each: `rules`, `agents`, `gemini`, `copilot`, `index`. The four
+vendor badges share one colour — the colour says "someone else's rules", the label says whose,
+so a new vendor costs a word rather than another hue in a deliberately small palette.
+
+Only each project's own file is read. A vendor's *global* equivalent (`~/.gemini/GEMINI.md`
+and the like) lives outside the `~/.claude` tree this walk is anchored to, so it does not
+appear. The **path-scoped** variants are also out: Copilot's
+`.github/instructions/*.instructions.md` and Cursor's `.cursor/rules/*.mdc` are directories of
+frontmatter-bearing files, which need more than `DocFile`'s flat shape.
 `memory.DiscoverDocs`/`DocsSignature` walk these (the
 signature folds into `combinedSig`, so external/`@Claude` edits — including to `CLAUDE.md`,
 which lives outside the memory tree — trigger the poll reload). **`DocsSignature` must stay in
@@ -470,7 +489,7 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 
 **Discovery is Claude-anchored, and tier 1 inherits that.** The walk enumerates
 `~/.claude/projects/*` and reaches a project's working dir only by decoding that key, so
-`AGENTS.md` is found only for projects Claude Code already knows about. A repo that uses
+these files are found only for projects Claude Code already knows about. A repo that uses
 Codex or Cursor but has never been opened in Claude Code has no entry to discover from and
 does not appear. This is an accepted limit for now, not an oversight — lifting it means a
 configured set of scanned roots independent of `~/.claude`. Public copy must therefore not

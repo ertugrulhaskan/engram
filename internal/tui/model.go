@@ -21,7 +21,7 @@ import (
 type Model struct {
 	memories []memory.Memory  // full memory set, unfiltered
 	plans    []plan.Plan      // full plan set
-	docs     []memory.DocFile // read-only CLAUDE.md / MEMORY.md files
+	docs     []memory.DocFile // read-only instruction files + MEMORY.md indexes
 	srcKind  srcKind          // which source is being browsed
 	cursors  [srcCount]int    // remembered cursor (row index) per source
 

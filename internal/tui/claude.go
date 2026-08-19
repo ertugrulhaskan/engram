@@ -164,7 +164,7 @@ func (m Model) buildSeedPrompt(projDir, memDir string, unresolved bool) string {
 	case srcPlans:
 		src = "plans"
 	case srcFiles:
-		src = "CLAUDE.md / MEMORY.md files"
+		src = "instruction and index files"
 	}
 	b.WriteString("You've been launched from engram — a TUI for browsing the Claude Code memory and plan files under ~/.claude — to help maintain them.\n\n")
 	b.WriteString("Scope: work only on Claude Code memory files and plan-mode plans. Ask before editing any file, and don't touch unrelated project source code.\n\n")

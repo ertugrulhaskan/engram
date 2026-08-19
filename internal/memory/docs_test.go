@@ -9,9 +9,10 @@ import (
 )
 
 // buildClaudeTree lays out a temp ~/.claude: a global CLAUDE.md, one project
-// whose real dir exists (with a CLAUDE.md) plus a MEMORY.md, and one project
-// whose decoded dir does NOT exist (so its CLAUDE.md is unreachable, but its
-// MEMORY.md still shows). Returns the projects root to pass to DiscoverDocs.
+// whose real dir exists (carrying every projectRuleFiles entry) plus a
+// MEMORY.md, and one project whose decoded dir does NOT exist (so its rules
+// files are unreachable, but its MEMORY.md still shows). Returns the projects
+// root to pass to DiscoverDocs.
 func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 	t.Helper()
 	claudeHome := t.TempDir()
@@ -29,11 +30,13 @@ func buildClaudeTree(t *testing.T) (projectsRoot, realProjDir string) {
 	// Global rules.
 	write(filepath.Join(claudeHome, "CLAUDE.md"), "# global rules\n")
 
-	// A project whose real dir exists on disk, carrying both a CLAUDE.md and the
-	// cross-tool AGENTS.md.
+	// A project whose real dir exists on disk, carrying one instruction file per
+	// projectRuleFiles entry. Bodies are seeded from the table so a new entry is
+	// covered here without editing the fixture.
 	realProjDir = filepath.Join(claudeHome, "code", "app") // -<claudeHome>-code-app decodes here
-	write(filepath.Join(realProjDir, "CLAUDE.md"), "# app rules\n")
-	write(filepath.Join(realProjDir, "AGENTS.md"), "# app agents\n")
+	for _, rf := range projectRuleFiles {
+		write(filepath.Join(realProjDir, rf.rel), "# app "+string(rf.provider)+"\n")
+	}
 	slug := encodeForTest(realProjDir)
 	write(filepath.Join(projectsRoot, slug, "memory", "MEMORY.md"), "# app index\n")
 
@@ -60,40 +63,48 @@ func TestDiscoverDocs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Expect: global CLAUDE.md, app CLAUDE.md, app AGENTS.md, app MEMORY.md,
-	// ghost MEMORY.md. CLAUDE.md and AGENTS.md are both DocRules, so they are
-	// told apart by Provider — that is the whole point of the second dimension.
-	var global, appRules, appAgents, appIndex, ghostIndex bool
+	// Expect: the global CLAUDE.md, one rules doc per projectRuleFiles entry for
+	// the app project, the app MEMORY.md, and the ghost MEMORY.md. Every rules
+	// file is DocRules, so they are told apart by Provider — that is the whole
+	// point of the second dimension.
+	var global, appIndex, ghostIndex bool
+	appRules := map[DocProvider]DocFile{}
 	for _, d := range docs {
 		switch {
 		case d.Scope == "global" && d.Kind == DocRules:
 			global = true
-		case d.Kind == DocRules && d.Provider == ProviderAgents && d.ProjectDir == realProjDir:
-			appAgents = true
-		case d.Kind == DocRules && d.Provider == ProviderClaude && d.ProjectDir == realProjDir:
-			appRules = true
+		case d.Kind == DocRules && d.ProjectDir == realProjDir:
+			appRules[d.Provider] = d
 		case d.Kind == DocIndex && d.ProjectName == filepath.Base(realProjDir):
 			appIndex = true
 		case d.Kind == DocIndex && d.ProjectName == "gone":
 			ghostIndex = true
 		}
 	}
-	if !global || !appRules || !appAgents || !appIndex || !ghostIndex {
-		t.Fatalf("missing docs: global=%v appRules=%v appAgents=%v appIndex=%v ghostIndex=%v\n%+v",
-			global, appRules, appAgents, appIndex, ghostIndex, docs)
+	if !global || !appIndex || !ghostIndex {
+		t.Fatalf("missing docs: global=%v appIndex=%v ghostIndex=%v\n%+v", global, appIndex, ghostIndex, docs)
 	}
 
-	// The AGENTS.md must carry its own title and body, not inherit CLAUDE.md's.
-	for _, d := range docs {
-		if d.Provider != ProviderAgents {
+	// Each rules file must appear once, under its own provider, carrying its own
+	// title and body — never inheriting a sibling's.
+	for _, rf := range projectRuleFiles {
+		d, ok := appRules[rf.provider]
+		if !ok {
+			t.Errorf("no doc discovered for %s (provider %q)", rf.rel, rf.provider)
 			continue
 		}
-		if d.Title != "AGENTS.md" {
-			t.Errorf("AGENTS.md title = %q, want AGENTS.md", d.Title)
+		if d.Title != rf.title {
+			t.Errorf("%s title = %q, want %q", rf.rel, d.Title, rf.title)
 		}
-		if !strings.Contains(d.Body, "app agents") {
-			t.Errorf("AGENTS.md body = %q, want the AGENTS.md contents", d.Body)
+		if want := "app " + string(rf.provider); !strings.Contains(d.Body, want) {
+			t.Errorf("%s body = %q, want it to contain %q", rf.rel, d.Body, want)
 		}
+		if want := filepath.Join(realProjDir, rf.rel); d.Path != want {
+			t.Errorf("%s path = %q, want %q", rf.rel, d.Path, want)
+		}
+	}
+	if len(appRules) != len(projectRuleFiles) {
+		t.Errorf("discovered %d rules docs, want %d: %+v", len(appRules), len(projectRuleFiles), appRules)
 	}
 
 	// Global must sort first.
@@ -109,10 +120,11 @@ func TestDiscoverDocs(t *testing.T) {
 	}
 }
 
-// TestDocsOrderWithinProject pins the within-scope order: an assistant's own
-// rules (CLAUDE.md), then the cross-tool AGENTS.md, then the memory index.
-// Without docRank the old two-way comparison left CLAUDE.md/AGENTS.md order
-// dependent on read order, which would make the list shuffle between reloads.
+// TestDocsOrderWithinProject pins the within-scope order: the instruction files
+// in projectRuleFiles order (Claude's own rules, then the cross-tool AGENTS.md,
+// then the other vendors'), then the memory index last. Without docRank the old
+// two-way comparison left that order dependent on read order, which would make
+// the list shuffle between reloads.
 func TestDocsOrderWithinProject(t *testing.T) {
 	projectsRoot, realProjDir := buildClaudeTree(t)
 
@@ -127,7 +139,11 @@ func TestDocsOrderWithinProject(t *testing.T) {
 			got = append(got, d.Title)
 		}
 	}
-	want := []string{"CLAUDE.md", "AGENTS.md", "MEMORY.md"}
+	want := make([]string, 0, len(projectRuleFiles)+1)
+	for _, rf := range projectRuleFiles {
+		want = append(want, rf.title)
+	}
+	want = append(want, "MEMORY.md")
 	if len(got) != len(want) {
 		t.Fatalf("project docs = %v, want %v", got, want)
 	}
@@ -138,34 +154,62 @@ func TestDocsOrderWithinProject(t *testing.T) {
 	}
 }
 
-// TestDocsSignatureCoversAgentsFile guards the DiscoverDocs/DocsSignature
-// lockstep: a file surfaced by the walk but missing from the fingerprint would
-// display fine and then never refresh on an external edit — a silent staleness
-// bug that no rendering test would catch.
-func TestDocsSignatureCoversAgentsFile(t *testing.T) {
-	projectsRoot, realProjDir := buildClaudeTree(t)
+// TestProjectRuleFilesContents pins the table itself. Every other docs test
+// drives off projectRuleFiles, which makes them self-consistent but blind in one
+// direction: delete a row and they all still pass, just covering less. This is
+// the one place that asserts *which* files engram promises to surface, so a
+// removed or reordered entry fails loudly.
+func TestProjectRuleFilesContents(t *testing.T) {
+	want := []ruleFile{
+		{"CLAUDE.md", "CLAUDE.md", ProviderClaude},
+		{"AGENTS.md", "AGENTS.md", ProviderAgents},
+		{"GEMINI.md", "GEMINI.md", ProviderGemini},
+		{filepath.Join(".github", "copilot-instructions.md"), "copilot-instructions.md", ProviderCopilot},
+	}
+	if len(projectRuleFiles) != len(want) {
+		t.Fatalf("projectRuleFiles has %d entries, want %d: %+v", len(projectRuleFiles), len(want), projectRuleFiles)
+	}
+	for i, w := range want {
+		if projectRuleFiles[i] != w {
+			t.Errorf("projectRuleFiles[%d] = %+v, want %+v", i, projectRuleFiles[i], w)
+		}
+	}
+}
 
-	before, err := DocsSignature(projectsRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
+// TestDocsSignatureCoversRuleFiles guards the DiscoverDocs/DocsSignature
+// lockstep for every projectRuleFiles entry: a file surfaced by the walk but
+// missing from the fingerprint would display fine and then never refresh on an
+// external edit — a silent staleness bug that no rendering test would catch.
+// Driving off the table means a newly added instruction file is covered here
+// the moment it is declared, instead of needing its own hand-written case.
+func TestDocsSignatureCoversRuleFiles(t *testing.T) {
+	for _, rf := range projectRuleFiles {
+		t.Run(rf.rel, func(t *testing.T) {
+			projectsRoot, realProjDir := buildClaudeTree(t)
 
-	// Rewrite AGENTS.md with different content and a distinctly newer modtime.
-	agents := filepath.Join(realProjDir, "AGENTS.md")
-	if err := os.WriteFile(agents, []byte("# app agents, revised\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	newer := time.Now().Add(2 * time.Second)
-	if err := os.Chtimes(agents, newer, newer); err != nil {
-		t.Fatal(err)
-	}
+			before, err := DocsSignature(projectsRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	after, err := DocsSignature(projectsRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if before == after {
-		t.Errorf("DocsSignature unchanged after editing AGENTS.md (%q) — the poll reload will miss external edits", before)
+			// Rewrite the file with different content and a distinctly newer modtime.
+			path := filepath.Join(realProjDir, rf.rel)
+			if err := os.WriteFile(path, []byte("# app "+string(rf.provider)+", revised\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			newer := time.Now().Add(2 * time.Second)
+			if err := os.Chtimes(path, newer, newer); err != nil {
+				t.Fatal(err)
+			}
+
+			after, err := DocsSignature(projectsRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if before == after {
+				t.Errorf("DocsSignature unchanged after editing %s (%q) — the poll reload will miss external edits", rf.rel, before)
+			}
+		})
 	}
 }
 

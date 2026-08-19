@@ -4,10 +4,14 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mattn/go-runewidth"
+
+	"github.com/ertugrulhaskan/engram/internal/config"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 // Ctrl+P then "/files" + Enter switches to the read-only files source, and the
-// selected row is a CLAUDE.md / MEMORY.md doc (Kind "rules" or "index").
+// selected row is an instruction/index doc (Kind "rules" or "index").
 func TestPaletteFilesSwitch(t *testing.T) {
 	var m tea.Model = ready(t) // ready() seeds sampleDocs()
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
@@ -69,5 +73,57 @@ func TestFilesReadOnly(t *testing.T) {
 			t.Errorf("key %q gave no read-only hint", key)
 		}
 		_ = cmd
+	}
+}
+
+// TestDocBadgesNameTheProvider pins the /files badge rule: Claude's own rules
+// read "rules", the memory index reads "index", and every other vendor's
+// instruction file reads its provider name. Without this, adding a provider
+// silently falls through to "rules" and a project group shows three
+// indistinguishable rows.
+func TestDocBadgesNameTheProvider(t *testing.T) {
+	projDir := "/Users/me/code/app"
+	docs := []memory.DocFile{
+		{Title: "CLAUDE.md", Kind: memory.DocRules, Provider: memory.ProviderClaude, Scope: "app", ProjectDir: projDir},
+		{Title: "AGENTS.md", Kind: memory.DocRules, Provider: memory.ProviderAgents, Scope: "app", ProjectDir: projDir},
+		{Title: "GEMINI.md", Kind: memory.DocRules, Provider: memory.ProviderGemini, Scope: "app", ProjectDir: projDir},
+		{Title: "copilot-instructions.md", Kind: memory.DocRules, Provider: memory.ProviderCopilot, Scope: "app", ProjectDir: projDir},
+		{Title: "MEMORY.md", Kind: memory.DocIndex, Provider: memory.ProviderClaude, Scope: "app", ProjectDir: projDir},
+	}
+	m := New(nil, nil, docs, config.Config{})
+	items := m.docItems()
+	if len(items) != len(docs) {
+		t.Fatalf("docItems returned %d items, want %d", len(items), len(docs))
+	}
+
+	want := []string{"rules", "agents", "gemini", "copilot", "index"}
+	for i, w := range want {
+		if items[i].Badge != w {
+			t.Errorf("%s badge = %q, want %q", docs[i].Title, items[i].Badge, w)
+		}
+	}
+
+	// Badges must fit the column: the renderer caps it at badgeWidth and clips
+	// anything longer, so a too-long provider name would be silently truncated.
+	// Measured the way the renderer measures — display cells, not bytes.
+	for _, it := range items {
+		if w := runewidth.StringWidth(it.Badge); w > badgeWidth {
+			t.Errorf("badge %q is %d cells, over the %d-cell cap — it will be clipped", it.Badge, w, badgeWidth)
+		}
+	}
+
+	// The non-Claude rules files share one colour (the label carries which
+	// vendor); Claude's own rules and the index are each distinct from it.
+	vendor := items[1].BadgeColor
+	for _, i := range []int{2, 3} {
+		if items[i].BadgeColor != vendor {
+			t.Errorf("%s badge colour = %q, want the shared vendor colour %q", docs[i].Title, items[i].BadgeColor, vendor)
+		}
+	}
+	if items[0].BadgeColor == vendor {
+		t.Errorf("CLAUDE.md badge colour matches the vendor colour %q — Claude's own rules must read differently", vendor)
+	}
+	if items[4].BadgeColor == vendor {
+		t.Errorf("MEMORY.md badge colour matches the vendor colour %q — the index must read differently", vendor)
 	}
 }
