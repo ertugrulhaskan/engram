@@ -467,7 +467,7 @@ func (m Model) syncStrip(it Item) []string {
 	// grow the band and push the body down. The sentence clips first; the chip
 	// is dropped only when a pane is too narrow to share the row at all.
 	chipTxt := ""
-	if key, verb := offeredAction(it.Sync, it.Scope); key != "" {
+	if key, verb := offeredAction(it.Sync); key != "" {
 		chipTxt = "[" + key + " " + verb + "]"
 	}
 	sentAvail := w - 2*previewPad - 2 - runewidth.StringWidth(chipTxt) - 1

@@ -115,6 +115,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parent (`acme/.github/copilot-instructions.md`, `acme/memory/thing.md`).
 
 ### Changed
+- **`>pull` now reconciles global-scoped memories too.** It previously walked the
+  store's `projects/` folder only, so a global memory whose team copy had advanced
+  showed `[behind]` but could only be taken through `>resolve` — a workaround, not a
+  path. Pull now gives an existing local copy of a global memory the same
+  direction-aware treatment as a project memory: fast-forward a clean incoming
+  update, leave a local-ahead copy alone, flag a real divergence, never overwrite.
+  The status bar and sync strip advertise `p pull` for a behind global memory
+  accordingly, instead of steering into the resolve editor.
+
+  One thing pull still never does: *place* a global memory you hold nowhere. It
+  belongs to no project, so there is no folder to put it in — the store is its home
+  until you promote it into a project yourself. Such memories are not counted as
+  skipped; they are simply not local business yet.
 - **The `/files` labels no longer name only `CLAUDE.md`.** The command palette entry read
   "CLAUDE.md & MEMORY.md — read-only" and the `@Claude` seed prompt said the user was
   browsing their "CLAUDE.md / MEMORY.md files" — both were already wrong once `AGENTS.md`

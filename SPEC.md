@@ -167,9 +167,9 @@ var globalRuleFiles = []ruleFile{
 > `pull` (with clean-update fast-forward), the secret-scan guard, a **sync anchor**
 > (`syncedHash`) driving direction-aware state pills (`synced`/`behind`/`ahead`/
 > `conflict`/`missing`, with `unknown` as the
-> no-anchor fallback), the `global`/`project` scope chip, and the `>resolve` **conflict-
-> resolve** UX. Remaining: auto-pull for global-scoped memories (today taken via `>resolve`),
-> multi-select promote, and the remote-less alias fallback.
+> no-anchor fallback), the `global`/`project` scope chip, the `>resolve` **conflict-
+> resolve** UX, and pull reconciling global-scoped memories. Remaining: multi-select
+> promote, and the remote-less alias fallback.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -274,10 +274,14 @@ filename. The id is assigned once, on the first promote.
   off (the fetch itself is safe — it only fast-forwards the store's cache repo),
   a confirm dialog shows the counts, and `team.PullApply` then applies that same
   walk without a second fetch — so the confirmed plan and the apply can never
-  disagree. A zero-work plan skips the dialog. *(Pull walks `projects/` only; a
-  local copy of a global memory is updated via `resolve`.)*
-- **resolve** *(`>resolve`)* — reconcile a `conflict` / `unknown` / behind-global
-  memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
+  disagree. A zero-work plan skips the dialog. Pull also walks `global/`: an
+  existing local copy of a global memory (matched by `engram.id`, tracking
+  `engram.project: global`) gets the same anchor-driven decision, but a global
+  memory with no local copy is never *placed* — it belongs to no project, so the
+  store stays its home until the user promotes it into one, and it is not counted
+  as skipped.
+- **resolve** *(`>resolve`)* — reconcile a `conflict` / `unknown` (or, by hand, a
+  `behind`) memory. engram writes the two versions' **shared content** (Claude frontmatter + body,
   engram block excluded) into a temp file bracketed by git-style markers
   (`<<<<<<< yours … ======= … >>>>>>> team`), opens `$EDITOR`, and on save writes the
   resolved content back — re-anchoring on the store version so "take theirs" reads as
@@ -367,8 +371,9 @@ presence (no orphan chip).
   view is a later refinement.
 
 **Known limits.** The anchor is a 64-bit digest — ample for change detection, and a
-collision only ever degrades to a conservative conflict, never a silent overwrite. Global-
-scoped memories aren't auto-placed by pull, so a behind global update is taken via `>resolve`.
+collision only ever degrades to a conservative conflict, never a silent overwrite. A
+global memory the user holds nowhere is never placed by pull — it has no project to
+land in; the store is its home until the user promotes it into one.
 
 ## 8. Module layout
 

@@ -64,7 +64,11 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
 - [x] Secret-scan guard on `promote` — block credentials from reaching the shared store (configurable, redacted findings)
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
-- [ ] Auto-pull for global-scoped memories *(today `>pull` walks `projects/` only; global updates are taken via `>resolve`)*
+- [x] Auto-pull for global-scoped memories *(unreleased — on `main` after `v0.3.0`)* —
+      `>pull` reconciles an existing local copy of a global memory with the same
+      direction-aware safety as a project memory (fast-forward / ahead / conflict).
+      A global memory you hold nowhere is still never *placed*: it belongs to no
+      project, so the store stays its home until you promote it into one
 
 ## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.3.0` released, [engram.im](https://engram.im) live)*
 

@@ -395,3 +395,183 @@ func TestPullDemotesOwnWithdrawnCopy(t *testing.T) {
 		t.Error("demote lost the memory's body")
 	}
 }
+
+// TestPullReconcilesGlobalCopies pins the global half of pull. A global-scoped
+// memory has no matching project, so pull must never *place* one — but a local
+// copy the user already holds gets the same three-way reconcile as a project
+// memory: fast-forward when only the store moved, leave a local-ahead copy,
+// flag a genuine divergence, count an untouched pair up-to-date.
+func TestPullReconcilesGlobalCopies(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = G\n\temail = g@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeMem := func(name, body string) string {
+		p := filepath.Join(localMem, name)
+		raw := "---\nname: " + strings.TrimSuffix(name, ".md") + "\n---\n# " + name + "\n\n" + body + "\n"
+		if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	// Four global memories, one per reconcile outcome.
+	for _, name := range []string{"gff.md", "gdiv.md", "gahead.md", "gsame.md"} {
+		if _, err := Promote(writeMem(name, "v1"), "global"); err != nil {
+			t.Fatalf("Promote %s: %v", name, err)
+		}
+	}
+	targets := []ProjectTarget{{Key: "github.com/acme/app", MemoryDir: localMem}}
+
+	// A teammate advances two of the store copies and shares a brand-new global
+	// memory this machine has no copy of.
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	advance := func(name, body string) {
+		p := filepath.Join(mate, "global", name)
+		raw, _ := os.ReadFile(p)
+		m, _, _ := memory.ReadEngram(string(raw))
+		full := "---\nname: " + strings.TrimSuffix(name, ".md") + "\n---\n# " + name + "\n\n" + body + "\n"
+		m.SyncedHash, _ = memory.ContentDigest(full)
+		out, err := memory.WriteEngram(full, m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(out), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	advance("gff.md", "v2 from mate")
+	advance("gdiv.md", "v2 from mate") // gahead.md / gsame.md stay at base in the store
+	newID, err := memory.NewID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	newContent := "---\nname: gnew\n---\n# gnew.md\n\nnever seen here\n"
+	newAnchor, _ := memory.ContentDigest(newContent)
+	newRaw, err := memory.WriteEngram(newContent, memory.EngramMeta{
+		ID: newID, Scope: "team", Project: "global", Owner: "mate@example.com", SyncedHash: newAnchor,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mate, "global", "gnew.md"), []byte(newRaw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "advance globals, add gnew")
+	gitT(t, mate, "push")
+
+	// Locally edit gdiv.md and gahead.md off the base (gff.md and gsame.md stay).
+	for _, name := range []string{"gdiv.md", "gahead.md"} {
+		raw, _ := os.ReadFile(filepath.Join(localMem, name))
+		if err := os.WriteFile(filepath.Join(localMem, name),
+			[]byte(strings.Replace(string(raw), "v1", "my local edit", 1)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := Pull(targets)
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	// gff: fast-forward. gdiv: conflict. gahead: local-ahead. gsame: up-to-date.
+	// gnew: NOT placed and NOT counted — a global memory the user holds nowhere
+	// stays in the store, it is not skipped placement.
+	if want := (PullResult{Updated: 1, Conflicts: 1, Ahead: 1, UpToDate: 1}); res != want {
+		t.Errorf("pull = %+v, want %+v", res, want)
+	}
+	if got, _ := os.ReadFile(filepath.Join(localMem, "gff.md")); !strings.Contains(string(got), "v2 from mate") {
+		t.Errorf("gff.md not fast-forwarded:\n%s", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(localMem, "gdiv.md")); !strings.Contains(string(got), "my local edit") {
+		t.Errorf("gdiv.md conflict was overwritten:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(localMem, "gnew.md")); !os.IsNotExist(err) {
+		t.Errorf("gnew.md was placed locally (stat err = %v) — pull must never place a global memory", err)
+	}
+}
+
+// TestPullGlobalIgnoresProjectScopedCopy pins the dual-scope guard: when the
+// same id sits under both projects/<key>/ and global/ (a stale re-promote), the
+// global walk must not reconcile a local copy that tracks the project scope —
+// otherwise a diverged global copy would fast-forward over it. Mirrors the
+// matching rule storeCopyRaw applies on resolve.
+func TestPullGlobalIgnoresProjectScopedCopy(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = G\n\temail = g@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+
+	key := "github.com/acme/app"
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(localMem, "note.md")
+	if err := os.WriteFile(memPath, []byte("---\nname: note\n---\n# Note\n\nproject truth\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(memPath, key); err != nil {
+		t.Fatalf("Promote: %v", err)
+	}
+
+	// A teammate commits a global/ copy of the SAME id whose content has advanced.
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	praw, _ := os.ReadFile(filepath.Join(mate, "projects", key, "note.md"))
+	m, _, _ := memory.ReadEngram(string(praw))
+	m.Project = "global"
+	globalContent := "---\nname: note\n---\n# Note\n\nglobal drift\n"
+	m.SyncedHash, _ = memory.ContentDigest(globalContent)
+	graw, err := memory.WriteEngram(globalContent, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mate, "global", "note.md"), []byte(graw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "stale dual-scope copy")
+	gitT(t, mate, "push")
+
+	res, err := Pull([]ProjectTarget{{Key: key, MemoryDir: localMem}})
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	// The projects walk counts the untouched pair up-to-date; the global walk must
+	// contribute nothing — not a second count, and above all not a fast-forward.
+	if want := (PullResult{UpToDate: 1}); res != want {
+		t.Errorf("pull = %+v, want %+v", res, want)
+	}
+	if got, _ := os.ReadFile(memPath); !strings.Contains(string(got), "project truth") ||
+		strings.Contains(string(got), "global drift") {
+		t.Errorf("the global copy crossed scopes into the local file:\n%s", got)
+	}
+}

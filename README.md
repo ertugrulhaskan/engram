@@ -246,13 +246,14 @@ up yet:
   engram **scans the memory for secrets** and by default blocks the promote on a
   hit, showing the redacted match with an option to override (tunable — see
   [Configuration](#configuration)).
-- **`>pull`** — brings the team's **project-scoped** memories down into their
-  matching local projects — after showing you the **full accounting first**: a
-  confirm dialog lists what will fast-forward, what has local edits (left
-  alone), and what diverged (flagged as a conflict, not overwritten), and
-  nothing moves until you say `y`. A pull with nothing to write skips the
-  dialog and says so. Pull walks past *global* memories — take a behind global
-  memory with `>resolve`.
+- **`>pull`** — brings the team's memories down — after showing you the **full
+  accounting first**: a confirm dialog lists what will fast-forward, what has
+  local edits (left alone), and what diverged (flagged as a conflict, not
+  overwritten), and nothing moves until you say `y`. A pull with nothing to
+  write skips the dialog and says so. Project-scoped memories are placed into
+  their matching local projects; a *global* memory you already hold is
+  reconciled the same way, but one you hold nowhere is never placed — it lives
+  in the store until you promote it into a project yourself.
 - **`>resolve`** — shows the **first conflict hunk** (git-style markers) in a
   confirm, then opens the full merge in your `$EDITOR` and writes your merge
   back, re-anchored so "take theirs" reads as synced. Cancelling touches

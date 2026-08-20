@@ -33,9 +33,11 @@ type PullResult struct {
 // Pull fetches the team store and copies project-scoped team memories into the
 // matching local projects' memory dirs. It never overwrites a differing local file
 // (that's a conflict for the user to resolve); identical files are no-ops; memories
-// with no matching local project are skipped. Global-scoped memories are left in the
-// store (browse / promote-into-a-project on demand). Touched MEMORY.md indexes are
-// reconciled. Matching is by engram.id, not filename.
+// with no matching local project are skipped. A global-scoped memory is never
+// *placed* — it belongs to no project, so the store is its home until the user
+// promotes it into one — but a local copy the user already holds is reconciled
+// with the same direction-aware safety as a project memory. Touched MEMORY.md
+// indexes are reconciled. Matching is by engram.id, not filename.
 func Pull(targets []ProjectTarget) (PullResult, error) {
 	dir, err := storeReady()
 	if err != nil {
@@ -114,6 +116,40 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 	touched := map[string]bool{}
 	localByID := map[string]map[string]string{} // memDir -> (engram id -> local path)
 
+	// applyExisting reconciles one existing local copy against its store copy — the
+	// three-way decision (fast-forward / ahead / conflict / up-to-date) both the
+	// projects/ and global/ walks share. A non-empty wantProject only reconciles a
+	// local copy whose engram.project tracks that scope, so a stale dual-scope id
+	// (the same memory under global/ and projects/<key>/) is never fast-forwarded
+	// against the wrong store copy — mirroring storeCopyRaw's matching rule.
+	applyExisting := func(memDir, localPath string, teamRaw []byte, wantProject string) {
+		localRaw, _ := os.ReadFile(localPath)
+		localMeta, _, _ := memory.ReadEngram(string(localRaw))
+		if wantProject != "" && localMeta.Project != wantProject {
+			return // this copy tracks another scope's store copy — not ours to touch
+		}
+		if sameContent(string(localRaw), string(teamRaw)) {
+			res.UpToDate++
+			return
+		}
+		switch decidePull(string(localRaw), string(teamRaw), localMeta.SyncedHash) {
+		case pullUpToDate:
+			res.UpToDate++
+		case pullFastForward:
+			if write {
+				if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
+					return // best-effort: leave this file for the next pull
+				}
+				touched[memDir] = true
+			}
+			res.Updated++
+		case pullLocalAhead:
+			res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
+		default: // pullConflict
+			res.Conflicts++
+		}
+	}
+
 	// place applies one store memory to one local project dir: fast-forward when only
 	// the store moved, leave a local-ahead file, flag a genuine divergence (or an
 	// anchor-less memory) as a conflict, or place it fresh — never overwriting the
@@ -127,28 +163,7 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 		}
 		if meta.ID != "" {
 			if localPath, exists := ids[meta.ID]; exists {
-				localRaw, _ := os.ReadFile(localPath)
-				if sameContent(string(localRaw), string(teamRaw)) {
-					res.UpToDate++
-					return
-				}
-				localMeta, _, _ := memory.ReadEngram(string(localRaw))
-				switch decidePull(string(localRaw), string(teamRaw), localMeta.SyncedHash) {
-				case pullUpToDate:
-					res.UpToDate++
-				case pullFastForward:
-					if write {
-						if err := os.WriteFile(localPath, teamRaw, 0o644); err != nil {
-							return // best-effort: leave this file for the next pull
-						}
-						touched[memDir] = true
-					}
-					res.Updated++
-				case pullLocalAhead:
-					res.Ahead++ // the user's unshared local edit; leave it (↑ ahead badge)
-				default: // pullConflict
-					res.Conflicts++
-				}
+				applyExisting(memDir, localPath, teamRaw, "")
 				return
 			}
 		}
@@ -201,6 +216,58 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 		meta, _, _ := memory.ReadEngram(string(teamRaw))
 		for _, memDir := range memDirs {
 			place(memDir, teamRaw, meta, d.Name())
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return res, walkErr
+	}
+
+	// Global-scoped team memories belong to no project, so pull cannot place a new
+	// one — the store is its home until the user promotes it into a project. But a
+	// local copy the user already holds is reconciled with the same direction-aware
+	// safety as a project memory, instead of leaving `>resolve` as the only way to
+	// take a clean global update. Matching is by engram.id across every registered
+	// memory dir; a memory the user holds nowhere is not counted — it is browse-on-
+	// demand, not skipped placement. The walk is recursive to stay in step with
+	// storeIndexByID: a nested global copy that can badge [behind] must also pull.
+	memDirs := map[string]bool{}
+	for _, t := range targets {
+		if t.Key != "" && t.MemoryDir != "" {
+			memDirs[t.MemoryDir] = true
+		}
+	}
+	globalRoot := filepath.Join(dir, "global")
+	walkErr = filepath.WalkDir(globalRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if d != nil && d.IsDir() {
+				return fs.SkipDir // unreadable subdir — skip it, keep pulling the rest (matches storeIndexByID)
+			}
+			return nil // no global/ yet, or an unreadable entry — skip, don't abort the whole pull
+		}
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+		if containsSymlink(dir, path) {
+			return nil // never read *through* a symlink a teammate committed into the store
+		}
+		teamRaw, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		meta, _, _ := memory.ReadEngram(string(teamRaw))
+		if meta.ID == "" {
+			return nil // an unstamped store file has no identity to match a local copy by
+		}
+		for memDir := range memDirs {
+			ids, ok := localByID[memDir]
+			if !ok {
+				ids = indexByID(memDir)
+				localByID[memDir] = ids
+			}
+			if localPath, exists := ids[meta.ID]; exists {
+				applyExisting(memDir, localPath, teamRaw, "global")
+			}
 		}
 		return nil
 	})

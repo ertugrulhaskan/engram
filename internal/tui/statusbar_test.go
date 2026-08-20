@@ -48,7 +48,7 @@ func TestStatusBarOffersActionPerState(t *testing.T) {
 		absent  []string // verbs that must not appear
 	}{
 		{"behind+project offers pull", team.StateIncoming, "acme/app", "p  pull", []string{"resolve", "promote"}},
-		{"behind+global offers resolve, not a dead pull", team.StateIncoming, "global", "r  resolve", []string{"pull", "promote"}},
+		{"behind+global offers pull too, now that pull reconciles globals", team.StateIncoming, "global", "p  pull", []string{"resolve", "promote"}},
 		{"ahead offers promote", team.StateLocalAhead, "acme/app", "P  promote", []string{"pull", "resolve"}},
 		{"missing offers promote", team.StateMissing, "acme/app", "P  promote", []string{"pull", "resolve"}},
 		{"conflict offers resolve", team.StateDiverged, "acme/app", "r  resolve", []string{"pull", "promote"}},

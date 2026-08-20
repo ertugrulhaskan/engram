@@ -285,7 +285,7 @@ func (m Model) hints(t Theme) string {
 	// the generic keys shed first and the contextual one survives longest.
 	offered := ""
 	if it, ok := m.selected(); ok {
-		if key, verb := offeredAction(it.Sync, it.Scope); key != "" {
+		if key, verb := offeredAction(it.Sync); key != "" {
 			_, c := t.syncBadge(it.Sync)
 			offered = fgb(c).Background(lipgloss.Color(t.Sel)).Render(" "+key+" ") +
 				t.bar(c).Render(" "+verb+" ")
