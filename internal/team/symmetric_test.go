@@ -198,3 +198,211 @@ func TestSymmetricPromoteAndPullBetweenTwoInstalls(t *testing.T) {
 		t.Errorf("B's withdrawn copy still exists at %s (stat err = %v)", pathB, err)
 	}
 }
+
+// theirsSection extracts the team side of a resolve temp file — the text between
+// the "=======" divider and the ">>>>>>> team" closer — which is what a user keeps
+// when they resolve by starting from the store's version. Extracting it from the
+// real merge text (rather than re-reading the store) keeps the test on the same
+// path a user's $EDITOR session takes.
+func theirsSection(t *testing.T, merged string) string {
+	t.Helper()
+	mid := strings.Index(merged, "\n"+conflictMid+"\n")
+	end := strings.Index(merged, conflictEnd)
+	if mid < 0 || end < 0 || end <= mid {
+		t.Fatalf("merge text is missing its markers:\n%s", merged)
+	}
+	return merged[mid+1+len(conflictMid)+1 : end]
+}
+
+// TestSymmetricConflictAndResolveBetweenTwoInstalls covers the one sync state
+// whose resolution *writes*: conflict. Every other state either takes the store
+// copy verbatim or leaves the local file alone, so conflict is the one path where
+// two installs can end up disagreeing about what "resolved" means — and the
+// existing conflict tests (resolve_test.go) only ever run one side, advancing the
+// store by hand-restamping a fixture rather than through a second install's
+// Promote.
+//
+// Here the divergence is real on both ends: A edits and re-promotes (so the store
+// advance is whatever Promote actually writes), B edits locally, and B's pull must
+// flag the conflict without touching B's file. B then resolves by KEEPING A MERGE
+// of both edits — deliberately not "take theirs", because after take-theirs the
+// content matches the store and relationOf short-circuits on that match, so a
+// broken re-anchor is invisible. A kept merge is the only resolution whose state
+// (local-ahead, promotable) depends on FinishConflictResolve re-basing the anchor
+// on the store version; asserting it pins the half of Finish's contract no other
+// test reads. B then promotes the merge and A pulls it as a clean fast-forward —
+// a resolve on B must never strand A — until both installs hold the same bytes.
+func TestSymmetricConflictAndResolveBetweenTwoInstalls(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root) // baseline isolation; useInstall varies the per-install bits
+
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+
+	const (
+		key    = "github.com/acme/app"
+		emailA = "ada@example.com"
+		emailB = "grace@example.com"
+		lineA  = "Canary before a wide rollout.\n"
+		lineB  = "Never ship on Fridays.\n"
+	)
+	baseBody := "# Deploy\n\nShip through staging first.\n"
+	rootA := filepath.Join(root, "installA")
+	rootB := filepath.Join(root, "installB")
+	memDirA := filepath.Join(root, "checkoutA", "memory")
+	memDirB := filepath.Join(root, "checkoutB", "memory")
+	for _, d := range []string{memDirA, memDirB} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	targetsA := []ProjectTarget{{Key: key, MemoryDir: memDirA}}
+	targetsB := []ProjectTarget{{Key: key, MemoryDir: memDirB}}
+
+	// --- shared base: A promotes, B pulls (the opening of the promote/pull test) ---
+	useInstall(t, rootA, emailA)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("A InitTeam: %v", err)
+	}
+	pathA := filepath.Join(memDirA, "deploy.md")
+	body := "---\nname: deploy\ndescription: how we ship\nmetadata:\n  type: project\n---\n\n" + baseBody
+	if err := os.WriteFile(pathA, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if pushed, err := Promote(pathA, key); err != nil || !pushed {
+		t.Fatalf("A Promote: pushed=%v err=%v", pushed, err)
+	}
+
+	useInstall(t, rootB, emailB)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("B InitTeam: %v", err)
+	}
+	if res, err := Pull(targetsB); err != nil || res.Placed != 1 {
+		t.Fatalf("B Pull = %+v err=%v, want Placed=1", res, err)
+	}
+	pathB := soleMemory(t, memDirB)
+
+	// --- both sides edit past the shared anchor; A promotes again, so the store moves ---
+	useInstall(t, rootA, emailA)
+	rawA, err := os.ReadFile(pathA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pathA, []byte(setBody(string(rawA), baseBody+lineA)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if pushed, err := Promote(pathA, key); err != nil || !pushed {
+		t.Fatalf("A re-Promote: pushed=%v err=%v", pushed, err)
+	}
+
+	useInstall(t, rootB, emailB)
+	rawB, err := os.ReadFile(pathB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pathB, []byte(setBody(string(rawB), baseBody+lineB)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// --- B's pull flags the conflict and leaves B's file exactly as B wrote it ---
+	before, err := os.ReadFile(pathB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Pull(targetsB)
+	if err != nil {
+		t.Fatalf("B Pull (diverged): %v", err)
+	}
+	if res.Conflicts != 1 || res.Updated != 0 || res.Placed != 0 {
+		t.Fatalf("B Pull (diverged) = %+v, want Conflicts=1 and nothing written", res)
+	}
+	after, err := os.ReadFile(pathB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("a conflicting pull modified B's file:\n--- before ---\n%s--- after ---\n%s", before, after)
+	}
+	if st, err := SyncStates([]memory.Memory{{Path: pathB, Raw: string(after)}}); err != nil || st[pathB] != StateDiverged {
+		t.Fatalf("B state = %v (err=%v), want StateDiverged", st[pathB], err)
+	}
+
+	// --- B resolves, keeping a merge of both edits ---
+	tmp, err := BeginConflictResolve(pathB)
+	if err != nil {
+		t.Fatalf("B BeginConflictResolve: %v", err)
+	}
+	mergedRaw, err := os.ReadFile(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Both real sides must be in the merge text: B's local edit and whatever A's
+	// re-promote actually stored — never a fixture's idea of it.
+	if !strings.Contains(string(mergedRaw), strings.TrimSuffix(lineB, "\n")) ||
+		!strings.Contains(string(mergedRaw), strings.TrimSuffix(lineA, "\n")) {
+		t.Fatalf("merge text is missing a side:\n%s", mergedRaw)
+	}
+	// The user's editor action: start from the team side, re-add the local line.
+	resolution := strings.Replace(theirsSection(t, string(mergedRaw)), lineA, lineA+lineB, 1)
+	if err := os.WriteFile(tmp, []byte(resolution), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if resolved, err := FinishConflictResolve(pathB, tmp); err != nil || !resolved {
+		t.Fatalf("B FinishConflictResolve: resolved=%v err=%v", resolved, err)
+	}
+
+	// A kept merge reads local-ahead — resolved and promotable, never re-conflicting.
+	// This is the assertion that needs the anchor re-based on the store version:
+	// against the stale anchor the same content would read StateDiverged.
+	rawB2, err := os.ReadFile(pathB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st, err := SyncStates([]memory.Memory{{Path: pathB, Raw: string(rawB2)}}); err != nil || st[pathB] != StateLocalAhead {
+		t.Fatalf("B state after merge-resolve = %v (err=%v), want StateLocalAhead", st[pathB], err)
+	}
+	if res, err = Pull(targetsB); err != nil || res.Ahead != 1 || res.Conflicts != 0 {
+		t.Fatalf("B Pull (post-resolve) = %+v err=%v, want Ahead=1 with no re-conflict", res, err)
+	}
+
+	// --- B shares the resolution; B now reads synced and pulls clean ---
+	if pushed, err := Promote(pathB, key); err != nil || !pushed {
+		t.Fatalf("B Promote (merge): pushed=%v err=%v", pushed, err)
+	}
+	if res, err = Pull(targetsB); err != nil || res.UpToDate != 1 || res.Conflicts != 0 {
+		t.Fatalf("B Pull (after sharing) = %+v err=%v, want UpToDate=1", res, err)
+	}
+
+	// --- A takes B's resolution as a clean fast-forward — the resolve did not strand A ---
+	useInstall(t, rootA, emailA)
+	res, err = Pull(targetsA)
+	if err != nil {
+		t.Fatalf("A Pull (resolution): %v", err)
+	}
+	if res.Updated != 1 || res.Conflicts != 0 {
+		t.Fatalf("A Pull (resolution) = %+v, want Updated=1 Conflicts=0", res)
+	}
+	rawA2, err := os.ReadFile(pathA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rawA2), strings.TrimSuffix(lineA, "\n")) ||
+		!strings.Contains(string(rawA2), strings.TrimSuffix(lineB, "\n")) {
+		t.Errorf("A's copy lost an edit in the round trip:\n%s", rawA2)
+	}
+	if st, err := SyncStates([]memory.Memory{{Path: pathA, Raw: string(rawA2)}}); err != nil || st[pathA] != StateSynced {
+		t.Errorf("A state after taking the resolution = %v (err=%v), want StateSynced", st[pathA], err)
+	}
+	// The two installs end with the same content — compared exactly as Pull
+	// compares it — so they agree about what "resolved" means.
+	rawB3, err := os.ReadFile(pathB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameContent(string(rawA2), string(rawB3)) {
+		t.Errorf("the installs disagree after the round trip:\n--- A ---\n%s--- B ---\n%s", rawA2, rawB3)
+	}
+}
