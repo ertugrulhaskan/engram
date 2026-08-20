@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
@@ -88,6 +90,7 @@ func TestDocBadgesNameTheProvider(t *testing.T) {
 		{Title: "AGENTS.md", Kind: memory.DocRules, Provider: memory.ProviderAgents, Scope: "app", ProjectDir: projDir},
 		{Title: "GEMINI.md", Kind: memory.DocRules, Provider: memory.ProviderGemini, Scope: "app", ProjectDir: projDir},
 		{Title: "copilot-instructions.md", Kind: memory.DocRules, Provider: memory.ProviderCopilot, Scope: "app", ProjectDir: projDir},
+		{Title: "api.mdc", Kind: memory.DocRules, Provider: memory.ProviderCursor, Scope: "app", ProjectDir: projDir},
 		{Title: "MEMORY.md", Kind: memory.DocIndex, Provider: memory.ProviderClaude, Scope: "app", ProjectDir: projDir},
 	}
 	m := New(nil, nil, docs, config.Config{})
@@ -96,7 +99,7 @@ func TestDocBadgesNameTheProvider(t *testing.T) {
 		t.Fatalf("docItems returned %d items, want %d", len(items), len(docs))
 	}
 
-	want := []string{"rules", "agents", "gemini", "copilot", "index"}
+	want := []string{"rules", "agents", "gemini", "copilot", "cursor", "index"}
 	for i, w := range want {
 		if items[i].Badge != w {
 			t.Errorf("%s badge = %q, want %q", docs[i].Title, items[i].Badge, w)
@@ -115,7 +118,7 @@ func TestDocBadgesNameTheProvider(t *testing.T) {
 	// The non-Claude rules files share one colour (the label carries which
 	// vendor); Claude's own rules and the index are each distinct from it.
 	vendor := items[1].BadgeColor
-	for _, i := range []int{2, 3} {
+	for _, i := range []int{2, 3, 4} {
 		if items[i].BadgeColor != vendor {
 			t.Errorf("%s badge colour = %q, want the shared vendor colour %q", docs[i].Title, items[i].BadgeColor, vendor)
 		}
@@ -123,7 +126,7 @@ func TestDocBadgesNameTheProvider(t *testing.T) {
 	if items[0].BadgeColor == vendor {
 		t.Errorf("CLAUDE.md badge colour matches the vendor colour %q — Claude's own rules must read differently", vendor)
 	}
-	if items[4].BadgeColor == vendor {
+	if items[5].BadgeColor == vendor {
 		t.Errorf("MEMORY.md badge colour matches the vendor colour %q — the index must read differently", vendor)
 	}
 }
@@ -151,5 +154,27 @@ func TestShortPathNoRepeatedProject(t *testing.T) {
 		if got := shortPath(c.it); got != c.want {
 			t.Errorf("%s: shortPath = %q, want %q", c.name, got, c.want)
 		}
+	}
+}
+
+// TestFilesPreviewShowsRuleScope pins the preview meta for a rule-dir file: the
+// scoping note from its frontmatter ("applies to …") renders in the line under
+// the title. That line is the whole reason the frontmatter is split off the
+// body — without it the one fact the file exists to state would be invisible.
+func TestFilesPreviewShowsRuleScope(t *testing.T) {
+	projDir := "/Users/me/code/app"
+	docs := []memory.DocFile{
+		{Path: projDir + "/.cursor/rules/api.mdc", Title: "api.mdc", Body: "Use named exports.\n",
+			Detail: "applies to src/**/*.ts", Kind: memory.DocRules, Provider: memory.ProviderCursor,
+			Scope: "app", ProjectName: "app", ProjectDir: projDir},
+	}
+	var tm tea.Model = New(nil, nil, docs, config.Config{})
+	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	tm = typeRunes(tm, "/files")
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	frame := ansi.Strip(tm.(Model).View())
+	if !strings.Contains(frame, "applies to src/**/*.ts") {
+		t.Errorf("preview does not show the rule's scoping note:\n%s", frame)
 	}
 }

@@ -494,3 +494,188 @@ func TestGlobalRuleFilesSurviveMissingClaudeHome(t *testing.T) {
 		t.Error("DocsSignature unchanged after editing a global file with no ~/.claude — the poll reload will miss it")
 	}
 }
+
+// TestProjectRuleDirsContents pins the rule-dir table itself. The discovery,
+// signature, and scan-root tests all drive off it, so they would keep passing
+// while covering less if an entry were dropped or a suffix loosened — this is
+// the same contract TestProjectRuleFilesContents holds for the flat table.
+func TestProjectRuleDirsContents(t *testing.T) {
+	want := []ruleDir{
+		{filepath.Join(".cursor", "rules"), ".mdc", ProviderCursor},
+		{filepath.Join(".github", "instructions"), ".instructions.md", ProviderCopilot},
+	}
+	if len(projectRuleDirs) != len(want) {
+		t.Fatalf("projectRuleDirs has %d entries, want %d: %+v", len(projectRuleDirs), len(want), projectRuleDirs)
+	}
+	for i, w := range want {
+		if projectRuleDirs[i] != w {
+			t.Errorf("projectRuleDirs[%d] = %+v, want %+v", i, projectRuleDirs[i], w)
+		}
+	}
+}
+
+// TestRuleDetail pins the one-line scoping note built from a rule file's
+// frontmatter — including the YAML-hostile plain scalar (`globs: **/*.ts`
+// starts with an alias character) that is exactly why the keys are read
+// line-wise instead of through yaml.Unmarshal.
+func TestRuleDetail(t *testing.T) {
+	cases := []struct {
+		name, fm, want string
+	}{
+		{"globs, YAML-invalid scalar", "globs: **/*.ts\nalwaysApply: false", "applies to **/*.ts"},
+		{"applyTo, quoted", `applyTo: "app/models/**/*.rb"`, "applies to app/models/**/*.rb"},
+		{"alwaysApply", "alwaysApply: true", "always applied"},
+		{"description fallback", "description: Frontend standards\nalwaysApply: false", "Frontend standards"},
+		{"globs beats description", "description: d\nglobs: src/**", "applies to src/**"},
+		{"nothing set", "alwaysApply: false", ""},
+	}
+	for _, c := range cases {
+		if got := ruleDetail(c.fm); got != c.want {
+			t.Errorf("%s: ruleDetail = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// TestDiscoverDocsFindsRuleDirFiles covers the rule directories end to end:
+// found (including in a nested folder, which Cursor documents), suffix-strict
+// (a plain .md inside .cursor/rules is ignored, as Cursor itself ignores it),
+// frontmatter split off the body with the scoping surfaced as Detail, and
+// sorted after the fixed instruction files but before MEMORY.md.
+func TestDiscoverDocsFindsRuleDirFiles(t *testing.T) {
+	projectsRoot, realProjDir, _ := buildClaudeTree(t)
+	write := func(rel, body string) {
+		path := filepath.Join(realProjDir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(".cursor", "rules", "api.mdc"),
+		"---\nglobs: **/*.ts\nalwaysApply: false\n---\n\nUse named exports.\n")
+	write(filepath.Join(".cursor", "rules", "frontend", "components.mdc"),
+		"---\nalwaysApply: true\n---\n\nCopyright header everywhere.\n")
+	write(filepath.Join(".cursor", "rules", "notes.md"), "not a rule — wrong extension\n")
+	write(filepath.Join(".github", "instructions", "py.instructions.md"),
+		"---\napplyTo: \"**/*.py\"\n---\n\nFollow PEP 8.\n")
+
+	docs, err := DiscoverDocs(projectsRoot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byTitle := map[string]DocFile{}
+	pos := map[string]int{}
+	for i, d := range docs {
+		if d.Scope != "global" { // one project in the fixture — titles are unique
+			byTitle[d.Title] = d
+			pos[d.Title] = i
+		}
+	}
+
+	api, ok := byTitle["api.mdc"]
+	if !ok {
+		t.Fatalf("api.mdc not discovered; project docs: %v", pos)
+	}
+	if api.Provider != ProviderCursor || api.Kind != DocRules {
+		t.Errorf("api.mdc provider/kind = %s/%s, want cursor/rules", api.Provider, api.Kind)
+	}
+	if api.Detail != "applies to **/*.ts" {
+		t.Errorf("api.mdc detail = %q, want %q", api.Detail, "applies to **/*.ts")
+	}
+	if !strings.Contains(api.Body, "named exports") || strings.Contains(api.Body, "globs:") {
+		t.Errorf("api.mdc body should be the markdown without its frontmatter:\n%s", api.Body)
+	}
+
+	nested, ok := byTitle["components.mdc"]
+	if !ok {
+		t.Fatal("components.mdc (in a nested folder) not discovered — Cursor documents folders inside .cursor/rules")
+	}
+	if nested.Detail != "always applied" {
+		t.Errorf("components.mdc detail = %q, want %q", nested.Detail, "always applied")
+	}
+
+	py, ok := byTitle["py.instructions.md"]
+	if !ok {
+		t.Fatal("py.instructions.md not discovered")
+	}
+	if py.Provider != ProviderCopilot {
+		t.Errorf("py.instructions.md provider = %s, want copilot", py.Provider)
+	}
+	if py.Detail != "applies to **/*.py" {
+		t.Errorf("py.instructions.md detail = %q, want %q", py.Detail, "applies to **/*.py")
+	}
+
+	if _, found := byTitle["notes.md"]; found {
+		t.Error("notes.md surfaced from .cursor/rules — Cursor ignores plain .md there, so engram must too")
+	}
+
+	// Order within the project: every fixed instruction file, then the rule-dir
+	// files, then the index last.
+	if pos["api.mdc"] < pos["copilot-instructions.md"] {
+		t.Errorf("api.mdc (rank %d) sorted before copilot-instructions.md (rank %d) — rule-dir files come after the fixed files", pos["api.mdc"], pos["copilot-instructions.md"])
+	}
+	if pos["MEMORY.md"] < pos["api.mdc"] || pos["MEMORY.md"] < pos["py.instructions.md"] {
+		t.Error("MEMORY.md must sort after every rule-dir file")
+	}
+}
+
+// TestDocsSignatureCoversRuleDirs holds the lockstep contract for the rule
+// directories, table-driven like its projectRuleFiles sibling — with one extra
+// case a fixed path cannot have: a file ADDED to (and then removed from) the
+// directory must move the fingerprint, or the poll would never notice a new
+// rule file until restart.
+func TestDocsSignatureCoversRuleDirs(t *testing.T) {
+	for _, rd := range projectRuleDirs {
+		t.Run(rd.dir, func(t *testing.T) {
+			projectsRoot, realProjDir, _ := buildClaudeTree(t)
+
+			before, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			path := filepath.Join(realProjDir, rd.dir, "one"+rd.suffix)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("---\ndescription: d\n---\nrule\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			added, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if added == before {
+				t.Fatalf("signature unchanged after adding %s — the poll reload will miss new rule files", path)
+			}
+
+			// Edit: different content, distinctly newer modtime.
+			if err := os.WriteFile(path, []byte("---\ndescription: d2\n---\nrule, revised\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			newer := time.Now().Add(2 * time.Second)
+			if err := os.Chtimes(path, newer, newer); err != nil {
+				t.Fatal(err)
+			}
+			edited, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if edited == added {
+				t.Errorf("signature unchanged after editing %s", path)
+			}
+
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			removed, err := DocsSignature(projectsRoot, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if removed == edited {
+				t.Errorf("signature unchanged after removing %s — a deleted rule file would linger until restart", path)
+			}
+		})
+	}
+}

@@ -412,6 +412,16 @@ func (m Model) previewPane() string {
 		scopeUsed = runewidth.StringWidth(pill) + 1
 	}
 	rest := shortPath(it)
+	// A rule file's scoping note ("applies to src/**") sits between the path
+	// and the edited stamp — it is the one fact the file's frontmatter exists
+	// to state, surfaced here because the body renders without it.
+	if it.Detail != "" {
+		if rest == "" {
+			rest = it.Detail
+		} else {
+			rest += " · " + it.Detail
+		}
+	}
 	if m.stripRows(it) == 0 {
 		stamp := "edited " + humanizeSince(it.Modified)
 		if rest == "" {

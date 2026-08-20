@@ -3,10 +3,12 @@ package memory
 import (
 	"fmt"
 	"hash/fnv"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -28,7 +30,8 @@ const (
 	ProviderClaude  DocProvider = "claude"  // CLAUDE.md / MEMORY.md
 	ProviderAgents  DocProvider = "agents"  // AGENTS.md, the cross-tool standard
 	ProviderGemini  DocProvider = "gemini"  // GEMINI.md, the Gemini CLI's context file
-	ProviderCopilot DocProvider = "copilot" // .github/copilot-instructions.md
+	ProviderCopilot DocProvider = "copilot" // .github/copilot-instructions.md + .github/instructions/*.instructions.md
+	ProviderCursor  DocProvider = "cursor"  // .cursor/rules/*.mdc
 )
 
 // DocFile is an instruction file shown read-only in engram's files source: a
@@ -39,7 +42,8 @@ const (
 type DocFile struct {
 	Path        string
 	Title       string // the file's own basename, e.g. "CLAUDE.md" or "MEMORY.md"
-	Body        string // file contents (markdown)
+	Body        string // file contents (markdown); for rule-dir files, the body with its frontmatter split off
+	Detail      string // rule-dir files only: one-line scoping note from the frontmatter ("applies to src/**"); "" otherwise
 	Kind        DocKind
 	Provider    DocProvider
 	Scope       string // "global" or the project name
@@ -64,15 +68,100 @@ type ruleFile struct {
 // lockstep: a file surfaced by the walk but missed by the fingerprint would
 // render fine and then never refresh after an external edit.
 //
-// Every entry is a single file at a fixed path. The path-scoped variants —
-// Copilot's .github/instructions/*.instructions.md and Cursor's
-// .cursor/rules/*.mdc — are directories of frontmatter-bearing files, which
-// need more than DocFile's flat shape, so they are deliberately absent.
+// Every entry is a single file at a fixed path; the path-scoped rule
+// *directories* live in projectRuleDirs below.
 var projectRuleFiles = []ruleFile{
 	{"CLAUDE.md", "CLAUDE.md", ProviderClaude},
 	{"AGENTS.md", "AGENTS.md", ProviderAgents},
 	{"GEMINI.md", "GEMINI.md", ProviderGemini},
 	{filepath.Join(".github", "copilot-instructions.md"), "copilot-instructions.md", ProviderCopilot},
+}
+
+// ruleDir is a directory of path-scoped rule files engram surfaces read-only:
+// every file under dir (recursively — Cursor documents organizing rules in
+// folders) whose name ends in suffix. Suffix-strict on purpose: Cursor itself
+// ignores a plain .md inside .cursor/rules, so engram matching only .mdc is
+// faithful, not a shortcut.
+type ruleDir struct {
+	dir      string // path relative to the project dir
+	suffix   string // filename suffix a rule file must carry
+	provider DocProvider
+}
+
+// projectRuleDirs lists the rule directories. As with projectRuleFiles,
+// DiscoverDocs and DocsSignature both walk this one table (through the shared
+// ruleDirFiles), which keeps discovery and the reload fingerprint in lockstep.
+//
+// Deliberate limits, each with a reason:
+//   - Top-level directories only — no monorepo-nested .cursor/rules under
+//     arbitrary subdirectories. Finding those means walking the whole repo
+//     tree, and DocsSignature re-runs on every 2s poll tick; the same cost
+//     argument that fixed scanRoots at depth 1.
+//   - No legacy .cursorrules: current Cursor docs document .mdc rules and
+//     AGENTS.md (which engram already reads), not the old single file.
+//   - No Cursor user rules or Copilot profile instructions: both live inside
+//     the app's own settings storage, so there is no file to read — the same
+//     gap globalRuleFiles records for Copilot.
+//   - Cursor's .cursor/skills and BUGBOT.md are different features, not rules.
+var projectRuleDirs = []ruleDir{
+	{filepath.Join(".cursor", "rules"), ".mdc", ProviderCursor},
+	{filepath.Join(".github", "instructions"), ".instructions.md", ProviderCopilot},
+}
+
+// ruleDirFiles enumerates the rule files under one project's ruleDir entry, in
+// lexical walk order (deterministic, so list order and the signature are
+// stable). A missing or unreadable directory yields nil. Both DiscoverDocs and
+// DocsSignature enumerate through here — the shared path is what makes a file
+// impossible to surface without also fingerprinting.
+func ruleDirFiles(projDir string, rd ruleDir) []string {
+	var out []string
+	root := filepath.Join(projDir, rd.dir)
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if d != nil && d.IsDir() {
+				return fs.SkipDir // unreadable subdir — keep the rest
+			}
+			return nil // missing dir or unreadable entry — nothing to list
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), rd.suffix) {
+			out = append(out, path)
+		}
+		return nil
+	})
+	return out
+}
+
+// ruleDetail summarizes a rule file's frontmatter scoping in one line: which
+// files the rules bind to (globs / applyTo), "always applied" for
+// alwaysApply: true, or the description when no scoping is set. The frontmatter
+// boundary comes from splitFrontmatter — the same parse memories use — but the
+// keys are read line-wise rather than through yaml.Unmarshal, because real
+// .mdc files routinely hold YAML-invalid plain scalars (`globs: **/*.ts`
+// starts with an alias character) and a strict parse would blank the one line
+// the file exists to state.
+func ruleDetail(fm string) string {
+	get := func(key string) string {
+		for _, ln := range strings.Split(fm, "\n") {
+			rest, ok := strings.CutPrefix(strings.TrimSpace(ln), key+":")
+			if !ok {
+				continue
+			}
+			v := strings.TrimSpace(rest)
+			v = strings.Trim(v, `"'`)
+			return v
+		}
+		return ""
+	}
+	if v := get("globs"); v != "" {
+		return "applies to " + v
+	}
+	if v := get("applyTo"); v != "" {
+		return "applies to " + v
+	}
+	if strings.EqualFold(get("alwaysApply"), "true") {
+		return "always applied"
+	}
+	return get("description")
 }
 
 // globalRuleFiles lists the vendors' *global* instruction files — the ones that
@@ -96,20 +185,28 @@ var globalRuleFiles = []ruleFile{
 }
 
 // docRank orders docs within one scope: the instruction files in
-// projectRuleFiles order, then the memory index last. Ranking off the table
-// (rather than a hand-written switch) means a new entry sorts correctly without
-// a second edit here. It ranks the global scope too — globalRuleFiles reuses
-// the same providers, so the one table orders both scopes consistently.
+// projectRuleFiles order, then the rule-dir files in projectRuleDirs order,
+// then the memory index last. Ranking off the tables (rather than a
+// hand-written switch) means a new entry sorts correctly without a second edit
+// here. Ties are deliberate and deterministic: ProviderCopilot ranks by its
+// projectRuleFiles row for both its fixed file and its instructions/ files, and
+// the files inside one rule dir all share a rank — the stable sort then keeps
+// discovery order, which is fixed-file-first, then lexical walk order.
 func docRank(d DocFile) int {
 	if d.Kind == DocIndex {
-		return len(projectRuleFiles)
+		return len(projectRuleFiles) + len(projectRuleDirs)
 	}
 	for i, rf := range projectRuleFiles {
 		if rf.provider == d.Provider {
 			return i
 		}
 	}
-	return len(projectRuleFiles)
+	for i, rd := range projectRuleDirs {
+		if rd.provider == d.Provider {
+			return len(projectRuleFiles) + i
+		}
+	}
+	return len(projectRuleFiles) + len(projectRuleDirs)
 }
 
 // claudeLayout resolves the user's home dir, the ~/.claude home under it, and
@@ -158,10 +255,10 @@ func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 	}
 
 	var docs []DocFile
-	read := func(path, title string, kind DocKind, prov DocProvider, scope, projName, projDir, memDir string) {
+	read := func(path, title string, kind DocKind, prov DocProvider, scope, projName, projDir, memDir string) *DocFile {
 		body, err := os.ReadFile(path)
 		if err != nil {
-			return
+			return nil
 		}
 		d := DocFile{Path: path, Title: title, Body: string(body), Kind: kind, Provider: prov,
 			Scope: scope, ProjectName: projName, ProjectDir: projDir, MemoryDir: memDir}
@@ -169,6 +266,7 @@ func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 			d.Modified = info.ModTime()
 		}
 		docs = append(docs, d)
+		return &docs[len(docs)-1]
 	}
 
 	read(filepath.Join(claudeHome, "CLAUDE.md"), "CLAUDE.md", DocRules, ProviderClaude, "global", "", "", "")
@@ -180,6 +278,23 @@ func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 		if pathExists(p.Dir) {
 			for _, rf := range projectRuleFiles {
 				read(filepath.Join(p.Dir, rf.rel), rf.title, DocRules, rf.provider, p.Name, p.Name, p.Dir, p.MemoryDir)
+			}
+			// Rule-dir files carry frontmatter (globs / applyTo / description),
+			// so their body is split from it — the preview renders the markdown
+			// and the scoping surfaces as a one-line Detail instead. The pointer
+			// read returns is only valid until the next append, so it is used
+			// right here and never held.
+			for _, rd := range projectRuleDirs {
+				for _, path := range ruleDirFiles(p.Dir, rd) {
+					d := read(path, filepath.Base(path), DocRules, rd.provider, p.Name, p.Name, p.Dir, p.MemoryDir)
+					if d == nil {
+						continue // unreadable — skipped, same as every other doc
+					}
+					if fmText, body, ok := splitFrontmatter(d.Body); ok {
+						d.Body = body
+						d.Detail = ruleDetail(fmText)
+					}
+				}
 			}
 		}
 		// A scan-root project has no memory dir. Guard it: filepath.Join("",
@@ -231,6 +346,14 @@ func DocsSignature(root string, scanRoots []string) (string, error) {
 		if pathExists(p.Dir) {
 			for _, rf := range projectRuleFiles {
 				add(filepath.Join(p.Dir, rf.rel))
+			}
+			// Same enumerator as DiscoverDocs, so a rule-dir file cannot be
+			// surfaced without being fingerprinted. A removed file drops its
+			// line from the hash, so deletions are noticed too.
+			for _, rd := range projectRuleDirs {
+				for _, path := range ruleDirFiles(p.Dir, rd) {
+					add(path)
+				}
 			}
 		}
 		if p.MemoryDir != "" { // see the guard in DiscoverDocs

@@ -182,7 +182,13 @@ func TestScanRootProjectsQualification(t *testing.T) {
 	agentsApp := mk("agents-app", "AGENTS.md")
 	geminiApp := mk("gemini-app", "GEMINI.md")
 	copilotApp := mk("copilot-app", filepath.Join(".github", "copilot-instructions.md"))
-	mk("no-rules")                  // qualifies for nothing
+	cursorApp := mk("cursor-app", filepath.Join(".cursor", "rules", "api.mdc"))
+	instrApp := mk("instr-app", filepath.Join(".github", "instructions", "py.instructions.md"))
+	mk("no-rules")        // qualifies for nothing
+	mk("empty-rules-dir") // a bare .cursor/rules with no .mdc qualifies for nothing
+	if err := os.MkdirAll(filepath.Join(root, "empty-rules-dir", ".cursor", "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	mk("build/output", "CLAUDE.md") // depth 2 — out of reach
 	mk(".hidden", "CLAUDE.md")      // dotted dirs are never projects
 	deep := filepath.Join(root, "build", "output")
@@ -198,13 +204,14 @@ func TestScanRootProjectsQualification(t *testing.T) {
 		}
 	}
 
-	for _, want := range []string{claudeApp, agentsApp, geminiApp, copilotApp} {
+	for _, want := range []string{claudeApp, agentsApp, geminiApp, copilotApp, cursorApp, instrApp} {
 		if !got[want] {
 			t.Errorf("scan missed %q, which carries an instruction file", want)
 		}
 	}
 	for _, unwanted := range []string{
 		filepath.Join(root, "no-rules"),
+		filepath.Join(root, "empty-rules-dir"),
 		filepath.Join(root, ".hidden"),
 		deep,
 	} {

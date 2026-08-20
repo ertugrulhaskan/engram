@@ -50,6 +50,7 @@ type Item struct {
 	GroupColor string         // header color (hex)
 	Right      string         // right-aligned column text (project when grouped by type, or date)
 	Context    string         // preview meta context (project name, or "plan")
+	Detail     string         // extra preview-meta note (a rule file's scoping, e.g. "applies to src/**"); "" = none
 	MemDir     string         // memory dir for new/index/drift; "" for plans
 	ProjectDir string         // decoded project dir, for launching an assistant in context; "" for plans
 	Kind       string         // "memory" | "plan" — palette tag + feature gating
@@ -158,7 +159,7 @@ func (m Model) docItems() []Item {
 		}
 		items = append(items, Item{
 			Title: d.Title, Body: d.Body, Raw: d.Body, Path: d.Path, Modified: d.Modified,
-			Badge: badge, BadgeColor: bcolor,
+			Badge: badge, BadgeColor: bcolor, Detail: d.Detail,
 			GroupKey: d.Scope, GroupLabel: d.Scope, GroupColor: colorFor(d.Scope),
 			Right: humanizeSince(d.Modified), Context: d.Scope,
 			MemDir: d.MemoryDir, ProjectDir: d.ProjectDir, Kind: string(d.Kind),

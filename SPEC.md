@@ -501,9 +501,18 @@ user-level instructions in profile settings, not a file at a fixed path — and 
 `CODEX_HOME` relocation and its `AGENTS.override.md` precedence are not honoured, so
 engram surfaces the default file only.
 
-The **path-scoped** variants are also out: Copilot's
-`.github/instructions/*.instructions.md` and Cursor's `.cursor/rules/*.mdc` are directories of
-frontmatter-bearing files, which need more than `DocFile`'s flat shape.
+The **path-scoped** rule directories are covered by a second table, `projectRuleDirs`:
+Cursor's `.cursor/rules/*.mdc` (badged `cursor`) and Copilot's
+`.github/instructions/*.instructions.md` (badged `copilot`, beside its fixed file). Both
+scans enumerate through one shared `ruleDirFiles` — recursive *within* the rules dir
+(Cursor documents organizing rules in folders) and suffix-strict (Cursor itself ignores a
+plain `.md` there). These files carry frontmatter, so the preview splits it off
+(`splitFrontmatter`, the same parse memories use) and surfaces the scoping as a one-line
+`Detail` — "applies to <globs/applyTo>", or "always applied" — read line-wise because real
+`.mdc` files hold YAML-invalid plain scalars (`globs: **/*.ts`). Deliberately out:
+monorepo-nested `.cursor/rules` under arbitrary subdirectories (a repo-tree walk per 2s
+poll tick — the scanRoots depth-1 argument), the legacy `.cursorrules` (absent from
+current Cursor docs), and Cursor/Copilot user-level rules (app-internal storage, no file).
 `memory.DiscoverDocs`/`DocsSignature` walk these (the
 signature folds into `combinedSig`, so external/`@Claude` edits — including to `CLAUDE.md`,
 which lives outside the memory tree — trigger the poll reload). **`DocsSignature` must stay in
@@ -520,8 +529,9 @@ the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / inde
 default these files are found only for projects Claude Code already knows about.
 
 **`scanRoots` lifts that.** `config.ScanRoots` names extra directories; `scanRootProjects`
-checks each root **and its immediate children**, keeping a directory only when it carries a
-`projectRuleFiles` entry (`hasRuleFile`). `allProjects` unions the two sources — Claude's
+checks each root **and its immediate children**, keeping a directory only when it carries an
+instruction file (`hasRuleFile`: a `projectRuleFiles` entry, or a non-empty
+`projectRuleDirs` directory). `allProjects` unions the two sources — Claude's
 walk first, then the scanned ones it has not already claimed — and both docs scans go
 through it, which is what keeps them in lockstep now that two mechanisms feed one list.
 
@@ -536,7 +546,6 @@ Three properties worth stating, because each is a decision rather than an accide
   Both docs scans guard this: `filepath.Join("", "MEMORY.md")` is the *relative* path
   `MEMORY.md`, which would read whatever sits in the process's working directory.
 
-Still not covered: the **path-scoped** rule directories named above, and Cursor entirely.
 Note that the global files are the one part of tier 1 that is *not* Claude-anchored — they are
 read straight from the home dir, so they appear even with no `~/.claude` and no `scanRoots`.
 Per-project discovery still is anchored, so public copy must go on not implying standalone

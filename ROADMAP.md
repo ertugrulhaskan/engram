@@ -100,10 +100,17 @@ memories as each product allows.
       covers each project's own file and nothing else** — the vendors' global equivalents
       sit outside the `~/.claude` tree the walk is anchored to and are their own item
       below, now also done
-- [ ] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
-      `.github/instructions/*.instructions.md`: both are *directories* of
-      frontmatter-bearing files rather than one file at a fixed path, so they need more
-      than the `DocFile` shape and the `projectRuleFiles` table
+- [x] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
+      `.github/instructions/*.instructions.md` *(unreleased — on `main` after `v0.3.0`)*.
+      Both are directories of frontmatter-bearing files, covered by a second table
+      (`projectRuleDirs`) beside `projectRuleFiles`: recursive within the rules dir
+      (Cursor documents organizing rules in folders), suffix-strict (`.mdc` /
+      `.instructions.md` — Cursor itself ignores a plain `.md` there), frontmatter split
+      off the preview with the scoping surfaced as an "applies to …" line. A non-empty
+      rules dir also qualifies a scan-root project. Deliberately out: monorepo-nested
+      `.cursor/rules` in subdirectories (a repo-tree walk per 2s poll tick), the legacy
+      `.cursorrules` (absent from current Cursor docs), and Cursor/Copilot user-level
+      rules (app-internal storage, no file)
 - [x] Lift the Claude-anchored discovery limit — a configured `scanRoots` list, so
       projects Claude Code has never opened can appear. Each root and its immediate
       children are checked; a directory qualifies only if it carries an instruction file.

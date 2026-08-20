@@ -131,6 +131,8 @@ index. A badge names each one:
 | `AGENTS.md` | `agents` | Codex, Cursor, Copilot — and Claude Code |
 | `GEMINI.md` | `gemini` | Gemini CLI |
 | `.github/copilot-instructions.md` | `copilot` | GitHub Copilot |
+| `.cursor/rules/*.mdc` | `cursor` | Cursor |
+| `.github/instructions/*.instructions.md` | `copilot` | GitHub Copilot (path-scoped) |
 | `MEMORY.md` | `index` | Claude Code (engram keeps it in sync) |
 
 Three of these also have a **global** form that applies to every project, listed
@@ -163,9 +165,14 @@ Scanned projects show instruction files only; they have no `MEMORY.md`.
 Roots must be absolute (after `~`); a relative one is ignored, since it would
 depend on where you launched engram. Symlinked directories aren't followed.
 
-The path-scoped rule *directories* (`.github/instructions/`, `.cursor/rules/`)
-aren't listed — they're folders of frontmatter-bearing files rather than one file
-at a fixed path, so they need more than a flat row.
+The path-scoped rule *directories* (`.cursor/rules/`, `.github/instructions/`)
+list every matching file inside them, folders included, and the preview shows
+each rule's scope from its frontmatter — `applies to src/**/*.ts`, or `always
+applied` — with the markdown body rendered below. Only the documented
+extensions count (`.mdc`, `.instructions.md`); Cursor itself ignores a plain
+`.md` in its rules folder, and so does engram. Nested `.cursor/rules` folders
+deeper in a repo, the legacy `.cursorrules` file, and Cursor/Copilot user-level
+rules (which live in app settings, not files) are not read.
 
 ## Reading the list
 
@@ -307,7 +314,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
-- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md` and Copilot's are browsable, per project and globally; Cursor rules next), then server-side memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md`, Copilot's instructions and Cursor rules are all browsable — per project and, where a vendor has one, globally), then server-side memories (Claude.ai, ChatGPT, …) as access allows
 
 ## Contributing
 

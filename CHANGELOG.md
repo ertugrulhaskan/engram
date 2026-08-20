@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cursor rules and Copilot's path-scoped instructions are now in `/files`.** Every
+  `.mdc` file under a project's `.cursor/rules/` (badged `cursor`) and every
+  `.instructions.md` under `.github/instructions/` (badged `copilot`) lists read-only
+  beside the project's other instruction files — folders inside the rules dir included,
+  since Cursor documents organizing rules that way. This closes tier 1's last local
+  format: the first sources that are *directories* of files rather than one file at a
+  fixed path.
+
+  These files carry frontmatter, and the preview treats it the way it deserves: the
+  markdown body renders clean, and the one fact the frontmatter exists to state — which
+  files the rules bind to — shows as a line under the title: `applies to src/**/*.ts`
+  (from `globs` / `applyTo`), or `always applied`. A directory carrying only Cursor
+  rules also counts as a project under `scanRoots` now.
+
+  Deliberate boundaries, so nothing surprises later: only the documented extensions
+  count (Cursor itself ignores a plain `.md` in its rules folder, so engram does too);
+  nested `.cursor/rules` folders deeper inside a repo are not found (that would walk
+  the whole repo tree on every 2s reload poll); the legacy `.cursorrules` file is
+  skipped (current Cursor docs document `.mdc` rules and `AGENTS.md`, which engram
+  already reads); and Cursor/Copilot *user-level* rules live in app settings, not
+  files, so there is nothing to read.
 - **The vendors' global instruction files are now in `/files`.** `~/.gemini/GEMINI.md`
   (Gemini CLI) and `~/.codex/AGENTS.md` (Codex) are listed in the `global` scope beside
   `~/.claude/CLAUDE.md`, with the same `gemini` / `agents` badges their per-project

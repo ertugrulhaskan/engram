@@ -245,10 +245,17 @@ func expandHome(p string) string {
 // hasRuleFile reports whether dir carries at least one of the instruction files
 // engram surfaces. This is what qualifies a scanned directory as a project:
 // without it every folder under a scan root would be listed, including empty
-// ones and build output.
+// ones and build output. The rule dirs are checked only after the fixed paths
+// all miss, so the common case stays a handful of stats; a non-empty
+// .cursor/rules alone qualifies a project, since /files would list its files.
 func hasRuleFile(dir string) bool {
 	for _, rf := range projectRuleFiles {
 		if pathExists(filepath.Join(dir, rf.rel)) {
+			return true
+		}
+	}
+	for _, rd := range projectRuleDirs {
+		if len(ruleDirFiles(dir, rd)) > 0 {
 			return true
 		}
 	}
