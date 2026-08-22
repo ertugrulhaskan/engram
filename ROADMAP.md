@@ -64,13 +64,13 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
 - [x] Secret-scan guard on `promote` — block credentials from reaching the shared store (configurable, redacted findings)
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
-- [x] Auto-pull for global-scoped memories *(unreleased — on `main` after `v0.3.0`)* —
+- [x] Auto-pull for global-scoped memories *(shipped in `v0.4.0`)* —
       `>pull` reconciles an existing local copy of a global memory with the same
       direction-aware safety as a project memory (fast-forward / ahead / conflict).
       A global memory you hold nowhere is still never *placed*: it belongs to no
       project, so the store stays its home until you promote it into one
 
-## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.3.0` released, [engram.im](https://engram.im) live)*
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.4.0` released, [engram.im](https://engram.im) live)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 
@@ -83,7 +83,7 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
-## Phase 4 — Other assistants
+## Phase 4 — Other assistants *(tier 1 — local instruction files — shipped in `v0.4.0`; tier 2 open)*
 
 Goal: one place for AI context beyond Claude Code — local files first, server-side
 memories as each product allows.
@@ -101,7 +101,7 @@ memories as each product allows.
       sit outside the `~/.claude` tree the walk is anchored to and are their own item
       below, now also done
 - [x] Cursor rules (`.cursor/rules/*.mdc`) — and Copilot's path-scoped
-      `.github/instructions/*.instructions.md` *(unreleased — on `main` after `v0.3.0`)*.
+      `.github/instructions/*.instructions.md` *(shipped in `v0.4.0`)*.
       Both are directories of frontmatter-bearing files, covered by a second table
       (`projectRuleDirs`) beside `projectRuleFiles`: recursive within the rules dir
       (Cursor documents organizing rules in folders), suffix-strict (`.mdc` /

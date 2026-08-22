@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-21
+
+Phase 4 tier 1: engram stops being Claude-only. The local instruction files the
+other assistants read — `AGENTS.md`, `GEMINI.md`, GitHub Copilot's instructions
+and Cursor rules — are now browsable read-only in `/files`, per project and, where
+a vendor has one, from your home folder. A `scanRoots` setting lifts the limit that
+a project had to have been opened in Claude Code before engram could see it. On the
+team side, `>pull` learned to reconcile global-scoped memories with the same
+direction-aware safety it already gave project ones.
+
 ### Added
 - **Cursor rules and Copilot's path-scoped instructions are now in `/files`.** Every
   `.mdc` file under a project's `.cursor/rules/` (badged `cursor`) and every
@@ -728,7 +738,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ertugrulhaskan/engram/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ertugrulhaskan/engram/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ertugrulhaskan/engram/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ertugrulhaskan/engram/compare/v0.1.2...v0.2.0
