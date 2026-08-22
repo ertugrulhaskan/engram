@@ -100,12 +100,68 @@ func clampIdx(i, n int) int {
 	return i
 }
 
+// isTerminalControl reports whether r is a character a terminal acts on rather
+// than prints: the C0 range, DEL, and C1. Callers decide which of \n and \t to
+// keep before consulting it.
+func isTerminalControl(r rune) bool {
+	return r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f)
+}
+
+// sanitizeLine drops the control characters from a one-line string, turning
+// tabs into a space so the width math below stays honest.
+//
+// engram renders files it does not own. /files lists instruction files from any
+// project under scanRoots — including repositories the user has only cloned —
+// and a rule file's frontmatter reaches the list as a Detail line. Neither
+// glamour nor lipgloss strips an escape sequence embedded in the text they are
+// handed, so without this a `globs:` value carrying an OSC sequence would reach
+// the terminal verbatim and rewrite the window title (or, where OSC 52 is
+// permitted, the clipboard). Clipping here rather than at each call site is
+// deliberate: every single-line string in the UI already funnels through clip,
+// so the chokepoint is the whole class. Styling is always applied *after* clip,
+// so no legitimate ANSI is ever passed in for this to eat.
+//
+// Bidi overrides (U+202A-U+202E) are deliberately left alone: they are valid in
+// right-to-left text, and visual deception is a different problem from terminal
+// control.
+func sanitizeLine(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' {
+			return ' '
+		}
+		if isTerminalControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// sanitizeBody is sanitizeLine for multi-line markdown on its way *into* the
+// renderer: newlines and tabs survive because markdown uses both structurally.
+// It must run before glamour, never after — glamour's own output is ANSI by
+// design.
+func sanitizeBody(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if isTerminalControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 // clip truncates s to at most w display columns (measuring wide runes
-// correctly), appending an ellipsis when it had to cut.
+// correctly), appending an ellipsis when it had to cut. Control characters are
+// stripped first — see sanitizeLine — which also keeps the width measurement
+// honest, since an escape sequence would otherwise be counted as printable
+// columns it never occupies.
 func clip(s string, w int) string {
 	if w <= 0 {
 		return ""
 	}
+	s = sanitizeLine(s)
 	if runewidth.StringWidth(s) <= w {
 		return s
 	}

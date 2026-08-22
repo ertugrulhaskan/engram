@@ -207,6 +207,12 @@ func (m *Model) syncPreview() {
 		body = it.Raw
 	}
 	body = stripFirstHeading(body)
+	// Strip terminal control characters before rendering, not after: glamour
+	// passes an escape sequence embedded in its input straight through to the
+	// output, and /files previews files from repositories the user may only
+	// have cloned. Sanitizing glamour's *output* would instead destroy the
+	// styling it legitimately emits.
+	body = sanitizeBody(body)
 	rendered := body
 	if m.renderer != nil {
 		if out, err := m.renderer.Render(body); err == nil {

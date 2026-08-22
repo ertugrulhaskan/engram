@@ -551,6 +551,21 @@ read straight from the home dir, so they appear even with no `~/.claude` and no 
 Per-project discovery still is anchored, so public copy must go on not implying standalone
 multi-assistant support out of the box — `scanRoots` is opt-in.
 
+**Rendering files engram does not own.** `scanRoots` and the vendor tables mean a preview
+can hold a file from a repository the user has merely cloned, which makes that file's bytes
+untrusted input *to a terminal*. Neither glamour nor lipgloss strips an escape sequence
+embedded in text handed to it, so engram strips control characters itself, at the two
+chokepoints every rendered string passes through: `clip` for one-line metadata (titles,
+paths, badges, a rule file's "applies to …" line) and `sanitizeBody` for the markdown body.
+Both run **before** the renderer — sanitizing glamour's *output* would destroy the ANSI it
+legitimately emits — and a body keeps newlines and tabs, which markdown uses structurally.
+Stripping before measuring also keeps the width math honest, since an escape sequence
+occupies no display columns but its bytes would otherwise be counted as if it did.
+Bidirectional-override characters (U+202A–U+202E, the "Trojan Source" class) are
+deliberately **not** stripped: they are legitimate in right-to-left text, and what they
+enable is visual deception rather than terminal control — a different problem needing a
+different answer than a blanket filter.
+
 ## 9. Distribution
 
 - `go install` for Go users.

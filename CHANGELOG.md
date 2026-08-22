@@ -174,6 +174,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The hosting move updated this file's canonical and `og:url` but missed the two
   host references in the body.
 
+### Security
+- **Instruction files can no longer smuggle terminal escape sequences into your
+  terminal.** engram renders files it does not own, and this release widened that
+  considerably: `/files` now lists instruction files from any project under
+  `scanRoots`, including repositories you have only cloned. Neither glamour nor
+  lipgloss strips an escape sequence embedded in text it is handed, so a
+  `.cursor/rules/*.mdc` whose `globs:` value carried an OSC sequence would have
+  reached the terminal verbatim — rewriting the window title, or writing the
+  clipboard where OSC 52 is permitted.
+
+  Control characters are now stripped at the two chokepoints every rendered string
+  passes through: `clip`, which covers all one-line metadata (titles, paths, badges
+  and the new "applies to …" line), and the markdown body on its way *into* the
+  renderer — never on the way out, since glamour's own output is ANSI by design.
+  Newlines and tabs survive in a body because markdown uses both structurally.
+  Stripping before measuring also corrects a width miscount, since an escape
+  sequence occupies no display columns but its bytes were being counted as if
+  they did.
+
 ### Removed
 - **The project `.mcp.json` is gone.** It registered the `context7` and
   `sequential-thinking` servers at project scope, passing the context7 key as
