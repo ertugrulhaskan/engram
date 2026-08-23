@@ -89,6 +89,13 @@ func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
 	if m.syncStates[it.Path] == team.StateNone {
 		return m, m.setStatus("not shared — nothing to withdraw")
 	}
+	// Resolve the owner guardrail's inputs now, so the confirm can disclose an
+	// unverifiable check rather than the user finding out nothing was proven.
+	own, err := team.CheckOwner(it.Path)
+	if err != nil {
+		return m, m.setDanger("withdraw: " + err.Error())
+	}
+	m.withdrawOwner = own
 	m.withdrawPath = it.Path
 	m.withdrawTitle = it.Title
 	m.mode = modeWithdrawConfirm

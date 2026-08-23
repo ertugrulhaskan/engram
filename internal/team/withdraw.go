@@ -40,10 +40,12 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		return false, fmt.Errorf("this memory isn't shared with the team")
 	}
 
-	// Owner guardrail: only the promoter can withdraw. Skipped when either email is
-	// unknown (can't prove non-ownership).
+	// Owner guardrail: only the promoter can withdraw. Fails open when either side
+	// is unknown — engram can't prove non-ownership, and refusing to withdraw your
+	// own memory because git is misconfigured would be the worse failure. The
+	// confirm dialog says the check was skipped, and why, before reaching here.
 	me, _ := runGitCapture(dir, "config", "user.email")
-	if meta.Owner != "" && me != "" && meta.Owner != me {
+	if own := (OwnerStatus{Owner: meta.Owner, Me: me}); own.Verifiable() && !own.Mine() {
 		return false, fmt.Errorf("only %s can withdraw this memory (you are %s)", meta.Owner, me)
 	}
 
@@ -116,4 +118,46 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		return pushed, fmt.Errorf("updating local memory: %v", err)
 	}
 	return pushed, nil
+}
+
+// OwnerStatus reports the two inputs to withdraw's owner guardrail, so a caller can
+// tell the user when the comparison could not be made at all — and which side was
+// missing. The two causes are genuinely different: an empty Owner is a property of
+// the memory (promoted before engram recorded owners, or by a machine with no git
+// email), while an empty Me is a property of this machine.
+type OwnerStatus struct {
+	Owner string // the promoter's git email, recorded at promote time; "" if the memory records none
+	Me    string // this machine's git user.email; "" if unset
+}
+
+// Verifiable reports whether both sides are known, so ownership can be compared.
+func (o OwnerStatus) Verifiable() bool { return o.Owner != "" && o.Me != "" }
+
+// Mine reports a positively verified match — this machine promoted the memory.
+func (o OwnerStatus) Mine() bool { return o.Verifiable() && o.Owner == o.Me }
+
+// CheckOwner reports whether the owner guardrail can be evaluated for a memory,
+// without withdrawing anything. It exists so the confirm dialog can say the check
+// was skipped before the user commits to it; Withdraw applies the same comparison
+// itself, so the two can't drift.
+func CheckOwner(memPath string) (OwnerStatus, error) {
+	dir, err := Dir()
+	if err != nil {
+		return OwnerStatus{}, err
+	}
+	raw, err := os.ReadFile(memPath)
+	if err != nil {
+		return OwnerStatus{}, err
+	}
+	meta, ok, err := memory.ReadEngram(string(raw))
+	if err != nil {
+		return OwnerStatus{}, fmt.Errorf("reading engram frontmatter: %v", err)
+	}
+	// A failed git read leaves Me empty, which is the unverifiable case the caller
+	// is asking about — not an error worth refusing the withdraw over.
+	me, _ := runGitCapture(dir, "config", "user.email")
+	if !ok {
+		return OwnerStatus{Me: me}, nil
+	}
+	return OwnerStatus{Owner: meta.Owner, Me: me}, nil
 }

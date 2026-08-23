@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Withdraw now says when it could not verify ownership.** Withdraw is owner-only —
+  engram compares the memory's recorded `owner` against your git email — but the check
+  is skipped whenever either side is unknown, and it used to be skipped *silently*. A
+  machine with no `user.email` configured could withdraw any memory, a teammate's
+  included, with nothing on screen saying the guard had not run.
+
+  The behavior is unchanged and deliberate: the guard still **fails open**, because
+  refusing to withdraw your own memory because git is misconfigured would be the worse
+  failure, and every team write already stops at a confirm. What changed is that the
+  confirm now discloses it, and names *which* side is missing — the memory records no
+  owner, or this machine has no git email — since one is the memory's history and the
+  other is a single config line away. A verified owner, and a known mismatch (which
+  withdraw refuses outright, as before), both render exactly as they did.
+
 ## [0.4.0] - 2026-08-21
 
 Phase 4 tier 1: engram stops being Claude-only. The local instruction files the

@@ -84,8 +84,9 @@ type Model struct {
 	promoteCursor int    // 0 = this project, 1 = global
 
 	// withdraw confirm (modeWithdrawConfirm)
-	withdrawPath  string // memory being withdrawn
-	withdrawTitle string // its title, for the modal header
+	withdrawPath  string           // memory being withdrawn
+	withdrawTitle string           // its title, for the modal header
+	withdrawOwner team.OwnerStatus // owner-guard inputs, so the modal can say the check was skipped
 
 	// secret-scan guard on promote
 	scanAction      string            // config policy: block | block-strict | warn | off

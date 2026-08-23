@@ -251,7 +251,12 @@ filename. The id is assigned once, on the first promote.
   then failing the reset (which would strand the memory as `! missing`). Commit + push
   both the removal and the tombstone. Only
   the `owner` (the promoter's git email) may withdraw — an **advisory guardrail**,
-  not enforcement, since anyone with push access can bypass it. On a teammate's next
+  not enforcement, since anyone with push access can bypass it. When either side of
+  that comparison is unknown — the memory records no `owner`, or this machine has no
+  `user.email` — the guard **fails open and says so**: the confirm dialog names which
+  side is missing, because refusing to withdraw your own memory over a misconfigured
+  git would be the worse failure. The two causes are reported separately, since one
+  is the memory's history and the other is one config line away. On a teammate's next
   **pull**, the tombstone removes their local team-scoped copy too, so a withdrawal
   **propagates** — this is the one case where pull deletes a local file, and it
   deletes *only* a tombstoned `scope: team` copy that is no longer anywhere in the

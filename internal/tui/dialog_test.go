@@ -45,13 +45,18 @@ func TestDialogBoxesUniformWidth(t *testing.T) {
 		team1.driftDangling = []string{"gone.md"}
 
 		boxes := map[string]string{
-			"palette":   open(tea.KeyMsg{Type: tea.KeyCtrlP}).paletteBox(),
-			"new":       open(runes("n")).newModal(),
-			"confirm":   open(runes("d")).confirmModal(),
-			"help":      open(runes("?")).helpModal(),
-			"promote":   team1.scopeModal(),
-			"secret":    team1.secretModal(),
-			"withdraw":  team1.withdrawModal(),
+			"palette":  open(tea.KeyMsg{Type: tea.KeyCtrlP}).paletteBox(),
+			"new":      open(runes("n")).newModal(),
+			"confirm":  open(runes("d")).confirmModal(),
+			"help":     open(runes("?")).helpModal(),
+			"promote":  team1.scopeModal(),
+			"secret":   team1.secretModal(),
+			"withdraw": team1.withdrawModal(), // zero OwnerStatus — the taller caution variant
+			"withdraw-verified": func() string {
+				v := team1
+				v.withdrawOwner = team.OwnerStatus{Owner: "a@example.com", Me: "a@example.com"}
+				return v.withdrawModal()
+			}(),
 			"pull":      team1.pullModal(),
 			"resolve":   team1.resolveModal(),
 			"reconcile": team1.reconcileModal(),

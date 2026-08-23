@@ -315,3 +315,80 @@ func TestWithdrawRefusesUnsafeFrontmatterKeepsStore(t *testing.T) {
 		t.Error("local file should be untouched when withdraw refuses")
 	}
 }
+
+// TestCheckOwnerNamesTheUnverifiableCause covers ENGR-33: the owner guardrail
+// fails open, so the confirm dialog has to be able to say the check was skipped
+// and which side was missing. Both causes are asserted separately because they
+// have the same outcome but different fixes.
+func TestCheckOwnerNamesTheUnverifiableCause(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = U\n\temail = alice@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	memDir := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(memDir, "note.md")
+	if err := os.WriteFile(memPath, []byte("---\nname: note\n---\n# Note\n\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(memPath, "global"); err != nil { // owner = alice
+		t.Fatalf("Promote: %v", err)
+	}
+
+	// Both sides known and matching — nothing to disclose.
+	own, err := CheckOwner(memPath)
+	if err != nil {
+		t.Fatalf("CheckOwner: %v", err)
+	}
+	if !own.Verifiable() || !own.Mine() {
+		t.Errorf("the promoter should verify as owner: %+v", own)
+	}
+
+	// Cause 1: the memory records no owner. Same file, owner stripped.
+	noOwner := filepath.Join(memDir, "unowned.md")
+	stamped, err := memory.WriteEngram("---\nname: unowned\n---\n# U\n\nbody\n",
+		memory.EngramMeta{ID: "u1", Scope: "team", Project: "global"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(noOwner, []byte(stamped), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if own, err := CheckOwner(noOwner); err != nil {
+		t.Fatalf("CheckOwner: %v", err)
+	} else if own.Verifiable() || own.Owner != "" || own.Me == "" {
+		t.Errorf("a memory with no recorded owner must be unverifiable with Me known: %+v", own)
+	}
+
+	// Cause 2: this machine has no git email. The memory's owner is still recorded,
+	// so the missing side is the local one — the distinction the dialog reports.
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	own, err = CheckOwner(memPath)
+	if err != nil {
+		t.Fatalf("CheckOwner: %v", err)
+	}
+	if own.Verifiable() || own.Owner == "" || own.Me != "" {
+		t.Errorf("an unset git email must be unverifiable with Owner known: %+v", own)
+	}
+
+	// The guard fails open, deliberately: withdrawing your own memory must not be
+	// refused because git is misconfigured. This is the behavior the dialog warns
+	// about rather than blocks, so it is pinned here.
+	if _, err := Withdraw(memPath); err != nil {
+		t.Errorf("withdraw must fail open when ownership can't be checked: %v", err)
+	}
+}
