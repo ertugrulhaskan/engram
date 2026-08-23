@@ -161,3 +161,224 @@ func headSHA(t *testing.T, dir string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+// batchStore stands up a hermetic store with a bare remote and returns the store
+// root plus a writeMem helper, so the batch tests below share one setup.
+func batchStore(t *testing.T) (root, bare string, writeMem func(name, body string) string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root = t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = Promoter\n\temail = promoter@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	bare = filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+
+	memDir := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeMem = func(name, body string) string {
+		p := filepath.Join(memDir, name)
+		if err := os.WriteFile(p, []byte("---\nname: "+strings.TrimSuffix(name, ".md")+
+			"\nmetadata:\n  type: project\n---\n"+body+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	return root, bare, writeMem
+}
+
+// A batch is one unit of history: three memories, spanning two different
+// placements, produce exactly ONE commit and arrive at the remote together.
+// Promoting them one at a time is what this replaces — that would be three
+// commits and three pushes for a single act.
+func TestPromoteBatchIsOneCommit(t *testing.T) {
+	root, bare, writeMem := batchStore(t)
+	teamDir, _ := Dir()
+	before := headSHA(t, teamDir)
+
+	key := "github.com/acme/app"
+	items := []PromoteItem{
+		{Path: writeMem("one.md", "first"), Placement: key},
+		{Path: writeMem("two.md", "second"), Placement: key},
+		{Path: writeMem("three.md", "third"), Placement: "global"},
+	}
+	pushed, err := PromoteBatch(items)
+	if err != nil {
+		t.Fatalf("PromoteBatch: %v", err)
+	}
+	if !pushed {
+		t.Error("expected the push to the local bare remote to succeed")
+	}
+
+	// Exactly one commit — the whole point of the batch.
+	out, err := exec.Command("git", "-C", teamDir, "rev-list", "--count", before+"..HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("rev-list: %v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "1" {
+		t.Errorf("batch of 3 produced %s commits, want 1", got)
+	}
+
+	// Each item honoured its own placement, and all three reached the remote.
+	verify := filepath.Join(root, "verify")
+	gitT(t, "", "clone", "file://"+bare, verify)
+	for _, rel := range []string{
+		filepath.Join("projects", key, "one.md"),
+		filepath.Join("projects", key, "two.md"),
+		filepath.Join("global", "three.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(verify, rel)); err != nil {
+			t.Errorf("not pushed: %s (%v)", rel, err)
+		}
+	}
+
+	// Every local copy is stamped with the placement it was promoted under.
+	for _, it := range items {
+		raw, _ := os.ReadFile(it.Path)
+		meta, ok, err := memory.ReadEngram(string(raw))
+		if err != nil || !ok {
+			t.Fatalf("%s not stamped: ok=%v err=%v", filepath.Base(it.Path), ok, err)
+		}
+		if meta.Scope != "team" || meta.Project != it.Placement || meta.ID == "" {
+			t.Errorf("%s engram = %+v, want scope=team project=%s", filepath.Base(it.Path), meta, it.Placement)
+		}
+	}
+}
+
+// Two memories in one batch that would land on the same store path must be
+// refused — and refused before anything is written, so no local file is stamped
+// and the store keeps a clean tree. On disk neither copy exists yet, so the
+// existing on-disk collision check cannot see this one.
+func TestPromoteBatchRefusesInternalCollision(t *testing.T) {
+	root, _, writeMem := batchStore(t)
+	teamDir, _ := Dir()
+	before := headSHA(t, teamDir)
+
+	// Same basename, two different source directories, both headed to global/.
+	other := filepath.Join(root, "proj2", "memory")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dup := filepath.Join(other, "notes.md")
+	if err := os.WriteFile(dup, []byte("---\nname: notes\n---\nelsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	first := writeMem("notes.md", "here")
+
+	_, err := PromoteBatch([]PromoteItem{
+		{Path: first, Placement: "global"},
+		{Path: dup, Placement: "global"},
+	})
+	if err == nil {
+		t.Fatal("expected a refusal when two items claim the same store path")
+	}
+	if !strings.Contains(err.Error(), "notes.md") {
+		t.Errorf("error should name the colliding file, got %q", err)
+	}
+
+	// Nothing was written: no commit, and neither local file was stamped.
+	if after := headSHA(t, teamDir); after != before {
+		t.Errorf("a refused batch committed:\n before %s\n after  %s", before, after)
+	}
+	for _, p := range []string{first, dup} {
+		raw, _ := os.ReadFile(p)
+		if _, ok, _ := memory.ReadEngram(string(raw)); ok {
+			t.Errorf("%s was stamped despite the batch being refused", p)
+		}
+	}
+}
+
+// A batch that fails preparation for any reason leaves every local file alone —
+// checked here with an unsafe placement in the second slot, so the first item
+// would already have been written under a per-item apply loop.
+func TestPromoteBatchRejectsBeforeWriting(t *testing.T) {
+	_, _, writeMem := batchStore(t)
+	teamDir, _ := Dir()
+	before := headSHA(t, teamDir)
+
+	good := writeMem("good.md", "fine")
+	bad := writeMem("bad.md", "also fine, bad key")
+
+	if _, err := PromoteBatch([]PromoteItem{
+		{Path: good, Placement: "github.com/acme/app"},
+		{Path: bad, Placement: "../../etc"},
+	}); err == nil {
+		t.Fatal("expected an unsafe project key to be rejected")
+	}
+	if after := headSHA(t, teamDir); after != before {
+		t.Error("a rejected batch committed")
+	}
+	raw, _ := os.ReadFile(good)
+	if _, ok, _ := memory.ReadEngram(string(raw)); ok {
+		t.Error("the first item was stamped even though a later item was rejected")
+	}
+}
+
+// An empty batch is a caller mistake, not a silent no-op: it must not reach git.
+func TestPromoteBatchEmpty(t *testing.T) {
+	if _, err := PromoteBatch(nil); err == nil {
+		t.Error("PromoteBatch(nil) should report an error")
+	}
+}
+
+// The commit subject stays the historical "Promote <file>" for a single memory
+// and counts for a batch, rather than running a list of names past a readable
+// subject line.
+func TestPromoteMessage(t *testing.T) {
+	one := []preparedPromotion{{memPath: filepath.Join("x", "note.md")}}
+	if got := promoteMessage(one); got != "Promote note.md" {
+		t.Errorf("single = %q, want %q", got, "Promote note.md")
+	}
+	three := []preparedPromotion{{memPath: "a.md"}, {memPath: "b.md"}, {memPath: "c.md"}}
+	if got := promoteMessage(three); got != "Promote 3 memories" {
+		t.Errorf("batch = %q, want %q", got, "Promote 3 memories")
+	}
+}
+
+// On a case-insensitive filesystem (macOS, Windows) "Notes.md" and "notes.md" are
+// the SAME file, so a batch carrying both would silently lose one — neither copy
+// exists at prepare time, so the on-disk collision check that protects the
+// single-memory path cannot see it. The batch check compares case-folded.
+func TestPromoteBatchRefusesCaseOnlyCollision(t *testing.T) {
+	root, _, writeMem := batchStore(t)
+	teamDir, _ := Dir()
+	before := headSHA(t, teamDir)
+
+	other := filepath.Join(root, "p2")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	upper := filepath.Join(other, "Notes.md")
+	if err := os.WriteFile(upper, []byte("---\nname: Notes\n---\nUPPER\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lower := writeMem("notes.md", "LOWER")
+
+	_, err := PromoteBatch([]PromoteItem{
+		{Path: upper, Placement: "global"},
+		{Path: lower, Placement: "global"},
+	})
+	if err == nil {
+		t.Fatal("a case-only filename collision must be refused, not silently merged")
+	}
+	if after := headSHA(t, teamDir); after != before {
+		t.Error("the refused batch still committed")
+	}
+	for _, p := range []string{upper, lower} {
+		raw, _ := os.ReadFile(p)
+		if _, ok, _ := memory.ReadEngram(string(raw)); ok {
+			t.Errorf("%s was stamped despite the refusal", filepath.Base(p))
+		}
+	}
+}
