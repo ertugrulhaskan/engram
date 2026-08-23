@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`· 4 marked in all`). A batch wider than what you are looking at can't be a
   surprise at the promote confirm.
 
+  The type is named only when the type filter *alone* built the list. Add a search
+  on top and the line keeps its "in the list" hedge — `marked 1 feedback memory`
+  would otherwise claim a whole type when two of its three memories are not
+  marked. The name it uses is the one on the row badges, so a `other`-badged
+  memory never reports as `unknown`.
+
 - **Promote several memories at once, as one commit.** `space` marks a memory (and
   moves down, so marking a run costs one keystroke each); `esc` clears the marks.
   With marks set, `promote` acts on the marked set instead of the cursor row, and

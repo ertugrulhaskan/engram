@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -97,7 +98,15 @@ func (m Model) markScopeLine(n int, verb string, elsewhere int) string {
 		unit = "memory"
 	}
 	if tf := typeCycle[m.typeIdx]; tf != "" {
-		unit, scope = string(tf)+" "+unit, ""
+		// typeLabel, not string(tf): it is what the row badges say, and it renders
+		// TypeUnknown as "other" rather than leaking the internal "unknown".
+		unit = typeLabel(tf) + " " + unit
+		// Drop the qualifier only when the type filter ALONE built this list. With
+		// a search narrowing it further, "3 feedback memories" would claim the whole
+		// type while the list holds a slice of it — so the hedge stays.
+		if strings.TrimSpace(m.search.Value()) == "" {
+			scope = ""
+		}
 	}
 	line := fmt.Sprintf("%s %d %s%s", verb, n, unit, scope)
 	if elsewhere > 0 {

@@ -348,7 +348,8 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.move(1) // marking a run of rows shouldn't need a keystroke between each
 		return m, nil
 	case "a":
-		// Mark the whole visible set. The type filter is the selection, so
+		// Mark every memory the filters left — the whole list, not just the rows
+		// on screen. The type filter is the selection, so
 		// promoting every `feedback` memory is `t` until the chip reads feedback,
 		// then `a` — no per-row marking, and no separate "promote a type" path to
 		// keep in step with the batch one.

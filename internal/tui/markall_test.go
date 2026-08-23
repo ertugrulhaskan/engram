@@ -279,3 +279,42 @@ func TestMarkAllReportsTheListNotTheDelta(t *testing.T) {
 		t.Errorf("status = %q, want %q", got, "marked 5 memories in the list")
 	}
 }
+
+// A search narrowing a type filter must not let the status claim the whole type.
+// With t→feedback plus a search matching one of three, "marked 1 feedback memory"
+// reads as "the feedback type is marked" while two are not — so the "in the list"
+// hedge stays whenever a search is also shaping the list.
+func TestMarkAllStatusHedgesUnderASearch(t *testing.T) {
+	m := markFixture(t)
+	var tm tea.Model = m
+	tm = selectType(t, tm, memory.TypeFeedback)
+	mm := tm.(Model)
+	mm.search.SetValue("blunt")
+	mm.rebuildRows()
+	tm = mm
+	tm = typeRunes(tm, "a")
+
+	want := "marked 1 feedback memory in the list"
+	if got := tm.(Model).status; got != want {
+		t.Errorf("status = %q, want %q — 2 of the 3 feedback memories are not marked", got, want)
+	}
+}
+
+// The status must name a type the way the row badges do. TypeUnknown badges as
+// "other"; leaking the internal "unknown" would make the footer and the list
+// disagree about the same memories.
+func TestMarkAllStatusUsesTheBadgeLabel(t *testing.T) {
+	mems := []memory.Memory{
+		mem("legacy-a", "hand-written, no frontmatter", memory.TypeUnknown, "acme", "/p/acme/memory/x1.md", "2024-01-02"),
+		mem("legacy-b", "hand-written, no frontmatter", memory.TypeUnknown, "acme", "/p/acme/memory/x2.md", "2024-01-03"),
+	}
+	mm, _ := New(mems, nil, nil, config.Config{}).Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	var tm tea.Model = mm
+	tm = selectType(t, tm, memory.TypeUnknown)
+	tm = typeRunes(tm, "a")
+
+	want := "marked 2 other memories"
+	if got := tm.(Model).status; got != want {
+		t.Errorf("status = %q, want %q (typeLabel renders TypeUnknown as %q)", got, want, typeLabel(memory.TypeUnknown))
+	}
+}
