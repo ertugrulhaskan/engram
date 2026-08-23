@@ -282,8 +282,9 @@ engram's config lives at `~/.config/engram/config.json` (open it with
 | `secretScanAction` | `block` · `block-strict` (no override) · `warn` · `off` | `block` |
 | `secretScanScope` | `secrets` · `secrets+pii` | `secrets` |
 
-The secret scan uses a curated rule set — a guard, not a guarantee, so treat the
-override as a real decision.
+The secret scan matches known key formats, secret-ish variable names, and values
+that simply look generated — a guard, not a guarantee, so treat the override as a
+real decision.
 
 ## CLI
 

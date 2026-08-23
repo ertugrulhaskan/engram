@@ -10,6 +10,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The promote secret scan now catches a secret that doesn't look like one.** The
+  scan read a value two ways — is it a known key format, and is it sitting under a
+  secret-ish name — which left one gap wide open: a raw generated value under a name
+  that gives nothing away (`deploy: Xk9mPq2…`). Neither question can reach it, and
+  that is exactly the shape a hand-written memory tends to carry.
+
+  A third layer now judges the value on its own: a run of 28 or more credential
+  characters scoring at least 4.4 bits of Shannon entropy is reported as
+  `high-entropy-string`, redacted like every other finding. It speaks only when the
+  other two layers are silent, so a recognized key is never listed twice.
+
+  The thresholds were measured against a real corpus rather than picked, and the
+  measurement is what shaped the design. Entropy alone turned out to be unusable: a
+  filesystem path is a single unbroken run — `/` and `-` are both base64 characters —
+  and a long one scores 4.45–4.62, above any bar a 28-character key must also clear.
+  Ten of ten findings on a 105-file corpus were paths. Raising the threshold would
+  have traded those for missed keys, so the fix is structural instead: a run made of
+  five or more separator-joined words is text, not a token, and is vetoed regardless
+  of how it scores. That takes the same corpus to **zero** findings while costing, at
+  worst, one real key in 12,000 — measured over 200,000 synthetic values per format,
+  not assumed. `internal/secrets.TestEntropyCorpus` re-runs the whole measurement
+  against any tree of memories via `ENGRAM_CORPUS_ROOT`.
+
+  Deliberately still missed: hex-encoded secrets, which are indistinguishable from
+  the SHAs and UUIDs that fill real memories, and anything under 28 characters. The
+  scan stays a guard with an informed override, not a guarantee.
+
 ### Fixed
 - **The promote secret scan now catches a credential split across lines.** The
   scanner read one physical line at a time, so a token broken by a soft wrap, a

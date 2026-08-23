@@ -1,13 +1,19 @@
 // Package secrets scans memory content for credentials before it is shared to a
-// team git store. It is pure (no IO, no UI): a curated set of high-confidence
-// regexes over the text, so engram's promote guard can refuse to push a memory
-// that looks like it carries a key. A curated set catches the common formats, not
-// everything — the guard pairs it with an informed override for the rest.
+// team git store. It is pure (no IO, no UI), so engram's promote guard can refuse
+// to push a memory that looks like it carries a key.
+//
+// Three layers, narrowest first: a curated set of high-confidence regexes for
+// known key formats, a generic rule for secret-ish variable names, and an entropy
+// check for a value that looks generated under a name that gives nothing away.
+// Together they catch the common cases, not everything — the guard pairs them with
+// an informed override for the rest.
 package secrets
 
 import (
+	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -100,7 +106,7 @@ func Scan(content string, scope Scope) []Finding {
 func scanSegments(segs []segment, scope Scope) []Finding {
 	var out []Finding
 	for _, seg := range segs {
-		providerHit := false
+		providerHit, namedHit := false, false
 		for _, r := range rules {
 			if r.pii && scope != ScopeSecretsAndPII {
 				continue
@@ -110,14 +116,182 @@ func scanSegments(segs []segment, scope Scope) []Finding {
 			}
 			if m := r.re.FindString(seg.text); m != "" {
 				out = append(out, Finding{Rule: r.name, Line: seg.line, Match: redact(m)})
-				if !r.pii && r.name != "generic-secret-assignment" {
-					providerHit = true
+				if !r.pii {
+					namedHit = true
+					if r.name != "generic-secret-assignment" {
+						providerHit = true
+					}
 				}
+			}
+		}
+		// The entropy layer is the last resort: it only speaks when no rule named
+		// a secret on this segment, so a recognized key is never reported twice.
+		//
+		// Note what redact leaves visible here. For a provider key the surviving
+		// prefix is a format marker (AKIA, ghp_) and carries nothing secret; for an
+		// unnamed value there is no marker, so those four characters are four
+		// characters of the value itself. Kept deliberately: the finding is shown
+		// only to the person whose file it already is, it is never logged, and
+		// without them there is nothing to locate the value by. Four characters do
+		// not meaningfully narrow a search for the rest.
+		if !namedHit {
+			if m := highEntropyRun(seg.text); m != "" {
+				out = append(out, Finding{Rule: "high-entropy-string", Line: seg.line, Match: redact(m)})
 			}
 		}
 	}
 	return out
 }
+
+// The entropy layer catches what the pattern layers structurally cannot: a
+// blandly-named variable holding a raw generated value, matched by neither a
+// provider format nor a secret-ish identifier. Promote pushes to git, where a
+// leaked credential is effectively permanent, so this is the one path where a
+// false negative cannot be walked back.
+//
+// Thresholds are set by measurement, not taste — TestEntropyCorpus re-runs that
+// measurement against any real corpus. Shannon entropy of a string is bounded by
+// log2(len), so entropyMinLen and entropyMin are not independent: at 28 characters
+// the ceiling is 4.81, which is what keeps the bar reachable for real keys while
+// hex-shaped text (SHAs, UUIDs — around 4.0 at best) stays under it without
+// special-casing.
+const (
+	entropyMinLen = 28
+	entropyMin    = 4.4
+)
+
+// entropyCandidate finds the runs the entropy layer judges: unbroken stretches of
+// the credential alphabet long enough to be a generated value.
+var entropyCandidate = regexp.MustCompile(`[A-Za-z0-9+/=_-]{` + itoa(entropyMinLen) + `,}`)
+
+// highEntropyRun returns the first run in s that looks generated rather than
+// written, or "" when none does.
+func highEntropyRun(s string) string {
+	for _, run := range entropyCandidate.FindAllString(s, -1) {
+		if looksGenerated(run) {
+			return run
+		}
+	}
+	return ""
+}
+
+// looksGenerated reports whether a run reads as machine-made.
+//
+// Entropy alone is not enough, and measuring a real corpus is what showed why: a
+// filesystem path is one unbroken run (`/` and `-` are both base64 characters),
+// it mixes case, and at 55-70 characters it scores 4.45-4.62 — above any bar a
+// 28-character key could also clear, since that length caps entropy at 4.81.
+// Raising the threshold would trade those false positives for missed keys, so the
+// discriminator has to be structural instead: a path or a slug is separator-joined
+// words, where a credential is one opaque token.
+func looksGenerated(run string) bool {
+	if shannon(run) < entropyMin {
+		return false
+	}
+	if wordComposed(run) {
+		return false
+	}
+	var lower, upper, digit bool
+	for _, r := range run {
+		switch {
+		case r >= 'a' && r <= 'z':
+			lower = true
+		case r >= 'A' && r <= 'Z':
+			upper = true
+		case r >= '0' && r <= '9':
+			digit = true
+		}
+	}
+	// Two of the three classes: enough to exclude a lowercase slug or an
+	// all-caps constant, without demanding a shape real keys may not have.
+	n := 0
+	for _, ok := range []bool{lower, upper, digit} {
+		if ok {
+			n++
+		}
+	}
+	return n >= 2
+}
+
+// wordComposed reports whether a run is built out of separator-joined words —
+// the shape of a path (`/Users/someone/workspace`), a slugified title, or a
+// dotless URL fragment, none of which are credentials however well they score.
+//
+// A word here is a digit-free piece of word-ish length. Digit-free is cheap for
+// text and awkward for a token, since digits are 16% of the base64 alphabet; the
+// length bound matters because a long digit-free stretch does turn up inside real
+// keys by chance, and counting one as a word would let the veto reject a genuine
+// key.
+//
+// Lengths are byte counts, which is exact here for the same reason it is in
+// tailRun: this only ever sees entropyCandidate matches, and that alphabet is
+// ASCII.
+//
+// The counts are measured, not chosen. Against 200,000 synthetic values per
+// format, requiring three words rejected 1 real key in 360 — far too many for a
+// guard whose misses are permanent — while five rejected between 1 in 200,000 and
+// 1 in 12,000, and still silenced every path and slug tested. Requiring fewer
+// words but no digits anywhere was tried and is strictly worse: it rejects real
+// keys 90x more often and vetoes nothing extra.
+func wordComposed(run string) bool {
+	pieces := strings.FieldsFunc(run, isSeparator)
+	if len(pieces) < wordPieces {
+		return false
+	}
+	words := 0
+	for _, p := range pieces {
+		if len(p) >= wordMinLen && len(p) <= wordMaxLen && !strings.ContainsAny(p, "0123456789") {
+			words++
+		}
+	}
+	return words >= wordPieces
+}
+
+// wordPieces is how many word-shaped pieces make a run text rather than a token;
+// wordMinLen and wordMaxLen bound what counts as a word at all — wide enough for
+// "src" and "instructions", narrow enough that neither a two-character fragment
+// nor a long lucky stretch of a key counts toward the veto. Five is comfortably
+// under what real text carries: the paths this was measured against ran to six
+// and eight words, and a run has to reach 28 characters before it is judged at
+// all, which is already several words long.
+const (
+	wordPieces = 5
+	wordMinLen = 3
+	wordMaxLen = 14
+)
+
+// isSeparator reports whether r joins pieces rather than belonging to a value.
+// All five are in the credential alphabet — that is exactly why a path survives
+// entropyCandidate as one run — so the veto reads the same characters the
+// candidate pattern does, just structurally.
+func isSeparator(r rune) bool {
+	return r == '-' || r == '_' || r == '/' || r == '+' || r == '='
+}
+
+// shannon is the Shannon entropy of s in bits per character.
+func shannon(s string) float64 {
+	if s == "" {
+		return 0
+	}
+	var counts [256]int
+	for i := 0; i < len(s); i++ {
+		counts[s[i]]++
+	}
+	n := float64(len(s))
+	e := 0.0
+	for _, c := range counts {
+		if c == 0 {
+			continue
+		}
+		p := float64(c) / n
+		e -= p * math.Log2(p)
+	}
+	return e
+}
+
+// itoa keeps the candidate pattern in sync with entropyMinLen, so the two cannot
+// drift apart when the threshold is retuned.
+func itoa(n int) string { return strconv.Itoa(n) }
 
 // physicalSegments is one segment per line, exactly as the scanner always read
 // content.

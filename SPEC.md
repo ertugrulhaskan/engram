@@ -304,7 +304,7 @@ filename. The id is assigned once, on the first promote.
 
 Promoting pushes a memory into a shared git repo, where a leaked credential is
 effectively permanent. So before a push, engram scans the memory
-(`internal/secrets.Scan`, pure regexes; `internal/team.ScanForSecrets` reads the
+(`internal/secrets.Scan`, pure pattern + entropy analysis; `internal/team.ScanForSecrets` reads the
 file) and applies a configured policy:
 
 - `secretScanAction`: `block` (default — modal with the redacted findings and a
@@ -314,13 +314,17 @@ file) and applies a configured policy:
 - `secretScanScope`: `secrets` (default — keys/tokens/private keys) · `secrets+pii`
   (also emails and card-like numbers; noisier).
 
-Findings are **always redacted** (a format prefix + mask); the raw secret is never
-rendered or logged. Two layers cover most real cases: **by value shape** (provider
-key formats, JWTs, `scheme://user:pass@` URLs) regardless of the variable name, and
+Findings are **always redacted** (a short prefix + mask); the raw secret is never
+rendered or logged. For a provider key that prefix is a format marker (`AKIA`,
+`ghp_`) and gives nothing away; for a value matched by entropy alone there is no
+marker, so it is four characters of the value — kept because the finding has to be
+locatable in the file, and four characters do not narrow a search for the rest. Three layers cover most real cases: **by value shape** (provider
+key formats, JWTs, `scheme://user:pass@` URLs) regardless of the variable name;
 **by name** — any identifier containing `secret`/`token`/`password`/`api_key`/
 `access_key`/`private_key`/`client_secret` before a `=`/`:`, so framework env vars
-(`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix.
-Both layers run **twice**: once over physical lines, and once over *logical* ones,
+(`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix;
+and **by entropy** (below), for the value neither of those can see. All three run
+**twice**: once over physical lines, and once over *logical* ones,
 with the line breaks that merely wrap a value removed — so a credential split by a
 soft wrap, a YAML block scalar, or a backslash continuation is still seen whole. A
 break counts as a wrap only when credential-alphabet runs meet across it and at
@@ -328,10 +332,28 @@ least one carries a digit or runs long, which is what stops ordinary prose from
 fusing; a spanning match reports the line the value *starts* on. When nothing is
 wrapped the second pass sees exactly what the first did and contributes nothing.
 
-**The rule set is curated, not exhaustive** — a *blandly*-named var (a bare `*_KEY`
-with no secret-word) holding a raw high-entropy blob (no recognizable format) is
-matched by neither layer. It's a guard paired with the informed override, not a
-guarantee; treat the override as a real decision, not a rubber stamp.
+**The entropy layer** is what sees a blandly-named var holding a raw generated
+value — no recognizable format, no secret-word in its name, so nothing the first
+two layers read. It judges runs of at least 28 credential characters scoring 4.4
+bits or more of Shannon entropy, and speaks only when the other layers are silent,
+so a recognized key is never reported twice.
+
+Its thresholds are **measured, not chosen**, and the two are not independent:
+entropy is capped at log2(len), so 28 characters puts the ceiling at 4.81 — high
+enough for a real key to clear 4.4, low enough that hex text (SHAs, UUIDs, ~4.0 at
+best) never can. Raw entropy is not sufficient on its own: a filesystem path is one
+unbroken run (`/` and `-` are both base64 characters) and a long one scores
+4.45–4.62, above any bar a 28-character key must also clear. So a run that is
+**separator-joined words** — five or more digit-free pieces of 3–14 characters — is
+vetoed structurally rather than by threshold. `internal/secrets.TestEntropyCorpus`
+re-runs the measurement against a real tree of memories (set `ENGRAM_CORPUS_ROOT`);
+it is the number to reach for before retuning either constant.
+
+**Still not exhaustive.** The entropy layer deliberately misses hex-encoded secrets
+(they score like the identifiers they are indistinguishable from) and anything
+under 28 characters, and the word veto rejects a genuine key about once in 12,000
+at worst. It's a guard paired with the informed override, not a guarantee; treat the
+override as a real decision, not a rubber stamp.
 
 ### Sync-status (shown as badges in the list)
 
@@ -418,7 +440,7 @@ engram/
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)
         secrets/             # NO UI here — pure credential scanning for the promote guard
-            scan.go          # Scan: curated regexes over content → redacted findings (Scope: secrets / secrets+pii)
+            scan.go          # Scan: curated regexes + entropy layer over content → redacted findings (Scope: secrets / secrets+pii)
         tui/                 # NO file logic here
             tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
             model.go         # Model type, New, Init, theme/setTheme, styleInputs

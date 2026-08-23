@@ -113,7 +113,7 @@ func (m Model) secretModal() string {
 		lines = append(lines, padBG(onbg(t.Dim, panel).Render(fmt.Sprintf("  +%d more", extra)), cw, panel))
 	}
 	lines = append(lines, padBG("", cw, panel))
-	caveat := "The scan is a curated rule set — a guard, not a guarantee. Overriding is a real decision."
+	caveat := "The scan reads key formats, secret-ish names, and generated-looking values — a guard, not a guarantee. Overriding is a real decision."
 	if strict {
 		caveat += " This policy is block-strict: remove the secret, then promote."
 	}

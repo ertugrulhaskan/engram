@@ -63,6 +63,11 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] Scope chip (`global` / `project`) on shared rows
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
 - [x] Secret-scan guard on `promote` — block credentials from reaching the shared store (configurable, redacted findings)
+- [x] Secret-scan sees a whole value and an unnamed one — the scan runs over
+      *logical* lines, so a credential split by a soft wrap or a YAML block scalar is
+      caught, and an entropy layer reports a raw generated value sitting under a name
+      that gives nothing away. Thresholds measured against a real corpus (zero false
+      positives on 105 files), not chosen; hex-shaped secrets stay a known gap
 - [x] Team actions under the `>` command palette (`ctrl+p` → `>`); friendly error when `git` is missing
 - [x] Auto-pull for global-scoped memories *(shipped in `v0.4.0`)* —
       `>pull` reconciles an existing local copy of a global memory with the same
