@@ -168,8 +168,8 @@ var globalRuleFiles = []ruleFile{
 > (`syncedHash`) driving direction-aware state pills (`synced`/`behind`/`ahead`/
 > `conflict`/`missing`, with `unknown` as the
 > no-anchor fallback), the `global`/`project` scope chip, the `>resolve` **conflict-
-> resolve** UX, and pull reconciling global-scoped memories. Remaining: multi-select
-> promote, and the remote-less alias fallback.
+> resolve** UX, pull reconciling global-scoped memories, and multi-select promote.
+> Remaining: promoting a whole type at once, and the remote-less alias fallback.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -240,8 +240,27 @@ filename. The id is assigned once, on the first promote.
 
 - **promote** *(`>promote`)* — copy the selected personal memory into the clone, set
   `engram.scope: team`, assign an `engram.id` if absent, commit, push. A modal picks the
-  scope, defaulting to the current project, with a "global" option. *(Single-select;
-  multi-select promote is a later refinement.)*
+  scope, defaulting to the current project, with a "global" option.
+
+  **A batch is one act.** `space` marks memories; `promote` then acts on the marked
+  set rather than the cursor row. The scope modal offers *their own projects* — each
+  memory goes to its own key, and one whose project has no remote falls to `global`,
+  which the modal states — or `global` for all. `team.PromoteBatch` stamps and stages
+  every memory and then makes **one commit and one push**, because N separate commits
+  is history noise for what the user performed once. Preparation is complete before
+  the first write, so a batch that cannot go through (unsafe key, unreadable memory,
+  or two memories claiming the same store path — compared case-folded, since such a
+  pair is one file on macOS and Windows) leaves every local file untouched.
+  Marks survive a filter: a memory hidden by a search still promotes, since dropping
+  it would quietly promote less than was marked.
+
+  **Every memory in a batch is scanned**, not just the first — a batch must not become
+  a way to walk a credential past the guard. Flagged memories are decided one at a
+  time: `y` includes, `n` skips (leaving that one personal), `esc` abandons the batch.
+  Skipping stays available under `block-strict`, since it overrides nothing. The
+  accepted memories still land as a single commit, and the toast reports both what
+  was skipped and what was included past a finding — an override is a real decision
+  and is never left unsaid.
 - **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove the
   memory's copy from the store (matched by `engram.id`), record its id in a
   `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
@@ -681,7 +700,7 @@ different answer than a blanket filter.
 
 - Inline diff view for `>resolve` (it currently opens both versions with git-style
   markers in `$EDITOR`; conflict resolution itself shipped in Phase 2).
-- Promoting whole *types* at once (e.g. "all feedback"); multi-select promote.
+- Promoting whole *types* at once (e.g. "all feedback") — multi-select promote itself has shipped.
 - Monorepo sub-keys. Subprojects that share one git remote share one bucket under
   `projects/<key>/`; per-subdirectory keys are a later refinement.
 - Alias coordination for remote-less projects. The alias fallback itself is still

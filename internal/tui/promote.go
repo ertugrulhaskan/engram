@@ -11,6 +11,9 @@ import (
 type promoteFinishedMsg struct {
 	pushed   bool
 	override bool
+	count    int // memories promoted in one commit; 0 or 1 = the single-memory wording
+	skipped  int // flagged memories the user declined during the scan walk
+	overrode int // flagged memories the user included anyway — never left unsaid
 	err      error
 }
 
@@ -30,15 +33,31 @@ func (m Model) promoteCmd(path, placement string, override bool) tea.Cmd {
 func (m Model) updatePromoteScope(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+c":
+		// Disarm the batch. A cancelled batch left in the model would be picked up
+		// by the next promote — including a single-memory one, which reads
+		// m.batchItems first — and promote memories the user did not select.
 		m.mode = modeNormal
+		m.batchItems = nil
 		return m, m.setCancel("cancelled")
 	case "up", "k", "down", "j", "tab":
-		if m.promoteKey != "" { // a single option (global) isn't navigable
+		navigable := m.promoteKey != ""
+		if len(m.batchItems) > 0 {
+			navigable = anyKeyed(m.batchItems)
+		}
+		if navigable { // a single option (global) isn't navigable
 			m.promoteCursor ^= 1
 		}
 		return m, nil
 	case "enter":
 		m.mode = modeNormal
+		if len(m.batchItems) > 0 {
+			items := resolvePlacements(m.batchItems, m.promoteCursor == 0)
+			m.batchItems = items
+			if m.scanAction == "off" {
+				return m, m.promoteBatchCmd(items, 0, 0)
+			}
+			return m, m.batchScanCmd(items) // every memory is scanned, not just the first
+		}
 		placement := "global"
 		if m.promoteKey != "" && m.promoteCursor == 0 {
 			placement = m.promoteKey
@@ -60,7 +79,11 @@ func (m Model) scopeModal() string {
 	cw := m.boxWidth()
 	panel := m.panelBg()
 
-	lines := m.dlgHeader(cw, "→", "promote “"+clip(m.promoteTitle, cw-24)+"” — pick a scope", t.Warn)
+	title := "promote “" + clip(m.promoteTitle, cw-24) + "” — pick a scope"
+	if len(m.batchItems) > 0 {
+		title = batchHeader(len(m.batchItems))
+	}
+	lines := m.dlgHeader(cw, "→", title, t.Warn)
 	bleed := map[int]string{}
 
 	addRow := func(label, sub string, selected bool) {
@@ -74,15 +97,26 @@ func (m Model) scopeModal() string {
 		lines = append(lines, padBG(onbg(t.Dim, panel).Render("    "+txt), cw, panel))
 	}
 
-	if m.promoteKey != "" {
+	switch {
+	case len(m.batchItems) > 0 && anyKeyed(m.batchItems):
+		addRow("their own projects", batchScopeSub(m.batchItems), m.promoteCursor == 0)
+		addRow("global", "every project you work in", m.promoteCursor == 1)
+	case len(m.batchItems) > 0:
+		lines = append(lines, m.dlgText(cw, "none of these projects has a git remote — promoting globally", t.Dim)...)
+		addRow("global", "every project you work in", true)
+	case m.promoteKey != "":
 		addRow("this project", "keyed by "+m.promoteKey, m.promoteCursor == 0)
 		addRow("global", "every project you work in", m.promoteCursor == 1)
-	} else {
+	default:
 		lines = append(lines, m.dlgText(cw, "this project has no git remote — promoting globally", t.Dim)...)
 		addRow("global", "every project you work in", true)
 	}
 	lines = append(lines, padBG("", cw, panel))
-	lines = append(lines, m.dlgText(cw, "engram stamps an engram: frontmatter block and pushes.", t.Dim)...)
+	mechanics := "engram stamps an engram: frontmatter block and pushes."
+	if len(m.batchItems) > 1 {
+		mechanics = "engram stamps each memory and pushes all of them as one commit."
+	}
+	lines = append(lines, m.dlgText(cw, mechanics, t.Dim)...)
 	lines = append(lines, padBG("", cw, panel))
 
 	bleed[len(lines)] = t.Bg2

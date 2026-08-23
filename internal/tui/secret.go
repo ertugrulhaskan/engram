@@ -33,6 +33,122 @@ func (m Model) scanCmd(path, placement string) tea.Cmd {
 	}
 }
 
+// flaggedMemory is one memory the pre-promote scan objected to, kept with its
+// findings and title so the walk can ask about it by name.
+type flaggedMemory struct {
+	item     batchItem
+	findings []secrets.Finding
+}
+
+// batchScanFinishedMsg carries the scan for a whole marked set. Every memory is
+// scanned before any decision is asked for, so the user is never part-way through
+// approving a batch when a later scan turns up something.
+type batchScanFinishedMsg struct {
+	clean   []batchItem
+	flagged []flaggedMemory
+	err     error
+}
+
+// batchScanCmd scans every memory in the batch off the UI thread. A batch promote
+// must not become a way to slip a credential past the guard, so the scan runs per
+// memory — the first clean one does not vouch for the rest.
+func (m Model) batchScanCmd(items []batchItem) tea.Cmd {
+	scope := secrets.ScopeSecrets
+	if m.scanPII {
+		scope = secrets.ScopeSecretsAndPII
+	}
+	return func() tea.Msg {
+		var res batchScanFinishedMsg
+		for _, b := range items {
+			findings, err := team.ScanForSecrets(b.path, scope)
+			if err != nil {
+				// Don't promote anything we couldn't even scan.
+				return batchScanFinishedMsg{err: fmt.Errorf("%s: %v", b.title, err)}
+			}
+			if len(findings) == 0 {
+				res.clean = append(res.clean, b)
+				continue
+			}
+			res.flagged = append(res.flagged, flaggedMemory{item: b, findings: findings})
+		}
+		return res
+	}
+}
+
+// applyBatchScanResult opens the per-memory walk, or promotes straight away when
+// the scan had nothing to say.
+func (m Model) applyBatchScanResult(msg batchScanFinishedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		return m, m.setDanger("secret scan failed: " + msg.err.Error())
+	}
+	if len(msg.flagged) == 0 {
+		return m, m.promoteBatchCmd(msg.clean, 0, 0)
+	}
+	if m.scanAction == "warn" {
+		all := append(append([]batchItem{}, msg.clean...), flaggedItems(msg.flagged)...)
+		return m, tea.Batch(
+			m.setDanger(batchSecretSummary(msg.flagged)+" — promoting anyway"),
+			m.promoteBatchCmd(all, 0, len(msg.flagged)),
+		)
+	}
+	// block / block-strict — ask about each flagged memory in turn.
+	m.scanAccepted = msg.clean
+	m.scanFlagged = msg.flagged
+	m.scanIdx = 0
+	m.scanSkipped, m.scanOverrode = 0, 0
+	m.mode = modeSecretWarn
+	m.loadFlagged()
+	return m, nil
+}
+
+// loadFlagged points the block modal at the flagged memory currently being asked
+// about.
+func (m *Model) loadFlagged() {
+	f := m.scanFlagged[m.scanIdx]
+	m.secretFindings = f.findings
+	m.secretPath = f.item.path
+	m.secretTitle = f.item.title
+	m.secretPlacement = f.item.placement
+}
+
+// advanceFlagged moves to the next flagged memory, or finishes the walk: the
+// accepted memories go as one commit, and a walk that accepted nothing simply
+// reports that rather than making an empty commit.
+func (m Model) advanceFlagged() (tea.Model, tea.Cmd) {
+	m.scanIdx++
+	if m.scanIdx < len(m.scanFlagged) {
+		m.loadFlagged()
+		return m, nil
+	}
+	accepted, skipped, overrode := m.scanAccepted, m.scanSkipped, m.scanOverrode
+	m.mode = modeNormal
+	m.scanFlagged, m.scanAccepted, m.secretFindings = nil, nil, nil
+	m.scanIdx, m.scanSkipped, m.scanOverrode, m.secretTitle = 0, 0, 0, ""
+	if len(accepted) == 0 {
+		return m, m.setCancel(pluralLine(skipped, "promote cancelled — 1 possible secret", "promote cancelled — %d possible secrets"))
+	}
+	return m, m.promoteBatchCmd(accepted, skipped, overrode)
+}
+
+// flaggedItems unwraps the memories from their findings.
+func flaggedItems(fs []flaggedMemory) []batchItem {
+	out := make([]batchItem, 0, len(fs))
+	for _, f := range fs {
+		out = append(out, f.item)
+	}
+	return out
+}
+
+// batchSecretSummary is the one-line footer form for a batch under the warn policy.
+func batchSecretSummary(fs []flaggedMemory) string {
+	n := 0
+	for _, f := range fs {
+		n += len(f.findings)
+	}
+	return fmt.Sprintf("%s in %s", pluralLine(n, "1 possible secret", "%d possible secrets"),
+		pluralLine(len(fs), "1 memory", "%d memories"))
+}
+
 // applyScanResult decides what to do once a pre-promote scan returns: promote when
 // clean, block (with or without an override) or warn-and-promote when it isn't.
 func (m Model) applyScanResult(msg scanFinishedMsg) (tea.Model, tea.Cmd) {
@@ -60,6 +176,31 @@ func (m Model) applyScanResult(msg scanFinishedMsg) (tea.Model, tea.Cmd) {
 // updateSecretWarn drives the block modal: n/esc cancels; y overrides and promotes
 // anyway — unless the policy is block-strict, where there is no override.
 func (m Model) updateSecretWarn(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Batch walk: n skips just this memory, y takes it, esc abandons the whole
+	// batch. Skipping is available even under block-strict, because it overrides
+	// nothing — it promotes less, which is what strict wants.
+	if len(m.scanFlagged) > 0 {
+		switch msg.String() {
+		case "esc", "ctrl+c":
+			m.mode = modeNormal
+			n := len(m.scanFlagged)
+			m.scanFlagged, m.scanAccepted, m.secretFindings = nil, nil, nil
+			m.batchItems = nil
+			m.scanIdx, m.scanSkipped, m.scanOverrode, m.secretTitle = 0, 0, 0, ""
+			return m, m.setCancel(pluralLine(n, "batch cancelled — 1 possible secret", "batch cancelled — %d flagged memories"))
+		case "n":
+			m.scanSkipped++
+			return m.advanceFlagged()
+		case "y":
+			if m.scanAction == "block-strict" {
+				return m, nil // no override in strict mode
+			}
+			m.scanAccepted = append(m.scanAccepted, m.scanFlagged[m.scanIdx].item)
+			m.scanOverrode++
+			return m.advanceFlagged()
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "esc", "ctrl+c", "n":
 		m.mode = modeNormal
@@ -96,7 +237,15 @@ func (m Model) secretModal() string {
 	panel := m.panelBg()
 	strict := m.scanAction == "block-strict"
 
-	lines := m.dlgHeader(cw, "!", "secret scan blocked this promote", t.Danger)
+	batch := len(m.scanFlagged) > 0
+	head := "secret scan blocked this promote"
+	if batch {
+		// Name the memory and where we are in the walk: under a per-memory
+		// decision the user has to know which file they are judging.
+		head = fmt.Sprintf("secret scan · %s (%d of %d)",
+			clip(m.secretTitle, cw-28), m.scanIdx+1, len(m.scanFlagged))
+	}
+	lines := m.dlgHeader(cw, "!", head, t.Danger)
 
 	const maxShown = 3
 	shown, extra := m.secretFindings, 0
@@ -117,12 +266,22 @@ func (m Model) secretModal() string {
 	if strict {
 		caveat += " This policy is block-strict: remove the secret, then promote."
 	}
+	if batch {
+		caveat += " Skipping leaves this memory personal; the rest of the batch still goes as one commit."
+	}
 	lines = append(lines, m.dlgText(cw, caveat, t.Dim)...)
 	lines = append(lines, padBG("", cw, panel))
 
 	actions := []dialogAction{{"esc cancel", false}}
+	if batch {
+		actions = []dialogAction{{"esc cancel batch", false}, {"n skip this", false}}
+	}
 	if !strict {
-		actions = append(actions, dialogAction{"y override", true})
+		label := "y override"
+		if batch {
+			label = "y include"
+		}
+		actions = append(actions, dialogAction{label, true})
 	}
 	bleed := map[int]string{len(lines): t.Bg2}
 	lines = append(lines, m.dlgFooter(cw, t.Danger, actions))

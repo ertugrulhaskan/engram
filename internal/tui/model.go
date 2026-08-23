@@ -77,6 +77,22 @@ type Model struct {
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
 	ready                   bool
 
+	// Batch promote: paths of memories marked with space. Empty (the common case)
+	// means promote acts on the cursor row, exactly as it always has — marking is
+	// an opt-in mode, not a state every promote has to reason about.
+	marks map[string]bool
+
+	// Batch promote (marks). batchItems is the marked set resolved for promotion;
+	// scanFlagged is the subset the secret scan objected to, walked one memory at
+	// a time so each gets its own decision. Everything is decided before the first
+	// write, so the accepted memories still land as one commit.
+	batchItems   []batchItem     // marked memories, each carrying its own project key
+	scanFlagged  []flaggedMemory // memories the scan flagged, awaiting a per-memory call
+	scanIdx      int             // which flagged memory the modal is asking about
+	scanAccepted []batchItem     // clean or overridden, waiting for the single commit
+	scanSkipped  int             // flagged memories the user declined
+	scanOverrode int             // flagged memories the user included anyway
+
 	// promote scope picker (modePromoteScope)
 	promotePath   string // memory file being promoted
 	promoteTitle  string // its title, for the modal header
@@ -92,6 +108,7 @@ type Model struct {
 	scanAction      string            // config policy: block | block-strict | warn | off
 	scanPII         bool              // also flag PII when scanning
 	secretFindings  []secrets.Finding // findings that blocked the pending promote (modeSecretWarn)
+	secretTitle     string            // the flagged memory's title (batch walk); "" for a single promote
 	secretPath      string            // the scanned memory path to promote if the user overrides
 	secretPlacement string            // placement to promote to if the user overrides
 

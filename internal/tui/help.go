@@ -25,6 +25,7 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"R", "rebuild MEMORY.md index"},
 	},
 	{
+		{"space", "mark for a batch promote · esc clears"},
 		{"t", "cycle type filter"},
 		{"g", "group by project ⇄ type"},
 		{"1–3", "switch theme"},

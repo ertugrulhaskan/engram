@@ -78,11 +78,12 @@ The list reloads automatically when memory files change on disk.
 | `e`        | edit the selected memory in `$EDITOR`   |
 | `n`        | create a new memory in the current project and open it in `$EDITOR` |
 | `d`        | delete the selected item (asks `y`/`n` first) |
+| `space`    | mark the memory for a batch promote (`esc` clears all marks) |
 | `t`        | cycle the type filter                   |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
 | `1`–`3`    | switch theme                            |
-| `P` / `p` / `r` | promote / pull / resolve — the status bar offers the one that fits the selected row's sync state |
+| `P` / `p` / `r` | promote / pull / resolve — the status bar offers the one that fits the selected row's sync state. `P` promotes every marked memory as one commit when marks are set |
 | `@`        | open the selected project in a Claude Code session |
 | `ctrl+p` / `ctrl+k` | open the command palette (see below) |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |

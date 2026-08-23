@@ -103,19 +103,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.setStatus("withdrawn · tombstone pushed"), reloadCmd())
 		}
 
+	case batchScanFinishedMsg:
+		return m.applyBatchScanResult(msg)
+
 	case promoteFinishedMsg:
 		// Promote stamps the local file (engram frontmatter), so reload to reflect
 		// it. Reset the drift cache like the assistant handler does.
 		m.driftDir = ""
+		// A batch that went through has spent its marks — clear them, so the next
+		// promote isn't silently aimed at a set the user already acted on. A batch
+		// that FAILED keeps them: nothing was written (PromoteBatch prepares
+		// everything before the first write), so the user fixes the cause and
+		// presses promote again rather than re-marking from scratch.
+		if msg.count > 0 && msg.err == nil {
+			m.marks, m.batchItems = nil, nil
+		}
 		switch {
 		case msg.err != nil:
 			return m, tea.Batch(m.setDanger("promote failed: "+msg.err.Error()), reloadCmd())
 		case !msg.pushed:
-			return m, tea.Batch(m.setDanger("promoted locally; push failed — check your git remote/creds"), reloadCmd())
+			return m, tea.Batch(m.setDanger(promoteNoun(msg)+" locally; push failed — check your git remote/creds"), reloadCmd())
 		case msg.override:
 			return m, tea.Batch(m.setStatus("promoted with an override — pushed"), reloadCmd())
 		default:
-			return m, tea.Batch(m.setStatus("promoted to the team store · pushed"), reloadCmd())
+			return m, tea.Batch(m.setStatus(promoteNoun(msg)+" to the team store · pushed"+
+				overrodeSuffix(msg.overrode)+skippedSuffix(msg.skipped)), reloadCmd())
 		}
 
 	case pullPlanMsg:
@@ -314,7 +326,35 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeFilter
 		m.focus = focusList
 		return m, m.search.Focus()
+	case " ":
+		// Space marks the row for a batch promote. Memories only: plans and the
+		// read-only files source have nothing to promote, so a mark there would be
+		// a control that does nothing.
+		if m.srcKind != srcMemories {
+			return m, nil
+		}
+		it, ok := m.selected()
+		if !ok {
+			return m, nil
+		}
+		if m.marks == nil {
+			m.marks = map[string]bool{}
+		}
+		if m.marks[it.Path] {
+			delete(m.marks, it.Path)
+		} else {
+			m.marks[it.Path] = true
+		}
+		m.move(1) // marking a run of rows shouldn't need a keystroke between each
+		return m, nil
 	case "esc":
+		// Marks come first: they are the most transient state esc can clear, and
+		// leaving them set after an esc would arm a batch the user thinks is gone.
+		if len(m.marks) > 0 {
+			n := len(m.marks)
+			m.marks, m.batchItems = nil, nil
+			return m, m.setCancel(pluralLine(n, "1 mark cleared", "%d marks cleared"))
+		}
 		if m.search.Value() != "" {
 			m.search.SetValue("")
 			m.rebuildRows()

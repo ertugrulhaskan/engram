@@ -44,7 +44,13 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	if !team.IsInitialized() {
 		return m, m.setDanger(noStoreHint)
 	}
+	// Marks win over the cursor row: if the user marked a set, that set is what
+	// they mean by "promote", regardless of where the cursor happens to sit.
+	if len(m.marks) > 0 {
+		return m.actionPromoteBatch()
+	}
 	key, _ := team.ProjectKey(it.ProjectDir) // "" when the project has no remote
+	m.batchItems = nil                       // this promote is the cursor row, not a leftover batch
 	m.promotePath = it.Path
 	m.promoteTitle = it.Title
 	m.promoteKey = key

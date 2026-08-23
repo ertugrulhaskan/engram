@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Promote several memories at once, as one commit.** `space` marks a memory (and
+  moves down, so marking a run costs one keystroke each); `esc` clears the marks.
+  With marks set, `promote` acts on the marked set instead of the cursor row, and
+  the whole set is written, committed and pushed **once** — promoting five memories
+  used to mean five commits and five pushes for what you did as a single act.
+
+  The scope modal offers **their own projects** — each memory lands in its own
+  project key, so a batch can span several — or `global` for all of them. It states
+  the real spread before you choose (how many distinct keys, and how many have no
+  git remote and will therefore go global). A mark hidden by a search filter still
+  promotes: dropping it would quietly promote less than you marked.
+
+  **Every memory in the batch is secret-scanned**, not just the first, and a flagged
+  one is decided on its own terms: `y` includes it, `n` skips it (leaving that one
+  personal), `esc` abandons the batch. Skipping works under `block-strict` too, since
+  it overrides nothing — it promotes less. Whatever survives still lands as one
+  commit, and the result line reports both what was skipped and what was included
+  past a finding, rather than reading as a clean sweep.
+
+  Nothing is written until the whole batch has been prepared, so a batch that can't
+  go through — an unsafe project key, an unreadable memory, or two memories that
+  would claim the same path in the store — leaves every local file untouched instead
+  of half-applying. That last case is new to batching: on disk neither copy exists
+  yet, so the existing collision check couldn't have seen it. Paths are compared
+  case-folded, because `Notes.md` and `notes.md` are one file on macOS and Windows
+  and an exact compare would have lost one of the two.
+
+  The mark column appears only while something is marked, so every single-memory
+  view keeps exactly the layout it had before.
+
 - **The promote secret scan now catches a secret that doesn't look like one.** The
   scan read a value two ways — is it a known key format, and is it sitting under a
   secret-ish name — which left one gap wide open: a raw generated value under a name

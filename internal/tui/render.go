@@ -22,7 +22,8 @@ func (m Model) listPane() string {
 	// pill past the edge (clampFrame would then cut it mid-glyph). Shed the least-
 	// critical columns first — the muted scope chip, then the Right column — so the
 	// color-coded sync pill and a readable title always fit.
-	scopeW, rightCol = m.fitFurniture(badgeW, scopeW, syncW, rightCol)
+	markW := m.markColW()
+	scopeW, rightCol = m.fitFurniture(markW, badgeW, scopeW, syncW, rightCol)
 	lines := make([]string, 0, h)
 	for i := m.top; i < m.top+h; i++ {
 		switch {
@@ -33,7 +34,7 @@ func (m Model) listPane() string {
 		case m.rows[i].kind == rowHeader:
 			lines = append(lines, m.headerRow(m.rows[i]))
 		default:
-			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, badgeW, scopeW, syncW, rightCol))
+			lines = append(lines, m.memRow(m.rows[i].item, i == m.cursor, markW, badgeW, scopeW, syncW, rightCol))
 		}
 	}
 	shown := m.shownCount()
@@ -166,6 +167,22 @@ func (m Model) badgeColW() int {
 	return w
 }
 
+// markGlyph marks a row selected for a batch promote. One restrained accent
+// glyph — the column says "this row is in the batch", nothing more.
+const markGlyph = "✓"
+
+// markColW is the width of the batch-promote mark column: the glyph plus its
+// trailing gap, measured with the same runewidth oracle memRow pads with so the
+// column cannot drift from what is drawn. Collapses to 0 whenever nothing is
+// marked, which keeps every single-select view byte-identical to before marking
+// existed.
+func (m Model) markColW() int {
+	if m.srcKind != srcMemories || len(m.marks) == 0 {
+		return 0
+	}
+	return runewidth.StringWidth(markGlyph) + 1
+}
+
 // syncColW is the width of the right-aligned team-sync pill column: the widest
 // bracketed state word ("[conflict]") in view. Measured with the same runewidth
 // oracle memRow pads with, so the column can't drift. Collapses to 0 when
@@ -208,9 +225,9 @@ const minTitleW = 8
 // minTitleW cells for the title. The furniture sum mirrors memRow's nameW math
 // (indent + padded badge + each column + its leading gap), so the sync pill is
 // never pushed past the pane edge and cut by clampFrame.
-func (m Model) fitFurniture(badgeW, scopeW, syncW, rightCol int) (int, int) {
+func (m Model) fitFurniture(markW, badgeW, scopeW, syncW, rightCol int) (int, int) {
 	furniture := func() int {
-		w := 2 // indent
+		w := 2 + markW // indent + the batch-promote mark column (0 when unused)
 		if badgeW > 0 {
 			w += badgeW + 1
 		}
@@ -275,14 +292,14 @@ func (m Model) headerRow(r row) string {
 	return fg(r.color).Render("▌ ") + fgb(r.color).Render(label) + fg(t.Dim).Render(suffix)
 }
 
-func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol int) string {
+func (m Model) memRow(it Item, selected bool, markW, badgeW, scopeW, syncW, rightCol int) string {
 	t := m.theme()
 
 	badgeCol := 0
 	if it.Badge != "" {
 		badgeCol = badgeW + 1 // padded badge + trailing space
 	}
-	nameW := m.listW - 2 - badgeCol - rightCol - scopeW - syncW
+	nameW := m.listW - 2 - markW - badgeCol - rightCol - scopeW - syncW
 	if rightCol > 0 {
 		nameW-- // gap before the right column
 	}
@@ -319,6 +336,15 @@ func (m Model) memRow(it Item, selected bool, badgeW, scopeW, syncW, rightCol in
 		titleColor = t.Accent
 	}
 	out := indent
+	if markW > 0 {
+		// The chevron already owns the indent slot, so the mark needs a column of
+		// its own — otherwise marking the cursor row would hide the cursor.
+		if m.marks[it.Path] {
+			out += st(t.Accent).Bold(true).Render(padRight(markGlyph, markW))
+		} else {
+			out += st(t.Fg).Render(padRight("", markW))
+		}
+	}
 	if it.Badge != "" {
 		out += st(it.BadgeColor).Render(padRight(it.Badge, badgeW)) + st(t.Fg).Render(" ")
 	}

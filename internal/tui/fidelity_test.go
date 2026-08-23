@@ -81,7 +81,7 @@ func TestListBadgeUnbracketed(t *testing.T) {
 	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m := cur.(Model)
 
-	row := ansi.Strip(m.memRow(Item{Badge: "project", BadgeColor: m.theme().OK, Title: "X"}, false, m.badgeColW(), 0, 0, 0))
+	row := ansi.Strip(m.memRow(Item{Badge: "project", BadgeColor: m.theme().OK, Title: "X"}, false, 0, m.badgeColW(), 0, 0, 0))
 	if !strings.Contains(row, "project") || strings.Contains(row, "[project]") {
 		t.Errorf("list row %q should carry a bare badge word", row)
 	}
