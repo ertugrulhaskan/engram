@@ -19,10 +19,13 @@ points after each step** (don't fold them into one silent summary):
    yourself instead, with your own key:
    `claude mcp add context7 -s user -e CONTEXT7_API_KEY=… -- npx -y @upstash/context7-mcp@latest`
    and `claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking`.
-2. **Review the working diff.** `/code-review` is **user-invocable only** — an agent can't
-   run it. So the agent does a careful manual diff pass instead and **says so explicitly**
-   in its report, never wording it as though the skill ran; ask the maintainer to run
-   `/code-review` when the diff warrants it.
+2. **Review the working diff with `/code-review`.** This *is* agent-runnable —
+   verified 2026-08-23, when it ran on `002786d` and returned five findings, three
+   of which a careful manual pass had already missed. (This file previously claimed
+   an agent couldn't run it; that was wrong.) Run the real skill. If it ever refuses,
+   fall back to a manual diff pass and **say so explicitly**, never wording it as
+   though the skill ran. `/code-review ultra` is the exception — that one is
+   user-triggered and billed, so ask the maintainer rather than attempting it.
 3. **`/security-review`** over the pending branch changes. This one *is* agent-runnable —
    run the real skill, never a folded-in inline assessment.
 4. **Sync the docs** — see "Keep the docs in sync" below (CHANGELOG, ROADMAP, SPEC,
