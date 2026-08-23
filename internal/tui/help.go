@@ -26,6 +26,7 @@ var helpGroups = [][]struct{ key, desc string }{
 	},
 	{
 		{"space", "mark for a batch promote · esc clears"},
+		{"a", "mark every memory in the list"},
 		{"t", "cycle type filter"},
 		{"g", "group by project ⇄ type"},
 		{"1–3", "switch theme"},

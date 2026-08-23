@@ -168,8 +168,10 @@ var globalRuleFiles = []ruleFile{
 > (`syncedHash`) driving direction-aware state pills (`synced`/`behind`/`ahead`/
 > `conflict`/`missing`, with `unknown` as the
 > no-anchor fallback), the `global`/`project` scope chip, the `>resolve` **conflict-
-> resolve** UX, pull reconciling global-scoped memories, and multi-select promote.
-> Remaining: promoting a whole type at once, and the remote-less alias fallback.
+> resolve** UX, pull reconciling global-scoped memories, and multi-select promote,
+> including **promoting a whole type at once** — the type filter is the selection,
+> and `a` marks it.
+> Remaining: the remote-less alias fallback.
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -505,6 +507,8 @@ engram/
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
             promote.go       # >promote: team scope picker modal + background promote command
+            promotebatch.go  # >promote over a marked set: each memory's own project key, one commit
+            marks.go         # the marked set: `a` toggles every memory in the list (the type filter is the selection)
             pull.go          # >pull: resolve project keys, plan (PullPlan) + apply (PullApply) off-thread
             withdraw.go      # >withdraw: owner-only confirm modal + background withdraw command
             resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save

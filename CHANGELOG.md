@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Promote a whole type at once.** `a` marks every memory in the list. Because
+  `t` already narrows the list to one type, cycling to `feedback` and pressing `a`
+  marks exactly the feedback memories — the type filter *is* the selection, so
+  there is no second "promote a type" path to keep in step with the batch one.
+  Everything downstream is the batch promote that already existed: one commit,
+  one push, every memory secret-scanned.
+
+  It scales `space` up rather than sitting beside it. Pressing `a` on a list whose
+  memories are all marked unmarks exactly those, so the key is never dead; on a
+  partly-marked list it completes the set instead, which is what keeps it from
+  discarding marks made by hand.
+
+  "The list" means everything the filters left, not the rows that fit on screen —
+  fifty matches are fifty marks even where twenty are visible. The filters are the
+  selection; where the fold falls is not.
+
+  **Marks outside the filters are never touched.** That is what lets a batch span
+  two types — mark one, switch the filter, mark another — and it is also the risk,
+  so the status line names what it acted on (`marked 3 feedback memories`) and
+  appends the running total whenever any mark sits outside that list
+  (`· 4 marked in all`). A batch wider than what you are looking at can't be a
+  surprise at the promote confirm.
+
 - **Promote several memories at once, as one commit.** `space` marks a memory (and
   moves down, so marking a run costs one keystroke each); `esc` clears the marks.
   With marks set, `promote` acts on the marked set instead of the cursor row, and

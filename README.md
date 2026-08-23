@@ -79,6 +79,7 @@ The list reloads automatically when memory files change on disk.
 | `n`        | create a new memory in the current project and open it in `$EDITOR` |
 | `d`        | delete the selected item (asks `y`/`n` first) |
 | `space`    | mark the memory for a batch promote (`esc` clears all marks) |
+| `a`        | mark every memory in the list — with a type filter set, that is the whole type |
 | `t`        | cycle the type filter                   |
 | `g`        | toggle grouping: by project ⇄ by type   |
 | `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
