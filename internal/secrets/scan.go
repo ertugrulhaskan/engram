@@ -7,6 +7,7 @@ package secrets
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -52,13 +53,53 @@ var rules = []rule{
 	{"card-number", regexp.MustCompile(`\b(?:\d[ -]?){13,16}\b`), true},
 }
 
-// Scan returns the secrets found in content (empty when clean). Each line is
-// checked against every in-scope rule, but the generic assignment rule is
-// suppressed on a line a precise provider rule already matched, so one secret is
-// not reported twice.
+// segment is one unit of text handed to the rules, tagged with the 1-based source
+// line it starts on — so a match spanning a wrap still reports where it began.
+type segment struct {
+	text string
+	line int
+}
+
+// Scan returns the secrets found in content (empty when clean).
+//
+// Two passes over the same rules. The first sees physical lines, which keeps the
+// precision the rules were tuned for. The second sees *logical* lines, with the
+// breaks that merely wrap a token removed, so a credential split across lines is
+// still caught — a structural gap no extra regex could close.
+//
+// A finding the physical pass already reported is not repeated: when nothing in
+// the content is wrapped the two passes produce identical results and the second
+// contributes nothing at all, which is what keeps this from changing established
+// behavior.
 func Scan(content string, scope Scope) []Finding {
+	type key struct {
+		rule string
+		line int
+	}
+	out := scanSegments(physicalSegments(content), scope)
+	seen := make(map[key]bool, len(out))
+	for _, f := range out {
+		seen[key{f.Rule, f.Line}] = true
+	}
+	for _, f := range scanSegments(logicalSegments(content), scope) {
+		if k := (key{f.Rule, f.Line}); !seen[k] {
+			seen[k] = true
+			out = append(out, f)
+		}
+	}
+	// Keep the report in source order; the wrapped findings are discovered last
+	// but belong beside their neighbours. Stable, so same-line findings keep the
+	// most-specific-rule-first order the rule table gives them.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Line < out[j].Line })
+	return out
+}
+
+// scanSegments applies every in-scope rule to each segment. The generic
+// assignment rule is suppressed on a segment a precise provider rule already
+// matched, so one secret is not reported twice.
+func scanSegments(segs []segment, scope Scope) []Finding {
 	var out []Finding
-	for i, line := range strings.Split(content, "\n") {
+	for _, seg := range segs {
 		providerHit := false
 		for _, r := range rules {
 			if r.pii && scope != ScopeSecretsAndPII {
@@ -67,8 +108,8 @@ func Scan(content string, scope Scope) []Finding {
 			if r.name == "generic-secret-assignment" && providerHit {
 				continue // the precise provider rule already named this secret
 			}
-			if m := r.re.FindString(line); m != "" {
-				out = append(out, Finding{Rule: r.name, Line: i + 1, Match: redact(m)})
+			if m := r.re.FindString(seg.text); m != "" {
+				out = append(out, Finding{Rule: r.name, Line: seg.line, Match: redact(m)})
 				if !r.pii && r.name != "generic-secret-assignment" {
 					providerHit = true
 				}
@@ -76,6 +117,98 @@ func Scan(content string, scope Scope) []Finding {
 		}
 	}
 	return out
+}
+
+// physicalSegments is one segment per line, exactly as the scanner always read
+// content.
+func physicalSegments(content string) []segment {
+	lines := strings.Split(content, "\n")
+	segs := make([]segment, len(lines))
+	for i, ln := range lines {
+		segs[i] = segment{text: ln, line: i + 1}
+	}
+	return segs
+}
+
+// wrapRun is the shortest credential-alphabet run that can sit either side of a
+// wrapped value, and longWrapRun the length at which such a run is convincing on
+// its own. Between the two, a digit is required — which is what separates a token
+// fragment from an English word, since ordinary prose fuses otherwise ("continues"
+// and "understanding" are both long enough to look like a wrap without this).
+const (
+	wrapRun     = 8
+	longWrapRun = 16
+)
+
+// tokenLike reports whether a run of credential characters reads as part of a
+// split secret rather than a word ending a sentence. Credentials carry digits or
+// run long; English words seldom do either.
+func tokenLike(run string) bool {
+	if len(run) < wrapRun {
+		return false
+	}
+	if len(run) >= longWrapRun {
+		return true
+	}
+	return strings.ContainsAny(run, "0123456789")
+}
+
+// logicalSegments rebuilds content with the line breaks that merely wrap a single
+// value removed, so a rule can see the whole value. Every segment keeps the line
+// its first character came from, which is the line a spanning match reports.
+//
+// A break is a wrap when the previous line ends with an explicit backslash
+// continuation, or when a run of credential characters ends one line and another
+// begins the next — after leading indentation is dropped, so a YAML block scalar
+// joins the way a soft-wrapped paste does.
+func logicalSegments(content string) []segment {
+	lines := strings.Split(content, "\n")
+	var segs []segment
+	cur, start := lines[0], 1
+	for i := 1; i < len(lines); i++ {
+		next := strings.TrimLeft(lines[i], " \t")
+		if strings.HasSuffix(cur, `\`) {
+			cur = strings.TrimSuffix(cur, `\`) + next
+			continue
+		}
+		if tokenLike(cur[len(cur)-tailRun(cur):]) && tokenLike(next[:headRun(next)]) {
+			cur += next
+			continue
+		}
+		segs = append(segs, segment{text: cur, line: start})
+		cur, start = lines[i], i+1
+	}
+	return append(segs, segment{text: cur, line: start})
+}
+
+// isWrapChar reports whether r can appear inside a wrapped credential — the
+// base64/token alphabet, which deliberately excludes whitespace and punctuation
+// that would end a value.
+func isWrapChar(r rune) bool {
+	return r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' ||
+		r == '+' || r == '/' || r == '=' || r == '_' || r == '-'
+}
+
+// tailRun counts the credential characters ending s.
+func tailRun(s string) int {
+	r := []rune(s)
+	n := 0
+	for n < len(r) && isWrapChar(r[len(r)-1-n]) {
+		n++
+	}
+	return n
+}
+
+// headRun counts the credential characters starting s.
+func headRun(s string) int {
+	n := 0
+	for _, r := range s {
+		if !isWrapChar(r) {
+			break
+		}
+		n++
+	}
+	return n
 }
 
 // redact keeps only a short recognizable prefix (enough to tell an AWS key from a

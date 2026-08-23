@@ -320,11 +320,18 @@ key formats, JWTs, `scheme://user:pass@` URLs) regardless of the variable name, 
 **by name** — any identifier containing `secret`/`token`/`password`/`api_key`/
 `access_key`/`private_key`/`client_secret` before a `=`/`:`, so framework env vars
 (`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix.
+Both layers run **twice**: once over physical lines, and once over *logical* ones,
+with the line breaks that merely wrap a value removed — so a credential split by a
+soft wrap, a YAML block scalar, or a backslash continuation is still seen whole. A
+break counts as a wrap only when credential-alphabet runs meet across it and at
+least one carries a digit or runs long, which is what stops ordinary prose from
+fusing; a spanning match reports the line the value *starts* on. When nothing is
+wrapped the second pass sees exactly what the first did and contributes nothing.
+
 **The rule set is curated, not exhaustive** — a *blandly*-named var (a bare `*_KEY`
 with no secret-word) holding a raw high-entropy blob (no recognizable format) is
-matched by neither layer, and a secret split across lines is missed. It's a guard
-paired with the informed override, not a guarantee; treat the override as a real
-decision, not a rubber stamp.
+matched by neither layer. It's a guard paired with the informed override, not a
+guarantee; treat the override as a real decision, not a rubber stamp.
 
 ### Sync-status (shown as badges in the list)
 

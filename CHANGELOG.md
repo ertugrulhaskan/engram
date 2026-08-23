@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The promote secret scan now catches a credential split across lines.** The
+  scanner read one physical line at a time, so a token broken by a soft wrap, a
+  YAML block scalar, or a backslash continuation matched no rule — no rule ever saw
+  the whole value. That was structural, not a missing pattern: no additional regex
+  could have closed it.
+
+  The same rules now also run over *logical* lines, with the breaks that merely wrap
+  a value removed. A break counts as a wrap only when runs of credential characters
+  meet across it and at least one carries a digit or runs long — enough to reassemble
+  `AKIA1234` + `5678ABCDEFGH`, not enough to fuse two ordinary sentences. A match
+  spanning a wrap reports the line the value starts on, and findings stay redacted.
+
+  Existing behavior is untouched by construction: with nothing wrapped, the second
+  pass sees exactly what the first did and every finding it produces is a duplicate
+  that is dropped.
 - **Withdraw now says when it could not verify ownership.** Withdraw is owner-only —
   engram compares the memory's recorded `owner` against your git email — but the check
   is skipped whenever either side is unknown, and it used to be skipped *silently*. A
