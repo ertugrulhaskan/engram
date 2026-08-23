@@ -266,8 +266,38 @@ filename. The id is assigned once, on the first promote.
   personal, not deleted** (it is the owner keeping their memory, just un-shared).
   **Re-promoting clears the tombstone** (so a re-shared memory isn't deleted), and a
   memory still shared under another scope is kept. Named `withdraw`, not
-  "unpromote"/"demote". *(Ledger entries are append-only; garbage-collecting old
-  tombstones once every clone has synced is a later refinement.)*
+  "unpromote"/"demote".
+
+  **The ledger is append-only, and that is a decision, not a gap.** A tombstone may
+  safely be dropped only once *every* clone has pulled past it, and a git store keeps
+  no roster of clones and no record of who has synced — so the condition is not
+  answerable with what engram has. Drop one early and a clone that never saw it simply
+  never deletes its copy: the memory stays `scope: team` on that machine, still read
+  by Claude there, surfacing only as a `! missing` badge. It does not return to the
+  store — pull never writes to it — so the blast radius is one clone, not the team.
+  But that is precisely the failure the ledger exists to prevent, and it matters most
+  in the case that motivates withdrawing at all: a memory un-shared *because* it
+  should not have been shared.
+
+  The trade is lopsided, and measured rather than assumed. The ledger holds **one line
+  per distinct id that is currently withdrawn**, not one per withdrawal — re-promoting
+  clears the entry, so withdraw/re-promote cycles do not accumulate. Its ceiling is
+  therefore the number of distinct memories ever shared to this store and left
+  withdrawn: bounded by human authoring, not by anything a machine can run up. An
+  entry is one 70-byte line and `readWithdrawn` runs **once per pull** (its result is a
+  set, so the per-memory lookups are O(1)). Measured: 1,000 entries is 71 KB read in
+  0.2 ms; 10,000 is 722 KB in 2.4 ms; 100,000 is 7.1 MB in 15 ms — under the network
+  round-trip of the `git pull` that just ran. Keeping a stale tombstone costs bytes;
+  dropping a live one costs correctness.
+
+  The two alternatives were weighed and rejected. **Age-based expiry** accepts exactly
+  the resurrection risk above for any clone dormant past the horizon, and the ledger
+  format carries no timestamps — it would need either a format break for existing
+  stores or a per-line `git log`. **Per-clone sync markers** would answer the safety
+  condition, but they turn every `pull` into a `push` (a read that can now fail,
+  conflict, and need credentials), make clones visible to one another, and let a clone
+  that is deleted rather than deregistered block collection forever. Both buy real
+  machinery against a cost measured in kilobytes.
 - **pull** — `git pull` the clone, then place project team files where Claude reads
   them, remove any local team copy whose id was withdrawn upstream (see **withdraw**),
   and refresh the relevant `MEMORY.md`. For a memory already present locally, the

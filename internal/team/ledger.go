@@ -12,6 +12,24 @@ import (
 // propagates on sync. Re-promoting an id clears its entry, so a re-shared memory
 // is not deleted by a stale tombstone. Each line is "<id>\t<slug>"; blank lines
 // and "#" comments are ignored.
+//
+// There is deliberately no prune, and that note belongs here rather than only in
+// the spec, because this is the file someone would come to in order to add one. A
+// tombstone is safe to drop only after every clone has pulled past it, and a git
+// store knows neither how many clones exist nor what they have synced. Drop one
+// early and a clone that never saw it never deletes its copy — the memory stays
+// scope:team on that machine, still read by Claude there. It does not return to
+// the store (Pull never writes to it), so the blast radius is one clone; but that
+// is the failure this file exists to prevent.
+//
+// The cost of keeping them was measured, not assumed. The ledger holds one line per
+// distinct currently-withdrawn id, not one per withdrawal — removeWithdrawn clears
+// the entry on re-promote — so its ceiling is the number of distinct memories ever
+// shared here and left withdrawn, which no loop can run up. readWithdrawn runs once
+// per Pull. At 100,000 entries the file is 7.1 MB and the read takes 15 ms, under
+// the network round-trip of the git pull that just ran. Keeping a stale tombstone
+// costs bytes; dropping a live one costs correctness. SPEC §7 records the
+// alternatives weighed.
 const withdrawnLedger = ".engram-withdrawn"
 
 // readWithdrawn returns the set of withdrawn ids recorded in the store.

@@ -114,6 +114,37 @@ func TestLedger(t *testing.T) {
 	}
 }
 
+// TestLedgerToleratesDuplicateEntries covers the one way the ledger grows that
+// addWithdrawn cannot prevent: it is a file in a git repo, so two clones can
+// withdraw the same id independently and a hand-resolved merge can keep both
+// lines. Reading must collapse them, and removing must drop every copy — a
+// survivor would resurrect the memory on the next pull.
+//
+// This is also why append-only is safe to leave alone (SPEC §7): duplicates are
+// inert, not corrupting.
+func TestLedgerToleratesDuplicateEntries(t *testing.T) {
+	dir := t.TempDir()
+	merged := "DUP\tdup.md\nOTHER\tother.md\nDUP\tdup-renamed.md\n"
+	if err := os.WriteFile(filepath.Join(dir, withdrawnLedger), []byte(merged), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if w := readWithdrawn(dir); !w["DUP"] || !w["OTHER"] {
+		t.Fatalf("duplicated ledger did not read back: %+v", w)
+	}
+	if addWithdrawn(dir, "DUP", "dup.md") != "" {
+		t.Error("an id already present twice should still be a no-op to add")
+	}
+	if removeWithdrawn(dir, "DUP") == "" {
+		t.Fatal("remove should report the ledger changed")
+	}
+	if w := readWithdrawn(dir); w["DUP"] {
+		t.Error("a duplicate entry survived remove — the memory would resurrect on pull")
+	} else if !w["OTHER"] {
+		t.Error("remove took an unrelated id with it")
+	}
+}
+
 func TestWithdrawOwnerGuard(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
