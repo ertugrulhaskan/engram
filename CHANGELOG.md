@@ -98,6 +98,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scan stays a guard with an informed override, not a guarantee.
 
 ### Fixed
+- **The type chip names a type the way the rows do.** Cycling `t` to the memories
+  with no frontmatter type left the chip reading `type: unknown` while every row it
+  had just filtered badged `other` — the chip rendered the raw enum value where the
+  badges, the by-type group headers, and the mark status line all go through the
+  shared label. The chip now uses that same label, so the control and the list it
+  shapes name one thing once. The other four types were never affected: their enum
+  value and their label are the same string.
+
 - **The promote secret scan now catches a credential split across lines.** The
   scanner read one physical line at a time, so a token broken by a soft wrap, a
   YAML block scalar, or a backslash continuation matched no rule — no rule ever saw

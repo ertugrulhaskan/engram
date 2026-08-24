@@ -10,6 +10,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/ertugrulhaskan/engram/internal/config"
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
 // stripLine extracts the tabs row (first header line) from a rendered frame,
@@ -219,5 +220,27 @@ func TestFilterInputPaintedOnHeaderBand(t *testing.T) {
 	}
 	if !strings.HasPrefix(lines[1], bgSeq(th.Bg2)) {
 		t.Errorf("filter row does not open with the header band background: %q", lines[1])
+	}
+}
+
+// The type chip must name the filter the way the row badges name it. A memory
+// with no frontmatter type badges as "other"; rendering the chip from the raw
+// enum leaked the internal "unknown", so the chip and the rows it was shaping
+// disagreed about the same memories.
+func TestTypeChipUsesTheBadgeLabel(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	mems := []memory.Memory{
+		mem("legacy-a", "hand-written, no frontmatter", memory.TypeUnknown, "acme", "/p/acme/memory/x1.md", "2024-01-02"),
+	}
+	var cur tea.Model = New(mems, nil, nil, config.Config{})
+	cur, _ = cur.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	cur = selectType(t, cur, memory.TypeUnknown)
+
+	chips := chipsLine(cur.(Model).View())
+	if !strings.Contains(chips, "type: other") {
+		t.Errorf("chips row %q: want the badge label %q", chips, typeLabel(memory.TypeUnknown))
+	}
+	if strings.Contains(chips, "unknown") {
+		t.Errorf("chips row %q leaks the internal enum value", chips)
 	}
 }

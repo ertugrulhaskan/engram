@@ -176,7 +176,10 @@ func (m Model) controlsRow() string {
 		case srcMemories:
 			typeScope := "all"
 			if tf := typeCycle[m.typeIdx]; tf != "" {
-				typeScope = string(tf)
+				// typeLabel, not string(tf): the chip names the same filter the row
+				// badges and the mark status line name, and it renders TypeUnknown as
+				// "other" rather than leaking the internal "unknown".
+				typeScope = typeLabel(tf)
 			}
 			group := "project"
 			if m.groupBy == groupType {
