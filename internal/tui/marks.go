@@ -5,7 +5,37 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/ertugrulhaskan/engram/internal/memory"
 )
+
+// pruneMarks drops marks whose memory is no longer in the list. A mark is a
+// path, and the file under it can vanish — a delete, or an external change the
+// reload poll picked up. A stale mark still satisfies the len(m.marks) > 0 test
+// that routes promote into the batch, but actionPromoteBatch builds its items
+// by walking m.memories, so the batch resolves to nothing: promote answers
+// "nothing marked is promotable" on every press until esc clears the marks.
+//
+// Clearing the map entirely when the last mark goes matches toggleMarkList —
+// nil is what collapses the mark column back to zero width, so a batch that
+// emptied leaves no trace of itself in the list.
+func (m *Model) pruneMarks(mems []memory.Memory) {
+	if len(m.marks) == 0 {
+		return
+	}
+	live := make(map[string]bool, len(mems))
+	for _, mm := range mems {
+		live[mm.Path] = true
+	}
+	for p := range m.marks {
+		if !live[p] {
+			delete(m.marks, p)
+		}
+	}
+	if len(m.marks) == 0 {
+		m.marks, m.batchItems = nil, nil
+	}
+}
 
 // listedMemoryPaths returns the path of every memory row in the list. Both
 // shaping filters are already baked in — rebuildRows is what produced these

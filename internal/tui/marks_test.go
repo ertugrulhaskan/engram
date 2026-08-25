@@ -114,3 +114,44 @@ func TestMarkColumnDoesNotDriftRowWidth(t *testing.T) {
 		t.Errorf("row width drifted with the mark column: plain=%d marked=%d\n plain  %q\n marked %q", pw, mw, plain, marked)
 	}
 }
+
+// A mark is a path, and the file under it can vanish — a delete, or an external
+// change the reload poll picked up. A stale mark still satisfies the
+// len(marks) > 0 test that routes promote into the batch, but the batch is built
+// by walking m.memories, so promote answered "nothing marked is promotable" on
+// every press until esc cleared them.
+func TestReloadPrunesStaleMarks(t *testing.T) {
+	m := ready(t)
+	mems := sampleMemories()
+	m.marks = map[string]bool{mems[0].Path: true, mems[1].Path: true}
+
+	var tm tea.Model = m
+	tm, _ = tm.Update(reloadMsg{mems: mems[1:], plans: samplePlans(), docs: sampleDocs()})
+	got := tm.(Model)
+	if got.marks[mems[0].Path] {
+		t.Error("a mark survived its memory leaving the list")
+	}
+	if !got.marks[mems[1].Path] {
+		t.Error("pruning dropped a mark whose memory is still listed")
+	}
+}
+
+// The map is cleared outright when the last mark goes, matching toggleMarkList:
+// nil is what collapses the mark column back to zero width, so a batch that
+// emptied leaves no trace of itself in the list.
+func TestReloadClearingLastMarkNilsTheMap(t *testing.T) {
+	m := ready(t)
+	mems := sampleMemories()
+	m.marks = map[string]bool{mems[0].Path: true}
+	m.batchItems = batchFixture()
+
+	var tm tea.Model = m
+	tm, _ = tm.Update(reloadMsg{mems: mems[1:], plans: samplePlans(), docs: sampleDocs()})
+	got := tm.(Model)
+	if got.marks != nil {
+		t.Errorf("marks = %v, want nil once the last mark went", got.marks)
+	}
+	if got.batchItems != nil {
+		t.Error("batchItems outlived the marks that armed them")
+	}
+}

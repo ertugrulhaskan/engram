@@ -78,6 +78,14 @@ type segment struct {
 // contributes nothing at all, which is what keeps this from changing established
 // behavior.
 func Scan(content string, scope Scope) []Finding {
+	// Normalise CRLF before segmenting. Both segmenters split on "\n", which
+	// leaves a trailing \r on every line of a CRLF file — and that is enough to
+	// disable the logical pass outright: neither the backslash continuation nor
+	// the token-run join can see past it, so a credential split across two CRLF
+	// lines is found by neither pass and reaches the store. Replacing the pair
+	// keeps line numbering intact, and team.sameContent normalises the same way,
+	// so a CRLF memory is already a real case elsewhere in the codebase.
+	content = strings.ReplaceAll(content, "\r\n", "\n")
 	type key struct {
 		rule string
 		line int

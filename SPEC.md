@@ -283,8 +283,14 @@ filename. The id is assigned once, on the first promote.
   deletes *only* a tombstoned `scope: team` copy that is no longer anywhere in the
   store **and still matches its sync anchor** (an unshared local edit, or a copy with
   no anchor to check against, is kept — never a silent loss of work). A personal file
-  is never removed, and the **owner's own copy on another machine is demoted to
-  personal, not deleted** (it is the owner keeping their memory, just un-shared).
+  is never removed, and a tombstoned copy is **demoted to personal rather than deleted
+  whenever pull cannot positively prove it is someone else's**: the owner's own copy on
+  another machine (the owner keeping their memory, just un-shared), but equally a copy
+  with no `owner` recorded, or one whose owner cannot be compared because this machine
+  has no `user.email` set. Deletion is reserved for an owner that is recorded,
+  comparable, and *different* — anything less fails toward keeping the file, matching
+  the guard in **withdraw**, which fails open for the same reason. A stale `scope: team`
+  stamp on a kept file surfaces as `! missing` and is recoverable; a deleted file is not.
   **Re-promoting clears the tombstone** (so a re-shared memory isn't deleted), and a
   memory still shared under another scope is kept. Named `withdraw`, not
   "unpromote"/"demote".
@@ -638,14 +644,22 @@ read straight from the home dir, so they appear even with no `~/.claude` and no 
 Per-project discovery still is anchored, so public copy must go on not implying standalone
 multi-assistant support out of the box — `scanRoots` is opt-in.
 
-**Rendering files engram does not own.** `scanRoots` and the vendor tables mean a preview
+**Rendering text engram does not own.** `scanRoots` and the vendor tables mean a preview
 can hold a file from a repository the user has merely cloned, which makes that file's bytes
-untrusted input *to a terminal*. Neither glamour nor lipgloss strips an escape sequence
-embedded in text handed to it, so engram strips control characters itself, at the two
-chokepoints every rendered string passes through: `clip` for one-line metadata (titles,
-paths, badges, a rule file's "applies to …" line) and `sanitizeBody` for the markdown body.
-Both run **before** the renderer — sanitizing glamour's *output* would destroy the ANSI it
-legitimately emits — and a body keeps newlines and tabs, which markdown uses structurally.
+untrusted input *to a terminal*. A scanned file is not the only such source: a team
+memory's frontmatter arrives from the shared store, and a git failure carries the
+subprocess's own captured output, so both reach the UI as text nobody on this machine
+wrote. Neither glamour nor lipgloss strips an escape sequence embedded in text handed to
+it, so engram strips control characters itself, at the four chokepoints every rendered
+string passes through: `clip` for one-line metadata (titles, paths, badges, a rule file's
+"applies to …" line), `wrapPlain` for dialog bodies, `flashStatus` for the status bar, and
+`sanitizeBody` for the markdown body. A dialog body and the status bar need their own
+chokepoint rather than leaning on `clip`: both render short strings whole, and `clip`
+only ever sees a string long enough to truncate.
+They all run **before** the renderer — sanitizing glamour's *output* would destroy the ANSI
+it legitimately emits — and a body keeps newlines and tabs, which markdown uses
+structurally, while a one-line sink turns a newline into a space so a multi-line git error
+does not run its lines together.
 Stripping before measuring also keeps the width math honest, since an escape sequence
 occupies no display columns but its bytes would otherwise be counted as if it did.
 Bidirectional-override characters (U+202A–U+202E, the "Trojan Source" class) are

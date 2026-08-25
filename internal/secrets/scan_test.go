@@ -131,6 +131,22 @@ func TestScanCatchesWrappedSecrets(t *testing.T) {
 			rule:    "aws-access-key-id",
 			line:    1,
 		},
+		{
+			// The same soft wrap with CRLF endings. Both segmenters split on
+			// "\n", so without normalisation every line keeps a trailing \r —
+			// which defeats the token-run join and the backslash continuation
+			// alike, and the credential reaches the store unflagged.
+			name:    "soft wrapped aws key with CRLF endings",
+			content: "notes\r\nAKIA1234\r\n5678ABCDEFGH\r\ntail",
+			rule:    "aws-access-key-id",
+			line:    2,
+		},
+		{
+			name:    "backslash continuation with CRLF endings",
+			content: "export K=AKIA0000\\\r\n1111222233334444\r\n",
+			rule:    "aws-access-key-id",
+			line:    1,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

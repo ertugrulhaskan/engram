@@ -119,7 +119,13 @@ func (m Model) pullModal() string {
 			"1 has no matching local project — skipped.",
 			"%d have no matching local project — skipped."))
 	}
-	body = append(body, "Global memories are skipped; take those with resolve.")
+	// This line used to read "Global memories are skipped; take those with
+	// resolve." That stopped being true when pull learned to reconcile globals:
+	// the confirm was describing the opposite of what the y key was about to do,
+	// on a dialog whose whole job is informed consent for a destructive action.
+	// Two entries, each short enough to survive wrapPlain's wrap intact.
+	body = append(body, "A global memory you already hold is reconciled too.")
+	body = append(body, "One you hold nowhere stays in the store.")
 	return m.dialog("←", "pull from the team store", t.Info,
 		body, []dialogAction{{"esc cancel", false}, {"y pull", true}})
 }

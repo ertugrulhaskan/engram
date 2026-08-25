@@ -36,12 +36,20 @@ func (m Model) snapshotProjects() []pullProj {
 
 // resolveTargets turns snapshotted projects into store keys (background work —
 // each lookup shells out to git).
+//
+// A project with no git remote keeps an empty Key rather than being dropped. It
+// can receive no *project*-scoped memory — it has no key to match one against,
+// and applyPull's byKey map still requires a non-empty key — but it can hold a
+// global one, and a remoteless project is exactly where global memories collect,
+// since promote falls back to global there. Dropping it here is what made `p`
+// a dead key on a [behind] global row: the status bar offered pull, and pull
+// never visited the directory.
 func resolveTargets(projs []pullProj) []team.ProjectTarget {
 	var targets []team.ProjectTarget
 	for _, p := range projs {
 		key, err := team.ProjectKey(p.dir)
-		if err != nil || key == "" {
-			continue
+		if err != nil {
+			key = "" // git couldn't say — treat it as remoteless, not as absent
 		}
 		targets = append(targets, team.ProjectTarget{Key: key, MemoryDir: p.memDir})
 	}
@@ -55,7 +63,7 @@ func (m Model) planPullCmd() tea.Cmd {
 	return func() tea.Msg {
 		targets := resolveTargets(projs)
 		if len(targets) == 0 {
-			return pullPlanMsg{err: fmt.Errorf("no projects with a git remote to pull into")}
+			return pullPlanMsg{err: fmt.Errorf("no local projects to pull into")}
 		}
 		res, err := team.PullPlan(targets)
 		return pullPlanMsg{res: res, err: err}
@@ -69,7 +77,7 @@ func (m Model) applyPullCmd() tea.Cmd {
 	return func() tea.Msg {
 		targets := resolveTargets(projs)
 		if len(targets) == 0 {
-			return pullFinishedMsg{err: fmt.Errorf("no projects with a git remote to pull into")}
+			return pullFinishedMsg{err: fmt.Errorf("no local projects to pull into")}
 		}
 		res, err := team.PullApply(targets)
 		return pullFinishedMsg{res: res, err: err}

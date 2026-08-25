@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -32,6 +33,7 @@ func TestClipStripsTerminalControls(t *testing.T) {
 		{"del", "a\x7fb", "ab"},
 		{"c1 range (CSI)", "a\u009bb", "ab"},
 		{"tab becomes a space", "a\tb", "a b"},
+		{"newline becomes a space", "a\nb", "a b"},
 		{"plain text untouched", "applies to src/**/*.ts", "applies to src/**/*.ts"},
 		{"wide runes untouched", "日本語", "日本語"},
 	}
@@ -125,5 +127,69 @@ func TestPreviewDefangsTerminalEscapes(t *testing.T) {
 	// sequence, it does not silently blank the row.
 	if !strings.Contains(frame, "PWNED") {
 		t.Error("the rule file's text vanished entirely instead of being defanged")
+	}
+}
+
+// TestDeleteConfirmDefangsTerminalEscapes drives the dialog body end to end.
+// The body is a one-line sink clip never covered: wrapPlain clips only a word
+// wider than the line, an escape sequence carries no whitespace to split on,
+// and its ESC and BEL bytes measure zero columns — so a short escape-bearing
+// title passed through byte for byte. A pulled memory's title reaches this
+// dialog, which is what puts the team store on the far end of it.
+func TestDeleteConfirmDefangsTerminalEscapes(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	mems := sampleMemories()
+	mems[0].Title = "notes" + osc
+	var tm tea.Model = New(mems, samplePlans(), nil, config.Config{})
+	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	if got := tm.(Model).mode; got != modeConfirm {
+		t.Fatalf("mode = %v, want modeConfirm — the fixture never reached the dialog body", got)
+	}
+
+	// Deliberately not ansi.Strip: that would remove the very sequence under
+	// test and turn this into a test that can never fail.
+	frame := tm.(Model).View()
+	if strings.Contains(frame, "\x1b]") {
+		t.Error("an OSC escape from a memory title reached the delete confirm")
+	}
+	if strings.Contains(frame, "\x07") {
+		t.Error("a BEL from a memory title reached the delete confirm")
+	}
+	if !strings.Contains(frame, "PWNED") {
+		t.Error("the title vanished entirely instead of being defanged")
+	}
+}
+
+// The status bar is the third one-line sink. Most of what lands there is an
+// err.Error(), and some of those carry text engram does not control — a store
+// memory's owner field, or git's own captured output.
+func TestStatusBarDefangsTerminalEscapes(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	var tm tea.Model = ready(t)
+	tm, _ = tm.Update(promoteFinishedMsg{err: errors.New("only " + osc + "@e.com may withdraw")})
+	got := tm.(Model)
+	if strings.ContainsAny(got.status, "\x1b\x07") {
+		t.Errorf("status kept a control character: %q", got.status)
+	}
+	frame := got.View()
+	if strings.Contains(frame, "\x1b]") || strings.Contains(frame, "\x07") {
+		t.Error("an escape from an error message reached the rendered frame")
+	}
+	if !strings.Contains(frame, "PWNED") {
+		t.Error("the error text vanished instead of being defanged")
+	}
+}
+
+// A newline maps to a space rather than being dropped: multi-line errors do
+// reach this one-line sink — git's CombinedOutput is the common source — and
+// deleting the newline would run the last word of one line into the first of
+// the next.
+func TestStatusBarNewlineBecomesSpace(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	var tm tea.Model = ready(t)
+	tm, _ = tm.Update(promoteFinishedMsg{err: errors.New("fatal: refusing\nhint: try again")})
+	if got := tm.(Model).status; !strings.Contains(got, "refusing hint:") {
+		t.Errorf("status = %q, want the newline rendered as a space", got)
 	}
 }

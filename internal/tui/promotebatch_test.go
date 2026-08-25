@@ -423,3 +423,74 @@ func TestUnpushedBatchStillSpendsMarks(t *testing.T) {
 		t.Errorf("marks = %d after a local commit, want 0", n)
 	}
 }
+
+// Marks win over the cursor row — and "no row at all" is a case of where the
+// cursor sits. The selected() guard used to run first, so P was a silent no-op
+// here, and esc (the natural way out of a filter) clears the marks before it
+// clears the search, so the recovery destroyed the batch.
+func TestPromoteHonoursMarksWhenAFilterHidesEveryRow(t *testing.T) {
+	fakeStore(t)
+	m := ready(t)
+	m.marks = map[string]bool{sampleMemories()[0].Path: true}
+	m.search.SetValue("zzzz-no-such-memory")
+	m.rebuildRows()
+	if _, ok := m.selected(); ok {
+		t.Fatal("fixture is wrong: the filter still leaves a selectable row")
+	}
+
+	tm, _ := m.actionPromote()
+	if got := tm.(Model).mode; got != modePromoteScope {
+		t.Errorf("mode = %v, want modePromoteScope — P was a no-op on a marked batch because a filter hid every row", got)
+	}
+}
+
+// A batch that skipped or overrode a flagged memory and then failed to push is
+// the most partial outcome there is. The push-failed branch dropped both
+// suffixes, so it read as the cleanest.
+func TestUnpushedBatchStillReportsSkipsAndOverrides(t *testing.T) {
+	m := ready(t)
+	var tm tea.Model = m
+	tm, _ = tm.Update(promoteFinishedMsg{count: 3, pushed: false, skipped: 2, overrode: 1})
+	got := tm.(Model).status
+	if !strings.Contains(got, "push failed") {
+		t.Fatalf("status = %q, want the push failure reported", got)
+	}
+	if !strings.Contains(got, "2 skipped") {
+		t.Errorf("status = %q, want the 2 declined memories named", got)
+	}
+	if !strings.Contains(got, "1 overridden") {
+		t.Errorf("status = %q, want the override named", got)
+	}
+}
+
+// The cancel line counts secrets; scanSkipped counts memories. Two memories
+// carrying two findings each reported "2 possible secrets".
+func TestBatchWalkCancelCountsSecretsNotMemories(t *testing.T) {
+	m := ready(t)
+	m.scanAction = "block"
+	m.scanAccepted = nil // nothing was clean either
+	m.scanFlagged = []flaggedMemory{
+		{item: batchItem{path: "/p/x.md", title: "x", placement: "global"}, findings: []secrets.Finding{
+			{Line: 1, Rule: "aws-key", Match: "AKIA****"},
+			{Line: 2, Rule: "entropy", Match: "Xk9m****"},
+		}},
+		{item: batchItem{path: "/p/y.md", title: "y", placement: "global"}, findings: []secrets.Finding{
+			{Line: 3, Rule: "aws-key", Match: "AKIA****"},
+			{Line: 4, Rule: "entropy", Match: "Qp2v****"},
+		}},
+	}
+	m.scanIdx = 0
+	m.mode = modeSecretWarn
+	m.loadFlagged()
+
+	var tm tea.Model = m
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	got := tm.(Model).status
+	if !strings.Contains(got, "4 possible secrets") {
+		t.Errorf("status = %q, want 4 secrets (2 memories x 2 findings), not the memory count", got)
+	}
+	if !strings.Contains(got, "2 memories") {
+		t.Errorf("status = %q, want the memory count named separately", got)
+	}
+}

@@ -95,6 +95,12 @@ func wrapPlain(s string, w int) []string {
 	if w < 1 {
 		return []string{""}
 	}
+	// Dialog bodies carry untrusted text — a pulled memory's title reaches the
+	// delete and withdraw confirms — and the wrap below clips only a word wider
+	// than the line, so a short escape-bearing word would never meet clip's
+	// guard. Sanitizing up front makes this the chokepoint for the class, and
+	// keeps the width math honest for the same reason clip does.
+	s = sanitizeLine(s)
 	words := strings.Fields(s)
 	if len(words) == 0 {
 		return []string{""}

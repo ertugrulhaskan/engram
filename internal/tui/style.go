@@ -108,7 +108,11 @@ func isTerminalControl(r rune) bool {
 }
 
 // sanitizeLine drops the control characters from a one-line string, turning
-// tabs into a space so the width math below stays honest.
+// tabs and newlines into a space so the width math below stays honest. A
+// newline becomes a space rather than vanishing because multi-line text does
+// reach one-line sinks — a git error carrying the subprocess's CombinedOutput
+// is the common case — and dropping it would run the last word of one line
+// into the first word of the next.
 //
 // engram renders files it does not own. /files lists instruction files from any
 // project under scanRoots — including repositories the user has only cloned —
@@ -116,17 +120,19 @@ func isTerminalControl(r rune) bool {
 // glamour nor lipgloss strips an escape sequence embedded in the text they are
 // handed, so without this a `globs:` value carrying an OSC sequence would reach
 // the terminal verbatim and rewrite the window title (or, where OSC 52 is
-// permitted, the clipboard). Clipping here rather than at each call site is
-// deliberate: every single-line string in the UI already funnels through clip,
-// so the chokepoint is the whole class. Styling is always applied *after* clip,
-// so no legitimate ANSI is ever passed in for this to eat.
+// permitted, the clipboard). Sanitizing here rather than at each call site is
+// deliberate: every one-line sink funnels through one of three chokepoints —
+// clip for metadata, wrapPlain for dialog bodies, flashStatus for the status
+// bar — so the guard covers the whole class instead of a list of call sites.
+// Styling is always applied *after* each of them, so no legitimate ANSI is
+// ever passed in for this to eat.
 //
 // Bidi overrides (U+202A-U+202E) are deliberately left alone: they are valid in
 // right-to-left text, and visual deception is a different problem from terminal
 // control.
 func sanitizeLine(s string) string {
 	return strings.Map(func(r rune) rune {
-		if r == '\t' {
+		if r == '\t' || r == '\n' {
 			return ' '
 		}
 		if isTerminalControl(r) {

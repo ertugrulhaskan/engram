@@ -229,7 +229,11 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 		s, _ := memory.WriteEngram(base, memory.EngramMeta{ID: id, Scope: scope, Project: key, Owner: owner, SyncedHash: h})
 		return s
 	}
-	write("shared.md", anchored("WD-1", "team", "")) // a synced teammate copy → removed on withdrawal
+	write("shared.md", anchored("WD-1", "team", "mate@example.com")) // a synced teammate copy → removed on withdrawal
+	// An anchored copy with no owner recorded: ownership cannot be disproven, so
+	// it is demoted and KEPT rather than deleted. Removing on an unverifiable
+	// owner would fail toward data loss.
+	write("unowned.md", anchored("WD-7", "team", ""))
 	write("mine.md", mem("WD-2", "personal"))
 	write("kept.md", mem("WD-3", "team"))
 	write("global.md", mem("WD-4", "team"))                      // pulled from this project, but also shared globally
@@ -244,6 +248,7 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 	addWithdrawn(teamDir, "WD-4", "global.md")
 	addWithdrawn(teamDir, "WD-5", "legacy.md")
 	addWithdrawn(teamDir, "WD-6", "owned.md")
+	addWithdrawn(teamDir, "WD-7", "unowned.md")
 	writeStoreFile := func(rel, body string) {
 		p := filepath.Join(teamDir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -282,6 +287,17 @@ func TestPullPropagatesWithdrawal(t *testing.T) {
 		t.Error("the owner's own withdrawn copy must be demoted, not deleted")
 	} else if om, _, _ := memory.ReadEngram(string(oraw)); om.Scope != "personal" {
 		t.Errorf("the owner's own withdrawn copy should be demoted to personal, got scope=%q", om.Scope)
+	}
+	// An anchored copy with no recorded owner: removal would need proof it is
+	// someone else's, and there is none. Keep it, demoted — a stale scope:team
+	// stamp is recoverable, a deleted file is not.
+	if uraw, err := os.ReadFile(filepath.Join(memDir, "unowned.md")); err != nil {
+		t.Error("a withdrawn copy with no recorded owner must be demoted, not deleted")
+	} else if um, _, _ := memory.ReadEngram(string(uraw)); um.Scope != "personal" {
+		t.Errorf("an unowned withdrawn copy should be demoted to personal, got scope=%q", um.Scope)
+	}
+	if res.Demoted != 2 {
+		t.Errorf("Demoted = %d, want 2 (the owner's copy and the unowned one)", res.Demoted)
 	}
 }
 

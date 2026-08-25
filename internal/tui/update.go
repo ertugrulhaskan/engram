@@ -112,9 +112,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.driftDir = ""
 		// A batch that went through has spent its marks — clear them, so the next
 		// promote isn't silently aimed at a set the user already acted on. A batch
-		// that FAILED keeps them: nothing was written (PromoteBatch prepares
-		// everything before the first write), so the user fixes the cause and
-		// presses promote again rather than re-marking from scratch.
+		// that FAILED keeps them: PromoteBatch prepares every item before the
+		// first write, so a failure in that phase wrote nothing, and a failure
+		// partway through the writes is idempotent to retry. Either way the user
+		// fixes the cause and presses promote again rather than re-marking.
 		if msg.count > 0 && msg.err == nil {
 			m.marks, m.batchItems = nil, nil
 		}
@@ -122,7 +123,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.err != nil:
 			return m, tea.Batch(m.setDanger("promote failed: "+msg.err.Error()), reloadCmd())
 		case !msg.pushed:
-			return m, tea.Batch(m.setDanger(promoteNoun(msg)+" locally; push failed — check your git remote/creds"), reloadCmd())
+			// The suffixes belong here too. A batch that skipped or overrode a
+			// flagged memory and then failed to push is the most partial
+			// outcome there is; without them it read as the cleanest.
+			return m, tea.Batch(m.setDanger(promoteNoun(msg)+" locally; push failed — check your git remote/creds"+
+				overrodeSuffix(msg.overrode)+skippedSuffix(msg.skipped)), reloadCmd())
 		case msg.override:
 			return m, tea.Batch(m.setStatus("promoted with an override — pushed"), reloadCmd())
 		default:
@@ -184,6 +189,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.docs = msg.docs
 		m.syncStates = msg.sync
 		m.fsSig = msg.sig
+		// A mark whose memory left the list is dead weight that still arms the
+		// batch — drop it here, where the list is replaced.
+		m.pruneMarks(msg.mems)
 		m.previewCache = nil
 		m.driftDir = "" // index may have changed — recompute on next syncPreview
 		// Store timestamps go stale with the states (a pull moves the store),

@@ -164,6 +164,15 @@ func TestPullWithdrawalKeepsLocalEdits(t *testing.T) {
 	}
 	root := t.TempDir()
 	hermeticGitEnv(t, root)
+	// Removal requires a *known* owner that is someone else: pull demotes rather
+	// than deletes whenever it cannot positively disprove the copy is yours, and
+	// hermeticGitEnv leaves user.email unset. Configure one so the clean copy
+	// below is provably a teammate's.
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = P\n\temail = me@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
 	bare := filepath.Join(root, "remote.git")
 	gitT(t, "", "init", "--bare", bare)
 	if err := InitTeam("file://" + bare); err != nil {
@@ -188,7 +197,7 @@ func TestPullWithdrawalKeepsLocalEdits(t *testing.T) {
 	// A clean team memory whose anchor matches its content: withdrawal removes it.
 	cleanRaw := func(hash string) string {
 		return "---\nname: c\nengram:\n    id: CL-1\n    scope: team\n    project: " + key +
-			"\n    syncedHash: " + hash + "\n---\n# C\n\nclean body\n"
+			"\n    owner: mate@example.com\n    syncedHash: " + hash + "\n---\n# C\n\nclean body\n"
 	}
 	dig, err := memory.ContentDigest(cleanRaw("x")) // the digest excludes the engram block
 	if err != nil {

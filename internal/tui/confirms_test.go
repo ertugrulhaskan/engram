@@ -31,7 +31,8 @@ func TestPullConfirmFlow(t *testing.T) {
 		"3 project memories fast-forward cleanly.",
 		"1 has local edits — left alone.",
 		"1 diverged — flagged as a conflict, not overwritten.",
-		"Global memories are skipped; take those with resolve.",
+		"A global memory you already hold is reconciled too.",
+		"One you hold nowhere stays in the store.",
 		"[y pull]",
 	} {
 		if !strings.Contains(out, want) {

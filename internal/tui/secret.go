@@ -121,11 +121,16 @@ func (m Model) advanceFlagged() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	accepted, skipped, overrode := m.scanAccepted, m.scanSkipped, m.scanOverrode
+	// Summarise before the reset clears scanFlagged. skipped counts *memories*;
+	// wording it as a secret count made two memories carrying five findings
+	// each report "2 possible secrets". batchSecretSummary already draws that
+	// distinction — reuse it rather than keeping a second, wronger phrasing.
+	declined := batchSecretSummary(m.scanFlagged)
 	m.mode = modeNormal
 	m.scanFlagged, m.scanAccepted, m.secretFindings = nil, nil, nil
 	m.scanIdx, m.scanSkipped, m.scanOverrode, m.secretTitle = 0, 0, 0, ""
 	if len(accepted) == 0 {
-		return m, m.setCancel(pluralLine(skipped, "promote cancelled — 1 possible secret", "promote cancelled — %d possible secrets"))
+		return m, m.setCancel("promote cancelled — " + declined)
 	}
 	return m, m.promoteBatchCmd(accepted, skipped, overrode)
 }
@@ -183,11 +188,13 @@ func (m Model) updateSecretWarn(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "ctrl+c":
 			m.mode = modeNormal
-			n := len(m.scanFlagged)
+			// Same distinction as advanceFlagged's cancel line: this counted
+			// memories while its singular form said "possible secret".
+			abandoned := batchSecretSummary(m.scanFlagged)
 			m.scanFlagged, m.scanAccepted, m.secretFindings = nil, nil, nil
 			m.batchItems = nil
 			m.scanIdx, m.scanSkipped, m.scanOverrode, m.secretTitle = 0, 0, 0, ""
-			return m, m.setCancel(pluralLine(n, "batch cancelled — 1 possible secret", "batch cancelled — %d flagged memories"))
+			return m, m.setCancel("batch cancelled — " + abandoned)
 		case "n":
 			m.scanSkipped++
 			return m.advanceFlagged()

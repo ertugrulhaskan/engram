@@ -575,3 +575,81 @@ func TestPullGlobalIgnoresProjectScopedCopy(t *testing.T) {
 		t.Errorf("the global copy crossed scopes into the local file:\n%s", got)
 	}
 }
+
+// A remoteless project can hold a global memory — promote falls back to global
+// where there is no remote — so it can hold a *withdrawn* one. The tombstone loop
+// used to skip every target with no key, which left that copy stamped scope:team
+// forever: exactly the state the ledger exists to prevent. This is the companion
+// to resolveTargets keeping remoteless projects as global-pull targets; without
+// it, pull would update such a copy but never retire it.
+func TestPullPropagatesWithdrawalToRemotelessProject(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = O\n\temail = owner@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	mate := filepath.Join(root, "mate")
+	gitT(t, "", "clone", "file://"+bare, mate)
+	if err := os.WriteFile(filepath.Join(mate, withdrawnLedger), []byte("ID-9 mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, mate, "add", "-A")
+	gitT(t, mate, "commit", "-m", "withdraw ID-9")
+	gitT(t, mate, "push")
+
+	// A global-scoped copy in a project with no git remote, unedited since sync.
+	localMem := filepath.Join(root, "remoteless", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "---\nname: mine\nengram:\n    id: ID-9\n    scope: team\n    owner: owner@example.com\n---\n# Mine\n\nowned note\n"
+	dig, err := memory.ContentDigest(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withAnchor := strings.Replace(body, "    scope: team\n", "    scope: team\n    syncedHash: "+dig+"\n", 1)
+	local := filepath.Join(localMem, "mine.md")
+	if err := os.WriteFile(local, []byte(withAnchor), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// The empty Key is the point: this project has no git remote.
+	targets := []ProjectTarget{{Key: "", MemoryDir: localMem}}
+
+	plan, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan: %v", err)
+	}
+	if plan.Demoted != 1 {
+		t.Fatalf("plan = %+v, want Demoted=1 — the withdrawal never reached a remoteless project", plan)
+	}
+
+	applied, err := PullApply(targets)
+	if err != nil {
+		t.Fatalf("PullApply: %v", err)
+	}
+	if applied.Demoted != 1 {
+		t.Fatalf("apply = %+v, want Demoted=1", applied)
+	}
+	got, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(got), "scope: team") {
+		t.Error("the withdrawn copy is still stamped scope: team")
+	}
+	if !strings.Contains(string(got), "scope: personal") {
+		t.Errorf("copy was not demoted to personal:\n%s", got)
+	}
+}

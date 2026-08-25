@@ -37,17 +37,21 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd
 	}
-	it, ok := m.selected()
-	if !ok {
-		return m, nil
-	}
 	if !team.IsInitialized() {
 		return m, m.setDanger(noStoreHint)
 	}
 	// Marks win over the cursor row: if the user marked a set, that set is what
-	// they mean by "promote", regardless of where the cursor happens to sit.
+	// they mean by "promote", regardless of where the cursor happens to sit —
+	// including on no row at all, because a filter hid every one. The cursor
+	// lookup therefore comes after this branch: ahead of it, a marked batch
+	// under a matchless filter died here silently, and esc — the natural way
+	// out of a filter — clears the marks before it clears the search.
 	if len(m.marks) > 0 {
 		return m.actionPromoteBatch()
+	}
+	it, ok := m.selected()
+	if !ok {
+		return m, nil
 	}
 	key, _ := team.ProjectKey(it.ProjectDir) // "" when the project has no remote
 	m.batchItems = nil                       // this promote is the cursor row, not a leftover batch
@@ -109,8 +113,11 @@ func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
 }
 
 // actionResolve opens both versions of a conflicting memory in $EDITOR. Diverged/
-// Differs are conflicts; Incoming is included so a global memory — which pull walks
-// past — still has a way to take the store's update.
+// Differs are conflicts; Incoming is included as a manual fallback. It used to be
+// the only way to take a clean global update, because pull walked past a global
+// memory in a project with no git remote — resolveTargets now keeps those
+// projects as global-pull targets, so `p` covers the ordinary case and this
+// remains for the ones it can't.
 func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	if m.srcKind != srcMemories {
 		return m, m.setStatus("resolve applies to memories")

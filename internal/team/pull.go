@@ -231,9 +231,12 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 	// memory dir; a memory the user holds nowhere is not counted — it is browse-on-
 	// demand, not skipped placement. The walk is recursive to stay in step with
 	// storeIndexByID: a nested global copy that can badge [behind] must also pull.
+	// No Key requirement here, unlike byKey above: a global memory belongs to no
+	// project, so a project's key is irrelevant to whether it can hold one. A
+	// remoteless project has no key and is precisely where globals accumulate.
 	memDirs := map[string]bool{}
 	for _, t := range targets {
-		if t.Key != "" && t.MemoryDir != "" {
+		if t.MemoryDir != "" {
 			memDirs[t.MemoryDir] = true
 		}
 	}
@@ -283,7 +286,11 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 		storeAll := storeIndexByID(dir) // ids present anywhere in the store (any scope)
 		me, _ := runGitCapture(dir, "config", "user.email")
 		for _, t := range targets {
-			if t.Key == "" || t.MemoryDir == "" {
+			// No Key requirement, matching the global walk above: a remoteless
+			// project can hold a global memory, so it can hold a *withdrawn*
+			// one. Skipping it here would leave that copy stamped scope:team
+			// forever — the exact state the tombstone ledger exists to prevent.
+			if t.MemoryDir == "" {
 				continue
 			}
 			for id, localPath := range indexByID(t.MemoryDir) {
@@ -308,10 +315,19 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 				if dig, err := memory.ContentDigest(string(lr)); err != nil || dig != m.SyncedHash {
 					continue
 				}
-				// The owner's own other checkout still says scope:team (Withdraw only
-				// reset the copy on the machine it ran on). Demote it to personal —
-				// keeping the file — rather than deleting the owner's own memory.
-				if m.Owner != "" && me != "" && m.Owner == me {
+				// Keep the file and demote it to personal unless the store can
+				// positively prove the memory is someone else's. The owner's own
+				// other checkout still says scope:team (Withdraw only reset the
+				// copy on the machine it ran on) — but so does a copy whose owner
+				// was never stamped, and so does one belonging to a user whose git
+				// email has since changed. Removing on an *unverifiable* owner
+				// fails toward data loss, and withdraw.go faces the same
+				// uncertainty and deliberately fails open ("this check catches
+				// accidents, not attacks"); this now matches it. A stale
+				// scope:team stamp on a kept file surfaces as `! missing` and is
+				// recoverable — a deleted file is not. Removal is therefore
+				// reserved for an owner that is set, known, and someone else.
+				if m.Owner == "" || me == "" || m.Owner == me {
 					// A demote keeps the file but still rewrites its engram:
 					// block, so it counts in both passes — the plan must show
 					// every write the apply will make.

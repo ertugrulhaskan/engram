@@ -28,7 +28,11 @@ func (m *Model) setCancel(s string) tea.Cmd { return m.flashStatus(s, statusCanc
 // flashStatus stores the message and its kind, then returns a command that
 // clears it after a short delay (unless a newer status replaces it first).
 func (m *Model) flashStatus(s string, k statusKind) tea.Cmd {
-	m.status = s
+	// The status bar renders m.status into the frame with no clip, and most of
+	// what lands here is an err.Error() — including git output captured from a
+	// remote engram does not control. Sanitizing at the one setter every status
+	// goes through covers all of them at once.
+	m.status = sanitizeLine(s)
 	m.statusKind = k
 	m.statusSeq++
 	seq := m.statusSeq
