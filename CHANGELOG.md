@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-24
+
+Phase 4 tier 1: engram stops being Claude-only. The local instruction files the
+other assistants read — `AGENTS.md`, `GEMINI.md`, GitHub Copilot's instructions
+and Cursor rules — are now browsable read-only in `/files`, per project and, where
+a vendor has one, from your home folder. A `scanRoots` setting lifts the limit that
+a project had to have been opened in Claude Code before engram could see it. On the
+team side, `>pull` learned to reconcile global-scoped memories with the same
+direction-aware safety it already gave project ones, and `promote` learned to act on
+a set: `space` marks memories, `a` marks everything the filters left, and the whole
+batch lands as one commit — each memory in it scanned by a secret scan that now
+reads logical lines and weighs entropy, so a credential split by a soft wrap, or one
+sitting under a name that gives nothing away, no longer slips through.
+
 ### Added
 - **Promote a whole type at once.** `a` marks every memory in the list. Because
   `t` already narrows the list to one type, cycling to `feedback` and pressing `a`
@@ -97,55 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the SHAs and UUIDs that fill real memories, and anything under 28 characters. The
   scan stays a guard with an informed override, not a guarantee.
 
-### Fixed
-- **The type chip names a type the way the rows do.** Cycling `t` to the memories
-  with no frontmatter type left the chip reading `type: unknown` while every row it
-  had just filtered badged `other` — the chip rendered the raw enum value where the
-  badges, the by-type group headers, and the mark status line all go through the
-  shared label. The chip now uses that same label, so the control and the list it
-  shapes name one thing once. The other four types were never affected: their enum
-  value and their label are the same string.
-
-- **The promote secret scan now catches a credential split across lines.** The
-  scanner read one physical line at a time, so a token broken by a soft wrap, a
-  YAML block scalar, or a backslash continuation matched no rule — no rule ever saw
-  the whole value. That was structural, not a missing pattern: no additional regex
-  could have closed it.
-
-  The same rules now also run over *logical* lines, with the breaks that merely wrap
-  a value removed. A break counts as a wrap only when runs of credential characters
-  meet across it and at least one carries a digit or runs long — enough to reassemble
-  `AKIA1234` + `5678ABCDEFGH`, not enough to fuse two ordinary sentences. A match
-  spanning a wrap reports the line the value starts on, and findings stay redacted.
-
-  Existing behavior is untouched by construction: with nothing wrapped, the second
-  pass sees exactly what the first did and every finding it produces is a duplicate
-  that is dropped.
-- **Withdraw now says when it could not verify ownership.** Withdraw is owner-only —
-  engram compares the memory's recorded `owner` against your git email — but the check
-  is skipped whenever either side is unknown, and it used to be skipped *silently*. A
-  machine with no `user.email` configured could withdraw any memory, a teammate's
-  included, with nothing on screen saying the guard had not run.
-
-  The behavior is unchanged and deliberate: the guard still **fails open**, because
-  refusing to withdraw your own memory because git is misconfigured would be the worse
-  failure, and every team write already stops at a confirm. What changed is that the
-  confirm now discloses it, and names *which* side is missing — the memory records no
-  owner, or this machine has no git email — since one is the memory's history and the
-  other is a single config line away. A verified owner, and a known mismatch (which
-  withdraw refuses outright, as before), both render exactly as they did.
-
-## [0.4.0] - 2026-08-21
-
-Phase 4 tier 1: engram stops being Claude-only. The local instruction files the
-other assistants read — `AGENTS.md`, `GEMINI.md`, GitHub Copilot's instructions
-and Cursor rules — are now browsable read-only in `/files`, per project and, where
-a vendor has one, from your home folder. A `scanRoots` setting lifts the limit that
-a project had to have been opened in Claude Code before engram could see it. On the
-team side, `>pull` learned to reconcile global-scoped memories with the same
-direction-aware safety it already gave project ones.
-
-### Added
 - **Cursor rules and Copilot's path-scoped instructions are now in `/files`.** Every
   `.mdc` file under a project's `.cursor/rules/` (badged `cursor`) and every
   `.instructions.md` under `.github/instructions/` (badged `copilot`) lists read-only
@@ -250,6 +215,47 @@ direction-aware safety it already gave project ones.
   re-checked word-for-word.
 
 ### Fixed
+- **The type chip names a type the way the rows do.** Cycling `t` to the memories
+  with no frontmatter type left the chip reading `type: unknown` while every row it
+  had just filtered badged `other` — the chip rendered the raw enum value where the
+  badges, the by-type group headers, and the mark status line all go through the
+  shared label. The chip now uses that same label, so the control and the list it
+  shapes name one thing once. The other four types were never affected: their enum
+  value and their label are the same string.
+
+- **The promote secret scan now catches a credential split across lines.** The
+  scanner read one physical line at a time, so a token broken by a soft wrap, a
+  YAML block scalar, or a backslash continuation matched no rule — no rule ever saw
+  the whole value. That was structural, not a missing pattern: no additional regex
+  could have closed it.
+
+  The same rules now also run over *logical* lines, with the breaks that merely wrap
+  a value removed. A break counts as a wrap only when runs of credential characters
+  meet across it and at least one carries a digit or runs long — enough to reassemble
+  `AKIA1234` + `5678ABCDEFGH`, not enough to fuse two ordinary sentences. A match
+  spanning a wrap reports the line the value starts on, and findings stay redacted.
+  Line endings are normalised before any of this, so a CRLF memory reassembles
+  exactly like an LF one — left alone, the carriage return sits between the two
+  runs and no wrap is ever detected, which would have disabled the pass entirely
+  for a whole class of file.
+
+  Existing behavior is untouched by construction: with nothing wrapped, the second
+  pass sees exactly what the first did and every finding it produces is a duplicate
+  that is dropped.
+- **Withdraw now says when it could not verify ownership.** Withdraw is owner-only —
+  engram compares the memory's recorded `owner` against your git email — but the check
+  is skipped whenever either side is unknown, and it used to be skipped *silently*. A
+  machine with no `user.email` configured could withdraw any memory, a teammate's
+  included, with nothing on screen saying the guard had not run.
+
+  The behavior is unchanged and deliberate: the guard still **fails open**, because
+  refusing to withdraw your own memory because git is misconfigured would be the worse
+  failure, and every team write already stops at a confirm. What changed is that the
+  confirm now discloses it, and names *which* side is missing — the memory records no
+  owner, or this machine has no git email — since one is the memory's history and the
+  other is a single config line away. A verified owner, and a known mismatch (which
+  withdraw refuses outright, as before), both render exactly as they did.
+
 - **ROADMAP.md no longer misstates what shipped.** An audit of all 41 checkboxes
   against the code, git, the published cask and the live site found the code claims
   accurate but the file wrong in three places. Phase 3 stopped at `v0.2.1` and never
@@ -271,6 +277,25 @@ direction-aware safety it already gave project ones.
   parent (`acme/.github/copilot-instructions.md`, `acme/memory/thing.md`).
 
 ### Changed
+- **Pull no longer deletes a withdrawn memory it cannot prove is someone else's.**
+  Withdrawal propagation is the one case where `>pull` deletes a local file. It
+  kept the owner's own copy on another machine — demoting it to personal rather
+  than removing it — but decided that by requiring a positive match between the
+  memory's recorded `owner` and your git email. Every other case fell through to
+  the delete: a copy with no `owner` stamped, a machine with no `user.email`
+  configured, or an address that had simply changed since the memory was promoted.
+
+  Those are all states in which ownership is *unknown*, not states in which the
+  memory is provably a teammate's — and the guard was resolving unknown toward
+  deletion. It now demotes instead, and removal is reserved for an owner that is
+  recorded, comparable and different. That matches `withdraw`'s own owner check,
+  which has always failed open on the same reasoning ("this check catches
+  accidents, not attacks"). A stale `scope: team` stamp on a kept file surfaces as
+  `! missing` and is recoverable; a deleted file is not.
+
+  Unchanged: a personal memory is still never removed, an unshared local edit is
+  still never discarded, and a teammate's genuinely-owned withdrawn copy is still
+  removed.
 - **`>pull` now reconciles global-scoped memories too.** It previously walked the
   store's `projects/` folder only, so a global memory whose team copy had advanced
   showed `[behind]` but could only be taken through `>resolve` — a workaround, not a
@@ -319,14 +344,24 @@ direction-aware safety it already gave project ones.
   reached the terminal verbatim — rewriting the window title, or writing the
   clipboard where OSC 52 is permitted.
 
-  Control characters are now stripped at the two chokepoints every rendered string
-  passes through: `clip`, which covers all one-line metadata (titles, paths, badges
-  and the new "applies to …" line), and the markdown body on its way *into* the
-  renderer — never on the way out, since glamour's own output is ANSI by design.
-  Newlines and tabs survive in a body because markdown uses both structurally.
-  Stripping before measuring also corrects a width miscount, since an escape
-  sequence occupies no display columns but its bytes were being counted as if
-  they did.
+  Control characters are now stripped at every chokepoint a rendered string passes
+  through: `clip` for one-line metadata (titles, paths, badges and the new
+  "applies to …" line), dialog bodies, the status bar, and the markdown body on its
+  way *into* the renderer — never on the way out, since glamour's own output is ANSI
+  by design. Dialog bodies and the status bar are covered in their own right rather
+  than through `clip`, which only ever sees a string long enough to truncate: a
+  short escape-bearing title reaches a delete or withdraw confirm whole.
+
+  The guard is not only about scanned files. A team memory's frontmatter comes from
+  the shared store, and a git failure carries the subprocess's captured output, so
+  both reach the UI as text nobody local wrote — which is why the status bar, where
+  most errors land, is one of the chokepoints.
+
+  Newlines and tabs survive in a body because markdown uses both structurally; in a
+  one-line sink a newline becomes a space, so a multi-line git error does not run
+  its lines together. Stripping before measuring also corrects a width miscount,
+  since an escape sequence occupies no display columns but its bytes were being
+  counted as if they did.
 
 ### Removed
 - **The project `.mcp.json` is gone.** It registered the `context7` and
