@@ -26,6 +26,13 @@ auto-learned memories through your own git remote.
   `.github/instructions/*.instructions.md` list per project. No assistant exposes a memory
   API, so other sources arrive as local files first, export/import later.
 
+- Team sharing: promote a memory — or several at once, marked with `space`, as a single
+  commit and push — into a git store your team already has. A project-scoped memory is keyed
+  to the git remote and lands in teammates' memory folders when they pull. A global-scoped one
+  is tied to no repo: it lives in the store and keeps every copy you already hold in step, in
+  whichever project you keep it. Every promoted memory is scanned for secrets first, including
+  credentials broken across lines by a soft wrap or a YAML block scalar.
+
 ## Docs
 
 - [README](https://github.com/ertugrulhaskan/engram#readme): install, keybindings, usage

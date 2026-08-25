@@ -355,7 +355,7 @@
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900">
         <div class="mb-3 font-mono text-xs text-blue-700 dark:text-blue-400">team · global</div>
         <h3 class="mb-1.5 text-base text-neutral-900 dark:text-neutral-200">Shared team-wide</h3>
-        <p class="text-sm text-neutral-600 dark:text-neutral-400">Tied to no repo. It lives in the team store, and anyone can browse it and pull it into whichever project they like.</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">Tied to no repo, for what isn't about one codebase. It lives in the team store, and keeps every copy you hold in step.</p>
       </div>
     </div>
     <p class="mb-7 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">engram keys sharing to your git remote: <b class="font-semibold text-neutral-900 dark:text-neutral-200">project</b> memories follow the repo, <b class="font-semibold text-neutral-900 dark:text-neutral-200">global</b> memories follow the team.</p>
@@ -363,7 +363,7 @@
     <div class="mb-4 flex flex-col items-stretch md:flex-row">
       <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">1 · once</span><code class="font-semibold text-blue-700 dark:text-blue-400">engram init-team &lt;git-url&gt;</code></div>
       <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
-      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">2 · in the TUI</span>select &amp; <b class="font-semibold text-blue-700 dark:text-blue-400">promote</b> · commit + push</div>
+      <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">2 · in the TUI</span>mark &amp; <b class="font-semibold text-blue-700 dark:text-blue-400">promote</b> · one commit + push</div>
       <span class="my-2 self-center rotate-90 px-3 text-lg text-blue-600 md:my-0 md:rotate-0 dark:text-blue-400" aria-hidden="true">→</span>
       <div class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3.5 font-mono text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><span class="mb-1.5 block text-xs text-neutral-600 dark:text-neutral-400">3 · teammate</span><b class="font-semibold text-blue-700 dark:text-blue-400">pull</b> · lands where Claude reads</div>
     </div>
@@ -371,7 +371,7 @@
       <p class="mb-3 text-t-dim">sync states · outlined words stay readable without color; the preview strip explains direction and offers the next action</p>
       <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-ok">[synced]</span><span class="text-t-dim">in sync with the team store</span></div>
-        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-info">[behind]</span><span class="text-t-dim">team moved; pull a project copy, resolve a global one</span></div>
+        <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-info">[behind]</span><span class="text-t-dim">team moved; pull to take it</span></div>
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-warn">[ahead]</span><span class="text-t-dim">your edits are not shared yet; promote</span></div>
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-danger">[conflict]</span><span class="text-t-dim">both sides moved; resolve in your editor</span></div>
         <div class="flex items-baseline gap-3"><span class="w-24 shrink-0 text-t-danger">[missing]</span><span class="text-t-dim">absent from the store; promote again</span></div>
@@ -435,7 +435,7 @@
     <h2 class="mb-7 font-mono text-2xl font-extrabold tracking-tight text-neutral-900 md:text-3xl dark:text-white">What's here, what's next</h2>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Local browsing</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Discover, search, edit, plans, the @Claude assistant, and Midnight, Paperback, and CRT themes.</p></div>
-      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Promote, pull, resolve &amp; withdraw, direction-aware badges, secret-scan on the way out.</p></div>
+      <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-green-600 px-2.5 py-0.5 font-mono text-xs text-green-700 dark:border-green-500 dark:text-green-500">available</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Team sharing over git</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Promote one or a whole marked batch, pull, resolve &amp; withdraw, direction-aware badges, secret-scan on the way out.</p></div>
       <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-700 dark:bg-neutral-900"><div class="mb-3 flex items-center justify-end"><span class="rounded-full border border-neutral-300 px-2.5 py-0.5 font-mono text-xs text-blue-700 dark:border-neutral-700 dark:text-blue-400">started</span></div><h3 class="text-base text-neutral-900 dark:text-neutral-200">Other assistants</h3><p class="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">AGENTS.md, GEMINI.md, Copilot's instructions and Cursor rules are browsable now — per project, in any folder you point engram at, and the global ones in your home folder. Next: ChatGPT and Gemini app via export/import.</p></div>
     </div>
   </section>
