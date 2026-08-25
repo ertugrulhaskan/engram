@@ -174,6 +174,12 @@ To cut a release:
    repair — which is what happened at `v0.3.0`. A failure here means no release was
    published; fix the token and re-push the tag.
 
+   You can run that same check on its own at any time, without cutting a release —
+   the **verify tap token** workflow (`gh workflow run verify-tap-token.yml`). A
+   token's value can never be read back, so CI is the only place able to test the
+   credential actually in use. Both workflows share
+   `.github/scripts/verify-tap-token.sh`, so they cannot drift apart.
+
    The workflow then runs GoReleaser, which builds cross-platform binaries
    (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
    archives + checksums, and pushes an updated formula to the Homebrew tap.

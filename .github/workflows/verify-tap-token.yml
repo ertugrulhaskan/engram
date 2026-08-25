@@ -1,0 +1,25 @@
+name: verify tap token
+
+# On demand only. Answers "can HOMEBREW_TAP_TOKEN still write the tap?" without
+# cutting a release — the token's value cannot be read back by anyone, so CI is
+# the only place that can test the credential actually in use.
+#
+# Worth having because this token rotted silently once: it lost tap access on
+# 2026-07-07 and that only surfaced a month later, when the v0.3.0 release failed
+# with a live release and a stale cask.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify the tap token can write the Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: .github/scripts/verify-tap-token.sh
