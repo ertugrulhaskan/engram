@@ -112,21 +112,49 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 		}
 	}
 
+	// Every store copy, keyed by id. Built once: applyExisting needs it to tell a
+	// dual-scope id apart, and the withdrawal pass below needs the same map.
+	storeAll := storeIndexByID(dir)
+
 	projectsRoot := filepath.Join(dir, "projects")
 	touched := map[string]bool{}
 	localByID := map[string]map[string]string{} // memDir -> (engram id -> local path)
 
 	// applyExisting reconciles one existing local copy against its store copy — the
 	// three-way decision (fast-forward / ahead / conflict / up-to-date) both the
-	// projects/ and global/ walks share. A non-empty wantProject only reconciles a
-	// local copy whose engram.project tracks that scope, so a stale dual-scope id
-	// (the same memory under global/ and projects/<key>/) is never fast-forwarded
-	// against the wrong store copy — mirroring storeCopyRaw's matching rule.
-	applyExisting := func(memDir, localPath string, teamRaw []byte, wantProject string) {
+	// projects/ and global/ walks share.
+	//
+	// An id can sit under global/ *and* projects/<key>/ at once — promote a memory
+	// to a project, then promote it globally, and the first copy is left behind.
+	// Only one of those is the copy a given local file tracks, and reconciling
+	// against the other pulls the file backwards onto content the user already
+	// moved off. So when an id has more than one store copy, pick the one this
+	// file tracks and let only that walk act: the copy whose engram.project
+	// matches, else the first the store index found. That is exactly
+	// storeCopyRaw's rule, which is what decided the [behind] badge that sent the
+	// user here — badge and action must resolve to the same copy.
+	//
+	// The guard engages only on that genuine ambiguity. With a single store copy
+	// there is nothing to choose, so a file recording a scope the store no longer
+	// carries is still reconciled rather than stranded as a dead pull key, and a
+	// file recording no scope at all is handled once rather than by both walks.
+	applyExisting := func(memDir, localPath string, teamRaw []byte) {
 		localRaw, _ := os.ReadFile(localPath)
 		localMeta, _, _ := memory.ReadEngram(string(localRaw))
-		if wantProject != "" && localMeta.Project != wantProject {
-			return // this copy tracks another scope's store copy — not ours to touch
+		if copies := storeAll[localMeta.ID]; len(copies) > 1 {
+			tracked := ""
+			for _, c := range copies {
+				if cm, ok, _ := memory.ReadEngram(c); ok && cm.Project == localMeta.Project {
+					tracked = c
+					break
+				}
+			}
+			if tracked == "" {
+				tracked = copies[0]
+			}
+			if tracked != string(teamRaw) {
+				return // another scope's copy — that walk's to reconcile, not this one
+			}
 		}
 		if sameContent(string(localRaw), string(teamRaw)) {
 			res.UpToDate++
@@ -163,7 +191,7 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 		}
 		if meta.ID != "" {
 			if localPath, exists := ids[meta.ID]; exists {
-				applyExisting(memDir, localPath, teamRaw, "")
+				applyExisting(memDir, localPath, teamRaw)
 				return
 			}
 		}
@@ -269,7 +297,7 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 				localByID[memDir] = ids
 			}
 			if localPath, exists := ids[meta.ID]; exists {
-				applyExisting(memDir, localPath, teamRaw, "global")
+				applyExisting(memDir, localPath, teamRaw)
 			}
 		}
 		return nil
@@ -283,7 +311,6 @@ func applyPull(dir string, targets []ProjectTarget, write bool) (PullResult, err
 	// copy or demote the owner's own other-checkout copy back to personal. A
 	// re-promoted id is back in the store (tombstone cleared), so it is left alone.
 	if withdrawn := readWithdrawn(dir); len(withdrawn) > 0 {
-		storeAll := storeIndexByID(dir) // ids present anywhere in the store (any scope)
 		me, _ := runGitCapture(dir, "config", "user.email")
 		for _, t := range targets {
 			// No Key requirement, matching the global walk above: a remoteless

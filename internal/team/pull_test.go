@@ -653,3 +653,189 @@ func TestPullPropagatesWithdrawalToRemotelessProject(t *testing.T) {
 		t.Errorf("copy was not demoted to personal:\n%s", got)
 	}
 }
+
+// The mirror of TestPullGlobalIgnoresProjectScopedCopy: here the local copy tracks
+// global/ and the abandoned projects/<key>/ copy is the stale one. The projects walk
+// used to reconcile with no scope guard at all, so it fast-forwarded the local file
+// *backwards* onto the copy the user had already moved off — silent data loss reached
+// by two ordinary actions (promote to a project, then promote the same memory globally).
+func TestPullProjectWalkIgnoresGlobalScopedCopy(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = G\n\temail = g@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+
+	key := "github.com/acme/app"
+	localMem := filepath.Join(root, "myproj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(localMem, "note.md")
+	if err := os.WriteFile(memPath, []byte("---\nname: note\n---\n# Note\n\nproject truth\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Shared to the project first — this is the copy that goes stale.
+	if _, err := Promote(memPath, key); err != nil {
+		t.Fatalf("Promote to project: %v", err)
+	}
+
+	// The user edits it, then re-promotes the same memory globally. Promote restamps
+	// engram.project to "global"; the projects/<key>/ copy is left behind in the store.
+	raw, err := os.ReadFile(memPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(memPath, []byte(strings.Replace(string(raw), "project truth", "global truth", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(memPath, "global"); err != nil {
+		t.Fatalf("Promote to global: %v", err)
+	}
+
+	res, err := Pull([]ProjectTarget{{Key: key, MemoryDir: localMem}})
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	// The global walk sees an identical copy; the projects walk must contribute
+	// nothing — above all not a fast-forward back onto the abandoned copy.
+	if want := (PullResult{UpToDate: 1}); res != want {
+		t.Errorf("Pull = %+v, want %+v", res, want)
+	}
+	after, err := os.ReadFile(memPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(after), "global truth") {
+		t.Error("pull reverted the local file onto the abandoned projects/<key>/ copy")
+	}
+	if strings.Contains(string(after), "project truth") {
+		t.Error("the stale project-scoped content came back")
+	}
+	if m, _, _ := memory.ReadEngram(string(after)); m.Project != "global" {
+		t.Errorf("engram.project = %q, want \"global\" — pull reset the scope", m.Project)
+	}
+}
+
+// dualScopeStore sets up a store holding one id under BOTH global/ and
+// projects/<key>/, plus a local copy at the shared base. localProject is what the
+// local file records in engram.project — "" for a memory that predates the field.
+func dualScopeStore(t *testing.T, localProject string, withProjectCopy bool) (string, string) {
+	t.Helper()
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = D\n\temail = d@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	teamDir, _ := Dir()
+	key := "github.com/acme/app"
+
+	base := "---\nname: n\n---\n# N\n\nbase\n"
+	dig, err := memory.ContentDigest(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localMem := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(localMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	local, err := memory.WriteEngram(base, memory.EngramMeta{ID: "DS-1", Scope: "team", Project: localProject, SyncedHash: dig})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localMem, "n.md"), []byte(local), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	write := func(rel, body, proj string) {
+		d, _ := memory.ContentDigest(body)
+		raw, err := memory.WriteEngram(body, memory.EngramMeta{ID: "DS-1", Scope: "team", Project: proj, SyncedHash: d})
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(teamDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("global/n.md", "---\nname: n\n---\n# N\n\nglobal advanced\n", "global")
+	if withProjectCopy {
+		write("projects/"+key+"/n.md", "---\nname: n\n---\n# N\n\nproject advanced\n", key)
+	}
+	return key, localMem
+}
+
+// A dual-scope id must be reconciled by exactly ONE walk. When the local copy
+// records no project, both walks used to claim it: the plan counted the file twice
+// while the apply wrote it once, so the confirm dialog asked the user to approve a
+// number the apply would not deliver — breaking applyPull's own invariant that a
+// confirmed plan can never disagree with its apply.
+func TestPullDualScopePlanMatchesApply(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	key, localMem := dualScopeStore(t, "", true)
+	targets := []ProjectTarget{{Key: key, MemoryDir: localMem}}
+
+	plan, err := PullPlan(targets)
+	if err != nil {
+		t.Fatalf("PullPlan: %v", err)
+	}
+	applied, err := PullApply(targets)
+	if err != nil {
+		t.Fatalf("PullApply: %v", err)
+	}
+	if plan != applied {
+		t.Errorf("plan %+v != apply %+v — one file was counted by both walks", plan, applied)
+	}
+	if plan.Updated != 1 {
+		t.Errorf("Updated = %d, want 1 — a single local file, reconciled once", plan.Updated)
+	}
+}
+
+// The mirror concern: the guard must not strand a file. A local copy recording a
+// scope the store no longer carries has only one store copy to reconcile against,
+// so there is no ambiguity to guard — it must still pull, or it badges [behind]
+// forever with a dead `p` key.
+func TestPullReconcilesWhenRecordedScopeIsGone(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	// local records the project scope, but only the global copy exists in the store
+	key, localMem := dualScopeStore(t, "github.com/acme/app", false)
+
+	res, err := Pull([]ProjectTarget{{Key: key, MemoryDir: localMem}})
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if res.Updated != 1 {
+		t.Errorf("Updated = %d, want 1 — the only store copy must still reconcile", res.Updated)
+	}
+	got, err := os.ReadFile(filepath.Join(localMem, "n.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "global advanced") {
+		t.Error("the local copy was stranded instead of taking the store's only copy")
+	}
+}

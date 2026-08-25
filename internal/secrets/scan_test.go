@@ -286,3 +286,31 @@ func TestWrapBoundaryIsMultibyteSafe(t *testing.T) {
 		t.Errorf("emoji directly before the run broke the join: %+v", segs)
 	}
 }
+
+// One secret, one finding. A logical segment reports the line it *starts* on, so a
+// complete secret preceded by a token-like run was reported twice: once by the
+// physical pass at its real line, and again by the logical pass at the line above,
+// which holds no secret. Under block-strict that told the user to remove something
+// that wasn't there, and since the modal shows only the first few findings, the
+// duplicate pushed genuine ones behind "+N more".
+func TestScanReportsAWrappedSecretOnce(t *testing.T) {
+	// Line 1 ends in a token-like run, so the wrap join fires; line 2 is a complete
+	// AWS key the physical pass finds on its own.
+	content := "seed abc123def456ghi789xyz\nAKIA1234567890ABCDEF\ntail\n"
+
+	got := Scan(content, ScopeSecrets)
+	aws := 0
+	for _, f := range got {
+		if f.Rule == "aws-access-key-id" {
+			aws++
+		}
+	}
+	if aws != 1 {
+		t.Errorf("aws-access-key-id reported %d times, want 1:\n%+v", aws, got)
+	}
+	for _, f := range got {
+		if f.Rule == "aws-access-key-id" && f.Line != 2 {
+			t.Errorf("reported on line %d, want 2 — the line the key is actually on", f.Line)
+		}
+	}
+}

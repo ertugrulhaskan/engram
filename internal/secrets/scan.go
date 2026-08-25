@@ -63,7 +63,8 @@ var rules = []rule{
 // line it starts on — so a match spanning a wrap still reports where it began.
 type segment struct {
 	text string
-	line int
+	line int // 1-based line the segment starts on — the line a finding reports
+	end  int // 1-based line it ends on; equal to line unless a wrap joined more
 }
 
 // Scan returns the secrets found in content (empty when clean).
@@ -95,9 +96,21 @@ func Scan(content string, scope Scope) []Finding {
 	for _, f := range out {
 		seen[key{f.Rule, f.Line}] = true
 	}
-	for _, f := range scanSegments(logicalSegments(content), scope) {
-		if k := (key{f.Rule, f.Line}); !seen[k] {
-			seen[k] = true
+	// A logical finding reports the line its segment *starts* on, which is not
+	// where the secret necessarily sits — so keying the dedup on that line alone
+	// let one secret be reported twice, the second time against a line holding
+	// nothing. A logical hit is a duplicate when the physical pass already named
+	// that rule anywhere the segment spans.
+	for _, seg := range logicalSegments(content) {
+		for _, f := range scanSegments([]segment{seg}, scope) {
+			dup := false
+			for ln := seg.line; ln <= seg.end && !dup; ln++ {
+				dup = seen[key{f.Rule, ln}]
+			}
+			if dup {
+				continue
+			}
+			seen[key{f.Rule, f.Line}] = true
 			out = append(out, f)
 		}
 	}
@@ -307,7 +320,7 @@ func physicalSegments(content string) []segment {
 	lines := strings.Split(content, "\n")
 	segs := make([]segment, len(lines))
 	for i, ln := range lines {
-		segs[i] = segment{text: ln, line: i + 1}
+		segs[i] = segment{text: ln, line: i + 1, end: i + 1}
 	}
 	return segs
 }
@@ -346,21 +359,23 @@ func tokenLike(run string) bool {
 func logicalSegments(content string) []segment {
 	lines := strings.Split(content, "\n")
 	var segs []segment
-	cur, start := lines[0], 1
+	cur, start, end := lines[0], 1, 1
 	for i := 1; i < len(lines); i++ {
 		next := strings.TrimLeft(lines[i], " \t")
 		if strings.HasSuffix(cur, `\`) {
 			cur = strings.TrimSuffix(cur, `\`) + next
+			end = i + 1
 			continue
 		}
 		if tokenLike(cur[len(cur)-tailRun(cur):]) && tokenLike(next[:headRun(next)]) {
 			cur += next
+			end = i + 1
 			continue
 		}
-		segs = append(segs, segment{text: cur, line: start})
-		cur, start = lines[i], i+1
+		segs = append(segs, segment{text: cur, line: start, end: end})
+		cur, start, end = lines[i], i+1, i+1
 	}
-	return append(segs, segment{text: cur, line: start})
+	return append(segs, segment{text: cur, line: start, end: end})
 }
 
 // isWrapChar reports whether r can appear inside a wrapped credential — the

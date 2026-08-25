@@ -215,6 +215,28 @@ sitting under a name that gives nothing away, no longer slips through.
   re-checked word-for-word.
 
 ### Fixed
+- **Pull no longer reverts a memory you re-promoted to a different scope.** A
+  memory promoted to a project and later promoted globally leaves its original
+  `projects/<key>/` copy behind in the store — the same id under two scopes. The
+  projects walk matched that abandoned copy by id and fast-forwarded the local
+  file onto it, undoing the newer content and resetting `engram.project` back to
+  the project key. Two ordinary actions, silent loss, and the `>pull` confirm
+  reported it as an ordinary update.
+
+  Where an id has more than one store copy, pull now reconciles only against the
+  copy the local file actually tracks: the one whose `engram.project` matches, or
+  failing that the first the store index found. That is the rule `storeCopyRaw`
+  already used to decide the `[behind]` badge, so the badge and the action it
+  offers now resolve to the same copy — previously the badge could describe one
+  copy while pull wrote another.
+
+  The guard engages only on that genuine ambiguity. A memory with a single store
+  copy is reconciled exactly as before, including one whose recorded scope the
+  store no longer carries — skipping those would strand them as permanently
+  `[behind]` behind a dead `p` key.
+
+  Reachable since `v0.3.0`, which walked `projects/` only and applied no scope
+  check at all.
 - **The type chip names a type the way the rows do.** Cycling `t` to the memories
   with no frontmatter type left the chip reading `type: unknown` while every row it
   had just filtered badged `other` — the chip rendered the raw enum value where the
