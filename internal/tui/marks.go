@@ -19,22 +19,28 @@ import (
 // Clearing the map entirely when the last mark goes matches toggleMarkList —
 // nil is what collapses the mark column back to zero width, so a batch that
 // emptied leaves no trace of itself in the list.
-func (m *Model) pruneMarks(mems []memory.Memory) {
+// It returns how many marks it dropped, so a caller can tell whether the marked
+// set changed underneath an open batch dialog — a dialog deciding a scope for a
+// set that has since changed is deciding about the wrong thing.
+func (m *Model) pruneMarks(mems []memory.Memory) int {
 	if len(m.marks) == 0 {
-		return
+		return 0
 	}
 	live := make(map[string]bool, len(mems))
 	for _, mm := range mems {
 		live[mm.Path] = true
 	}
+	dropped := 0
 	for p := range m.marks {
 		if !live[p] {
 			delete(m.marks, p)
+			dropped++
 		}
 	}
 	if len(m.marks) == 0 {
 		m.marks, m.batchItems = nil, nil
 	}
+	return dropped
 }
 
 // listedMemoryPaths returns the path of every memory row in the list. Both

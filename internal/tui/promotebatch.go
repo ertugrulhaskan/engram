@@ -23,12 +23,22 @@ type batchItem struct {
 // a filter typed after marking hides rows, and silently dropping those marks
 // would promote less than the user marked without ever saying so.
 func (m Model) actionPromoteBatch() (tea.Model, tea.Cmd) {
+	// Marked memories cluster into far fewer projects than there are marks —
+	// `t` then `a` marks a whole type, which is typically one project's worth
+	// several times over. team.ProjectKey shells out to git, and this runs on the
+	// Bubble Tea event loop, so resolving per memory would stall the UI for one
+	// process per mark. Resolve per project directory instead and reuse it.
+	keys := make(map[string]string, 8)
 	items := make([]batchItem, 0, len(m.marks))
 	for _, mm := range m.memories {
 		if !m.marks[mm.Path] {
 			continue
 		}
-		key, _ := team.ProjectKey(mm.Project.Dir) // "" when the project has no remote
+		key, seen := keys[mm.Project.Dir]
+		if !seen {
+			key, _ = team.ProjectKey(mm.Project.Dir) // "" when the project has no remote
+			keys[mm.Project.Dir] = key
+		}
 		items = append(items, batchItem{path: mm.Path, title: mm.Title, key: key})
 	}
 	if len(items) == 0 {
@@ -122,9 +132,12 @@ func batchScopeSub(items []batchItem) string {
 	return s
 }
 
-// batchHeader names the batch in a dialog header.
+// batchHeader names the batch in a dialog header. It plurals for the same reason
+// the mechanics line below it does: marking one memory and pressing P is an
+// ordinary thing to do, and "promote 1 memories" is the first thing that batch
+// shows you.
 func batchHeader(n int) string {
-	return fmt.Sprintf("promote %d memories — pick a scope", n)
+	return pluralLine(n, "promote 1 memory — pick a scope", "promote %d memories — pick a scope")
 }
 
 // promoteNoun words the result toast for however many memories actually went.

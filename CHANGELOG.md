@@ -215,6 +215,24 @@ sitting under a name that gives nothing away, no longer slips through.
   re-checked word-for-word.
 
 ### Fixed
+- **The batch scope dialog no longer promotes a set you did not choose.** A
+  background reload drops marks whose memory left the list. Doing that while the
+  scope dialog was open emptied the batch without closing the dialog, so `enter`
+  stopped reading as a batch and fell through to the single-memory path — which
+  promoted an unset path and failed with `open :`. A partial prune was the worse
+  half: the dialog stayed open and would have promoted the remainder. Any change
+  to the marked set now cancels the dialog and says so, rather than quietly
+  deciding about a different set than the one on screen.
+- **`promote 1 memories` reads as `promote 1 memory`.** Marking a single memory
+  and pressing `P` is ordinary, and the header is the first thing that batch
+  shows. The mechanics line four rows below it in the same dialog was already
+  plural-aware.
+- **Marking a whole type no longer stalls the UI.** Resolving each marked
+  memory's project key shells out to git, and the batch did it once per mark on
+  the event loop — `t` then `a` on a large type meant one process per memory.
+  Keys resolve once per project directory now, which is the count that actually
+  varies.
+
 - **Pull no longer reverts a memory you re-promoted to a different scope.** A
   memory promoted to a project and later promoted globally leaves its original
   `projects/<key>/` copy behind in the store — the same id under two scopes. The

@@ -191,7 +191,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fsSig = msg.sig
 		// A mark whose memory left the list is dead weight that still arms the
 		// batch — drop it here, where the list is replaced.
-		m.pruneMarks(msg.mems)
+		//
+		// Doing that under an open batch scope dialog has to cancel the dialog,
+		// not just thin the set. With batchItems emptied, the enter branch in
+		// updatePromoteScope stops reading as a batch and falls through to the
+		// single-memory path, which promotes m.promotePath — unset for a batch,
+		// so it fails with "open :". A partial prune is worse than the error: the
+		// dialog would go on to promote a set the user never chose.
+		wasBatch := m.mode == modePromoteScope && len(m.batchItems) > 0
+		var markCmd tea.Cmd
+		if dropped := m.pruneMarks(msg.mems); dropped > 0 && wasBatch {
+			m.mode = modeNormal
+			m.batchItems = nil
+			markCmd = m.setCancel("marked memories changed on disk — batch cancelled")
+		}
 		m.previewCache = nil
 		m.driftDir = "" // index may have changed — recompute on next syncPreview
 		// Store timestamps go stale with the states (a pull moves the store),
@@ -201,7 +214,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if prevPath != "" {
 			m.selectByPath(prevPath)
 		}
-		return withStoreTimeFetch(m, nil)
+		return withStoreTimeFetch(m, markCmd)
 
 	case clearStatusMsg:
 		if msg.seq == m.statusSeq {
