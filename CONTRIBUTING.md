@@ -167,7 +167,14 @@ To cut a release:
    git tag -a vX.Y.Z -m "engram vX.Y.Z"
    git push origin vX.Y.Z
    ```
-4. The `release` workflow runs GoReleaser, which builds cross-platform binaries
+4. The `release` workflow first verifies that `HOMEBREW_TAP_TOKEN` can actually
+   write the Homebrew tap, and **stops before publishing anything** if it cannot.
+   GoReleaser creates the GitHub Release first and pushes the cask last, so without
+   that gate a bad token yields a live release with a stale cask needing manual
+   repair — which is what happened at `v0.3.0`. A failure here means no release was
+   published; fix the token and re-push the tag.
+
+   The workflow then runs GoReleaser, which builds cross-platform binaries
    (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
    archives + checksums, and pushes an updated formula to the Homebrew tap.
 5. Deploy the site, so the version strings from step 2 actually reach visitors —
