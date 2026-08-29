@@ -110,9 +110,7 @@ func TestPreviewDefangsTerminalEscapes(t *testing.T) {
 	}
 	var tm tea.Model = New(nil, nil, docs, config.Config{})
 	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
-	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	tm = typeRunes(tm, "/files")
-	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	tm = switchVia(tm, "/files")
 
 	// Deliberately not ansi.Strip: that would remove the very sequence under
 	// test and turn this into a test that can never fail.

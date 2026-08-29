@@ -381,7 +381,12 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		// Marks come first: they are the most transient state esc can clear, and
 		// leaving them set after an esc would arm a batch the user thinks is gone.
-		if len(m.marks) > 0 {
+		// Only where they are shown, though: marks are a Share affordance, and
+		// on a source that draws no mark column esc would otherwise announce
+		// clearing state the user never saw — they wait for the return instead,
+		// where the column draws them again and a batch promote confirms its
+		// count before anything moves.
+		if len(m.marks) > 0 && m.caps().Share {
 			n := len(m.marks)
 			m.marks, m.batchItems = nil, nil
 			return m, m.setCancel(pluralLine(n, "1 mark cleared", "%d marks cleared"))
@@ -403,7 +408,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "e":
 		if !m.caps().Edit {
-			return m.denyEdit()
+			return m.denyWrite()
 		}
 		if mm, ok := m.selected(); ok {
 			return m, m.editCmd(mm.Path)
@@ -411,7 +416,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "n":
 		if !m.caps().Create {
-			return m.denyEdit()
+			return m.denyWrite()
 		}
 		m.mode = modeNew
 		m.input.SetValue("")
@@ -423,7 +428,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.input.Focus()
 	case "d":
 		if !m.caps().Delete {
-			return m.denyEdit()
+			return m.denyWrite()
 		}
 		if _, ok := m.selected(); ok {
 			m.mode = modeConfirm
@@ -509,6 +514,13 @@ func (m Model) updateNew(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if title == "" {
 			return m, m.setCancel("cancelled")
 		}
+		// Only the memories source has a create routine, and the Create gate
+		// lets no other source open this prompt — so any other source here is
+		// a wiring gap. Refuse: currentMemDir falls back to the first project's
+		// memory dir, which would otherwise plant a memory somewhere unrelated.
+		if m.srcKind != srcMemories {
+			return m, m.setDanger("can't create from this source")
+		}
 		dir := m.currentMemDir()
 		if dir == "" {
 			return m, m.setDanger("no project to add to")
@@ -539,19 +551,25 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y", "Y":
 		m.mode = modeNormal
 		if it, ok := m.selected(); ok {
+			// The Delete gate decides whether a source gets this far; this
+			// switch decides which routine runs, with no fall-through: a kind
+			// without a routine is refused, never guessed.
 			var err error
-			if it.Kind == "plan" {
+			toast := ""
+			switch it.Kind {
+			case "plan":
 				err = plan.Delete(it.Path)
-			} else {
-				err = memory.Delete(it.Path)
+				toast = "plan deleted"
+			case "memory":
+				if err = memory.Delete(it.Path); err == nil {
+					_ = memory.RemoveIndexForPath(it.Path) // drop its MEMORY.md bullet too
+				}
+				toast = "memory deleted — MEMORY.md updated"
+			default:
+				return m, m.setDanger("can't delete " + it.Kind + " items from here")
 			}
 			if err != nil {
 				return m, m.setDanger("delete failed: " + err.Error())
-			}
-			toast := "plan deleted"
-			if it.Kind == "memory" {
-				_ = memory.RemoveIndexForPath(it.Path) // drop its MEMORY.md bullet too
-				toast = "memory deleted — MEMORY.md updated"
 			}
 			return m, tea.Batch(m.setDanger(toast), reloadCmd())
 		}
@@ -562,11 +580,11 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// denyEdit answers an e/n/d key the current source's capabilities refuse: the
+// denyWrite answers an e/n/d key the current source's capabilities refuse: the
 // source's read-only hint when it has one (files), otherwise a silent no-op —
 // a denied key is also absent from the controls row, so silence matches what
 // the UI advertises.
-func (m Model) denyEdit() (tea.Model, tea.Cmd) {
+func (m Model) denyWrite() (tea.Model, tea.Cmd) {
 	if hint := readOnlyHint[m.srcKind]; hint != "" {
 		return m, m.setStatus(hint)
 	}

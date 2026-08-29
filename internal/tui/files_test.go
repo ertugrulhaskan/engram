@@ -15,11 +15,7 @@ import (
 // Ctrl+P then "/files" + Enter switches to the read-only files source, and the
 // selected row is an instruction/index doc (Kind "rules" or "index").
 func TestPaletteFilesSwitch(t *testing.T) {
-	var m tea.Model = ready(t) // ready() seeds sampleDocs()
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	m = typeRunes(m, "/files")
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	got := m.(Model)
+	got := toSource(t, "/files") // ready() seeds sampleDocs()
 	if got.srcKind != srcFiles {
 		t.Fatalf("srcKind=%v, want srcFiles", got.srcKind)
 	}
@@ -33,11 +29,7 @@ func TestPaletteFilesSwitch(t *testing.T) {
 // its own) must NOT borrow an unrelated project from the memory list: it launches
 // in ~/.claude with an empty memDir/projDir.
 func TestAssistantContextGlobalDoc(t *testing.T) {
-	var m tea.Model = ready(t) // memories present + sampleDocs (global CLAUDE.md first)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	m = typeRunes(m, "/files")
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	got := m.(Model)
+	got := toSource(t, "/files") // memories present + sampleDocs (global CLAUDE.md first)
 	it, ok := got.selected()
 	if !ok || it.Title != "CLAUDE.md" || it.Context != "global" {
 		t.Fatalf("expected the global CLAUDE.md selected, got %+v (ok=%v)", it, ok)

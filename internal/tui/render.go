@@ -672,14 +672,11 @@ func (m Model) ruleLine(cw int) string {
 func (m Model) confirmModal() string {
 	t := m.theme()
 	it, _ := m.selected()
-	kind := "memory"
 	body := []string{it.Title, it.Path}
-	if it.Kind == "plan" {
-		kind = "plan"
-	} else {
+	if it.Kind == "memory" {
 		body = append(body, "Its line in MEMORY.md is removed too.")
 	}
-	return m.dialog("✕", "delete this "+kind+"?", t.Danger,
+	return m.dialog("✕", "delete this "+it.Kind+"?", t.Danger,
 		body, []dialogAction{{"n cancel", false}, {"y delete", true}})
 }
 

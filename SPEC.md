@@ -690,6 +690,16 @@ will honour. A denied `e`/`n`/`d` answers with the source's `readOnlyHint` when 
 one (files name their escape hatch) and is otherwise silent — the key is absent from the
 controls row too, so there is nothing to explain.
 
+The gate decides *whether*; the executors decide *what runs*, and they fail closed too —
+on their own terms, a routine either exists for the kind or it doesn't. The delete confirm routes on the item's kind with no fall-through — a kind
+without a routine is refused, not guessed (the branch it replaced would have run
+`memory.Delete` on an instruction file) — and the new-memory prompt refuses any source
+but memories, since `currentMemDir` would otherwise fall back to the first project's
+memory dir and plant the file somewhere unrelated. Neither refusal is reachable through
+the keys today; they exist so that granting a capability to a new source without wiring
+its routine fails visibly. `esc` clears marks only where they are drawn: on a source
+without `Share` the marks wait for the return to memories.
+
 Two consequences are the point. The **zero value grants nothing**, so a new source is
 read-only until a capability is explicitly granted — forgetting to declare one fails as
 a missing feature, never as a silently granted write. And the wiring is stated once,

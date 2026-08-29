@@ -45,10 +45,7 @@ func TestMarkToggleOff(t *testing.T) {
 // Marking is a memories-only affordance: plans and the read-only files source
 // have nothing to promote, so space there must not quietly accumulate state.
 func TestMarkIgnoredOutsideMemories(t *testing.T) {
-	var m tea.Model = ready(t)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	m = typeRunes(m, "/files")
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	var m tea.Model = toSource(t, "/files")
 	if got := m.(Model); got.srcKind != srcFiles {
 		t.Fatalf("setup: srcKind=%v, want srcFiles", got.srcKind)
 	}

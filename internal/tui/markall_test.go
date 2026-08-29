@@ -167,10 +167,7 @@ func TestMarkAllDoesNotFireWhileSearching(t *testing.T) {
 // Marking is memories-only, exactly as space is: the read-only files source has
 // nothing to promote, so `a` there must not accumulate state.
 func TestMarkAllIgnoredOutsideMemories(t *testing.T) {
-	var m tea.Model = ready(t)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	m = typeRunes(m, "/files")
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	var m tea.Model = toSource(t, "/files")
 	if got := m.(Model); got.srcKind != srcFiles {
 		t.Fatalf("setup: srcKind=%v, want srcFiles", got.srcKind)
 	}

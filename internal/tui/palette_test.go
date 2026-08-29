@@ -205,9 +205,7 @@ func TestPlanDeleteAndGating(t *testing.T) {
 
 	var m tea.Model = New(nil, plans, nil, config.Config{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	m = typeRunes(m, "/plans")
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = switchVia(m, "/plans")
 	if m.(Model).srcKind != srcPlans {
 		t.Fatal("did not switch to plans")
 	}

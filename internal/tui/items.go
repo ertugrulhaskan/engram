@@ -53,7 +53,7 @@ type Item struct {
 	Detail     string         // extra preview-meta note (a rule file's scoping, e.g. "applies to src/**"); "" = none
 	MemDir     string         // memory dir for new/index/drift; "" for plans
 	ProjectDir string         // decoded project dir, for launching an assistant in context; "" for plans
-	Kind       string         // "memory" | "plan" — palette tag + feature gating
+	Kind       string         // "memory" | "plan" | a memory.DocKind ("rules"/"index") for files rows — palette tag + delete routing
 }
 
 // fuzzyScore reports whether all runes of query appear in order in s (case-

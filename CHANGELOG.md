@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `esc` on the plans or files source no longer clears — and announces clearing —
+  memory marks that aren't drawn there. Marks belong to the memories list; they
+  wait for you to come back, where the mark column shows them again — and a
+  batch promote still confirms its count before anything moves.
+
 ## [0.4.0] - 2026-08-24
 
 Phase 4 tier 1: engram stops being Claude-only. The local instruction files the
