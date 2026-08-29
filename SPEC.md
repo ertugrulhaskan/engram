@@ -473,15 +473,14 @@ engram/
     main.go                  # entry point: discover memories + plans → launch TUI; --version/--help; init-team subcommand
     internal/
         memory/              # NO UI here
-            memory.go        # types
-            discover.go      # walk projects, decode paths, fs signature
+            memory.go        # types; Caps — what the TUI may offer on memories (everything)
+            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile
-            docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source)
-            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots
+            docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source); DocsCaps (zero: read-only)
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
-        plan/                # discover plan-mode plans under ~/.claude/plans (a second read-only source)
+        plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
         config/              # load/save theme + editor under the XDG config dir; Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
             team.go          # package doc + Dir() (managed clone path) + IsInitialized()
@@ -498,8 +497,10 @@ engram/
             resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)
         secrets/             # NO UI here — pure credential scanning for the promote guard
             scan.go          # Scan: curated regexes + entropy layer over content → redacted findings (Scope: secrets / secrets+pii)
+        source/              # NO UI, NO IO — the per-source capability model (§8.3)
+            source.go        # Caps{Edit, Create, Delete, Share}: what a source lets the user do; zero value grants nothing
         tui/                 # NO file logic here
-            tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle)
+            tui.go           # package doc + shared enums/consts (focus, mode, srcKind, groupMode, typeCycle); srcCaps wiring + caps() gate + readOnlyHint
             model.go         # Model type, New, Init, theme/setTheme, styleInputs
             update.go        # Update dispatcher + per-mode key handlers
             view.go          # View, header block (tabs + controls rows, rule), status bar
@@ -666,6 +667,43 @@ Bidirectional-override characters (U+202A–U+202E, the "Trojan Source" class) a
 deliberately **not** stripped: they are legitimate in right-to-left text, and what they
 enable is visual deception rather than terminal control — a different problem needing a
 different answer than a blanket filter.
+
+
+### 8.3 Per-source capability (Phase 4, item 4)
+
+What the user may *do* to what a source shows is a fact the source's data package
+declares, not a `srcKind` comparison the TUI repeats at each key. `internal/source`
+holds one type, `Caps{Edit, Create, Delete, Share}`, and each data package declares its
+own next to the code that must honour it: `memory.Caps` grants everything (memories are
+engram's own domain — an edit keeps the promise that engram only ever adds frontmatter
+keys it owns), `plan.Caps` grants delete only (plans are plan-mode output engram has no
+business editing; deleting a stale one is housekeeping), and `memory.DocsCaps` is the
+zero value (instruction files belong to the assistant that reads them, so engram cannot
+promise an edit stays compatible with that tool — they are browsable only, with repairs
+routed through `@Claude`, §8.1).
+
+The TUI wires those into one table, `srcCaps`, indexed by `srcKind`, and every
+capability decision goes through one gate, `caps()`: `e`/`n`/`d` check `Edit`/`Create`/
+`Delete`, the four team dispatchers and the batch marks check `Share`, and the controls
+row is *derived* from the same struct, so the bar can only advertise a key the handler
+will honour. A denied `e`/`n`/`d` answers with the source's `readOnlyHint` when it has
+one (files name their escape hatch) and is otherwise silent — the key is absent from the
+controls row too, so there is nothing to explain.
+
+Two consequences are the point. The **zero value grants nothing**, so a new source is
+read-only until a capability is explicitly granted — forgetting to declare one fails as
+a missing feature, never as a silently granted write. And the wiring is stated once,
+which is what `TestCapsMatrix` pins: the decided matrix restated as a test, so a row
+drifting from the decision fails by name. The checks that remain on `srcKind` (type
+filter, grouping, reconcile, the drift banner) are deliberately not capabilities: they
+are about what memories *are* — typed, grouped by project, indexed — not what the user
+may do to them.
+
+The governing test for granting `Edit` to any future source is the one above: can
+engram keep the promise "stay compatible with the tool that owns this file"? Tier-2
+imports (server-side memories brought in by export or paste) become regular memories
+once imported — the import is an explicit user action, after which the vendor no longer
+owns the copy, so full capability applies.
 
 ## 9. Distribution
 

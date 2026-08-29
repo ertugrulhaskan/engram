@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ertugrulhaskan/engram/internal/source"
 )
 
 // DocKind classifies what an instruction doc *is*, independent of which
@@ -33,6 +35,13 @@ const (
 	ProviderCopilot DocProvider = "copilot" // .github/copilot-instructions.md + .github/instructions/*.instructions.md
 	ProviderCursor  DocProvider = "cursor"  // .cursor/rules/*.mdc
 )
+
+// DocsCaps declares the files source's capabilities: none — deliberately the
+// zero value. Instruction files are maintained by their own assistant (or by
+// hand outside engram), and engram cannot promise an edit stays compatible
+// with the tool that owns the file, so they are browsable only and repairs
+// route through @Claude (ENGR-12).
+var DocsCaps source.Caps
 
 // DocFile is an instruction file shown read-only in engram's files source: a
 // project's instruction files (see projectRuleFiles) or a MEMORY.md. These are

@@ -2,7 +2,17 @@
 // UI code.
 package memory
 
-import "time"
+import (
+	"time"
+
+	"github.com/ertugrulhaskan/engram/internal/source"
+)
+
+// Caps declares what the TUI may offer the user on memories: everything.
+// Memories are engram's own domain — editing keeps the promise that engram
+// only ever adds frontmatter keys it owns, which is ENGR-12's governing test
+// for granting Edit.
+var Caps = source.Caps{Edit: true, Create: true, Delete: true, Share: true}
 
 // Type is the category of a memory, taken from Claude's `metadata.type`.
 type Type string

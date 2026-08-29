@@ -31,8 +31,8 @@ func (m Model) gitMissing() tea.Cmd {
 
 // actionPromote opens the scope picker for the selected memory.
 func (m Model) actionPromote() (tea.Model, tea.Cmd) {
-	if m.srcKind != srcMemories {
-		return m, m.setStatus("promote applies to memories")
+	if !m.caps().Share {
+		return m.denyShare("promote")
 	}
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd
@@ -69,8 +69,8 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 // actionPull plans a pull of project-scoped team memories: the accounting is
 // computed (and shown for confirmation) before anything moves.
 func (m Model) actionPull() (tea.Model, tea.Cmd) {
-	if m.srcKind != srcMemories {
-		return m, m.setStatus("pull applies to memories")
+	if !m.caps().Share {
+		return m.denyShare("pull")
 	}
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd
@@ -83,8 +83,8 @@ func (m Model) actionPull() (tea.Model, tea.Cmd) {
 
 // actionWithdraw asks to take a shared memory back (a confirm follows).
 func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
-	if m.srcKind != srcMemories {
-		return m, m.setStatus("withdraw applies to memories")
+	if !m.caps().Share {
+		return m.denyShare("withdraw")
 	}
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd
@@ -119,8 +119,8 @@ func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
 // projects as global-pull targets, so `p` covers the ordinary case and this
 // remains for the ones it can't.
 func (m Model) actionResolve() (tea.Model, tea.Cmd) {
-	if m.srcKind != srcMemories {
-		return m, m.setStatus("resolve applies to memories")
+	if !m.caps().Share {
+		return m.denyShare("resolve")
 	}
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd

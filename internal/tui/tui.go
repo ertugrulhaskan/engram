@@ -4,6 +4,8 @@ package tui
 
 import (
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/plan"
+	"github.com/ertugrulhaskan/engram/internal/source"
 )
 
 type focus int
@@ -78,3 +80,27 @@ var typeCycle = []memory.Type{
 	memory.TypeReference,
 	memory.TypeUnknown,
 }
+
+// srcCaps wires each source to the capability set its data package declares
+// (ENGR-12): the memory package for memories and the read-only files source,
+// the plan package for plans. Key handlers ask caps() — the one capability
+// gate — rather than comparing srcKind, so a source's row here plus its
+// readOnlyHint entry below are its whole policy (TestCapsMatrix pins both),
+// and a source without a row gets the zero Caps, which grants nothing.
+// Checks that remain on srcKind (type filter, grouping, reconcile, the drift
+// banner) are about what memories *are*, not what the user may do.
+var srcCaps = [srcCount]source.Caps{
+	srcMemories: memory.Caps,
+	srcPlans:    plan.Caps,
+	srcFiles:    memory.DocsCaps,
+}
+
+// readOnlyHint is what a capability-denied e/n/d answers, per source: the
+// files source names its escape hatch, everywhere else the denial is silent —
+// the key is absent from the controls row too, so there is nothing to explain.
+var readOnlyHint = [srcCount]string{
+	srcFiles: "read-only — edit with @Claude (ctrl+p, then @)",
+}
+
+// caps returns the current source's capability set.
+func (m Model) caps() source.Caps { return srcCaps[m.srcKind] }

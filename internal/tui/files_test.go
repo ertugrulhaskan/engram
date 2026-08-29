@@ -51,19 +51,12 @@ func TestAssistantContextGlobalDoc(t *testing.T) {
 	}
 }
 
-// In the files source, e and d are read-only: they surface a hint pointing at
-// @Claude, never open the editor or the delete-confirm modal.
+// In the files source, e, n and d are read-only: they surface a hint pointing
+// at @Claude, never opening the editor, the new-memory input, or the
+// delete-confirm modal.
 func TestFilesReadOnly(t *testing.T) {
-	toFiles := func() Model {
-		var m tea.Model = ready(t)
-		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-		m = typeRunes(m, "/files")
-		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-		return m.(Model)
-	}
-
-	for _, key := range []string{"e", "d"} {
-		m := toFiles()
+	for _, key := range []string{"e", "n", "d"} {
+		m := toSource(t, "/files")
 		var cmd tea.Cmd
 		var tm tea.Model = m
 		tm, cmd = tm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})

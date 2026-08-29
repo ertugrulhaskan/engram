@@ -99,7 +99,12 @@ memories as each product allows.
 
 - [ ] Pluggable "source" abstraction (Claude Code is the first source) — *deliberately
       deferred until a third concrete source exists; designing the interface against one
-      real and several hypothetical implementations would encode guesses*
+      real and several hypothetical implementations would encode guesses*. **Its
+      capability half landed first** (2026-08-29, the last item below): `source.Caps`,
+      declared by each data package and consumed through one TUI gate. The load-path
+      interface stays deferred on the same reasoning — the vendors added so far are
+      providers *within* the files source (rows in `memory/docs.go`'s tables, where a new
+      one already costs no `internal/tui` change), not new collections
 - [x] **`AGENTS.md`** (Codex / cross-tool standard) — read-only in `/files`, with an
       `agents` badge. Found for projects engram already knows about (those with a
       `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear
@@ -134,7 +139,15 @@ memories as each product allows.
       Codex's `CODEX_HOME` / `AGENTS.override.md` precedence isn't honoured
 - [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
       since none of them exposes a memory API today (until/unless that changes)
-- [ ] Read-only at first; editing/sharing per source as feasible
+- [x] Read-only at first; editing/sharing per source as feasible *(decided and enforced
+      2026-08-29)* — memories: everything; plans: view + delete; files: read-only
+      (repairs via `@Claude`). Capability is a `source.Caps` each data package declares
+      (`memory.Caps`, `plan.Caps`, `memory.DocsCaps`), wired once in the TUI and asked
+      through one gate; the zero value grants nothing, so a new source is read-only until
+      granted, and the controls row is derived from the same struct so it can only
+      advertise a key that runs. The test for granting edit to any source: engram can
+      keep the promise "stay compatible with the tool that owns this file". Tier-2 imports
+      become regular memories once imported (SPEC §8.3)
 
 ---
 

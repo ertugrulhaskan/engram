@@ -301,19 +301,34 @@ func (m Model) hints(t Theme) string {
 	if m.groupBy == groupType {
 		group = "group by project"
 	}
+	// The action keys are derived from the source's capabilities, so the bar
+	// can only advertise what the handlers will actually do — the offer.go
+	// rule: never advertise an action that can't run.
 	var pairs [][2]string
-	if m.srcKind == srcPlans {
-		pairs = [][2]string{{"d", "delete"}}
-	} else if m.srcKind == srcFiles {
-		pairs = [][2]string{{"@", "edit via Claude"}}
-	} else {
-		pairs = [][2]string{
-			{"e", "edit"}, {"n", "new"}, {"d", "delete"}, {"t", "type"}, {"g", group},
-		}
+	caps := m.caps()
+	if caps.Edit {
+		pairs = append(pairs, [2]string{"e", "edit"})
+	}
+	if caps.Create {
+		pairs = append(pairs, [2]string{"n", "new"})
+	}
+	if caps.Delete {
+		pairs = append(pairs, [2]string{"d", "delete"})
+	}
+	if m.srcKind == srcMemories {
+		// Type and group are memories' data model (types, projects), not a
+		// capability — the other sources have neither to filter or group by.
+		pairs = append(pairs, [2]string{"t", "type"}, [2]string{"g", group})
 		if m.driftOut {
 			// Same verb as the banner chip — two wordings for one key is noise.
 			pairs = append(pairs, [2]string{"R", "reconcile"})
 		}
+	}
+	if readOnlyHint[m.srcKind] != "" {
+		// A source that names an escape hatch for its denied edits advertises it
+		// here. Keyed on the hint alone, not on !Edit, so a source wrongly
+		// carrying both shows both keys — visible drift, not a masked one.
+		pairs = append(pairs, [2]string{"@", "edit via Claude"})
 	}
 	pairs = append(pairs, [2]string{"^P", "palette"})
 	pairs = append(pairs, [2]string{"q", "quit"})

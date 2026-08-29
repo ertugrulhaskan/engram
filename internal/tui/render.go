@@ -177,7 +177,7 @@ const markGlyph = "✓"
 // marked, which keeps every single-select view byte-identical to before marking
 // existed.
 func (m Model) markColW() int {
-	if m.srcKind != srcMemories || len(m.marks) == 0 {
+	if !m.caps().Share || len(m.marks) == 0 {
 		return 0
 	}
 	return runewidth.StringWidth(markGlyph) + 1

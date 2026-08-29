@@ -348,10 +348,10 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.focus = focusList
 		return m, m.search.Focus()
 	case " ":
-		// Space marks the row for a batch promote. Memories only: plans and the
-		// read-only files source have nothing to promote, so a mark there would be
-		// a control that does nothing.
-		if m.srcKind != srcMemories {
+		// Space marks the row for a batch promote — a sharing affordance, so it
+		// follows the Share capability (memories only today: plans and the
+		// read-only files source have nothing to promote).
+		if !m.caps().Share {
 			return m, nil
 		}
 		it, ok := m.selected()
@@ -374,7 +374,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// promoting every `feedback` memory is `t` until the chip reads feedback,
 		// then `a` — no per-row marking, and no separate "promote a type" path to
 		// keep in step with the batch one.
-		if m.srcKind != srcMemories {
+		if !m.caps().Share {
 			return m, nil
 		}
 		return m.toggleMarkList()
@@ -402,22 +402,16 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "e":
-		if m.srcKind == srcFiles { // instruction docs are read-only here
-			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
-		}
-		if m.srcKind != srcMemories { // plans are view + delete only
-			return m, nil
+		if !m.caps().Edit {
+			return m.denyEdit()
 		}
 		if mm, ok := m.selected(); ok {
 			return m, m.editCmd(mm.Path)
 		}
 		return m, nil
 	case "n":
-		if m.srcKind == srcFiles { // read-only: no creating instruction docs here
-			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
-		}
-		if m.srcKind != srcMemories {
-			return m, nil
+		if !m.caps().Create {
+			return m.denyEdit()
 		}
 		m.mode = modeNew
 		m.input.SetValue("")
@@ -428,8 +422,8 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.input.Focus()
 	case "d":
-		if m.srcKind == srcFiles { // read-only: never delete an instruction doc
-			return m, m.setStatus("read-only — edit with @Claude (ctrl+p, then @)")
+		if !m.caps().Delete {
+			return m.denyEdit()
 		}
 		if _, ok := m.selected(); ok {
 			m.mode = modeConfirm
@@ -566,4 +560,22 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeNormal
 		return m, m.setCancel("cancelled")
 	}
+}
+
+// denyEdit answers an e/n/d key the current source's capabilities refuse: the
+// source's read-only hint when it has one (files), otherwise a silent no-op —
+// a denied key is also absent from the controls row, so silence matches what
+// the UI advertises.
+func (m Model) denyEdit() (tea.Model, tea.Cmd) {
+	if hint := readOnlyHint[m.srcKind]; hint != "" {
+		return m, m.setStatus(hint)
+	}
+	return m, nil
+}
+
+// denyShare answers a team action on a source without the Share capability:
+// the verb names itself so the line reads the same from the palette and the
+// key.
+func (m Model) denyShare(verb string) (tea.Model, tea.Cmd) {
+	return m, m.setStatus(verb + " applies to memories")
 }
