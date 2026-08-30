@@ -63,6 +63,13 @@ func NormalizeRemote(raw string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("remote URL has no path: %q", raw)
 	}
+	if host == "alias" {
+		// projects/alias/<name>/ is engram's namespace for alias-derived keys
+		// (see AliasKey); a remote whose host is literally "alias" — an ssh
+		// alias of that name — would key into it and share a bucket with a
+		// project keyed by alias. Refused so IsAliasKey is exact, not a guess.
+		return "", fmt.Errorf("remote host %q is reserved for engram's alias keys — rename the ssh alias", host)
+	}
 	return host + "/" + path, nil
 }
 

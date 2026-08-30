@@ -14,17 +14,19 @@ type pullFinishedMsg struct {
 	err error
 }
 
-// pullProj is one local project snapshot: its dir (for the git-remote lookup)
-// and its memory dir (the pull target).
-type pullProj struct{ dir, memDir string }
+// pullProj is one local project snapshot: its dir (for the git-remote lookup),
+// its memory dir (the pull target), and its configured alias, if any.
+type pullProj struct{ dir, memDir, alias string }
 
 // snapshotProjects captures each local project's (dir, memoryDir) pair on the
 // UI thread; the git remote lookups run in the background afterwards.
 func (m Model) snapshotProjects() []pullProj {
+	// Keyed by memory dir, the project's stable identity: two memory dirs can
+	// decode to one best-effort project dir, and each is its own pull target.
 	seen := map[string]pullProj{}
 	for _, mm := range m.memories {
 		if mm.Project.Dir != "" && mm.Project.MemoryDir != "" {
-			seen[mm.Project.Dir] = pullProj{mm.Project.Dir, mm.Project.MemoryDir}
+			seen[mm.Project.MemoryDir] = pullProj{mm.Project.Dir, mm.Project.MemoryDir, m.aliases[mm.Project.MemoryDir]}
 		}
 	}
 	projs := make([]pullProj, 0, len(seen))
@@ -37,20 +39,21 @@ func (m Model) snapshotProjects() []pullProj {
 // resolveTargets turns snapshotted projects into store keys (background work —
 // each lookup shells out to git).
 //
-// A project with no git remote keeps an empty Key rather than being dropped. It
-// can receive no *project*-scoped memory — it has no key to match one against,
-// and applyPull's byKey map still requires a non-empty key — but it can hold a
-// global one, and a remoteless project is exactly where global memories collect,
-// since promote falls back to global there. Dropping it here is what made `p`
-// a dead key on a [behind] global row: the status bar offered pull, and pull
-// never visited the directory.
+// A project with no git remote is keyed by its alias when one is configured
+// (>alias — team.ResolveKey, the same rule promote uses; the alias comes from
+// the map team.CleanAliases already validated), and otherwise keeps an empty
+// Key rather than being dropped. With no key it can receive no *project*-scoped
+// memory — there is nothing to match one against, and applyPull's byKey map
+// still requires a non-empty key — but it can hold a global one, and a
+// remoteless project is exactly where global memories collect, since promote
+// falls back to global there. Dropping it here is what made `p` a dead key on
+// a [behind] global row: the status bar offered pull, and pull never visited
+// the directory. One target per memory dir: applyPull's tombstone pass visits
+// each target, so a second key for the same dir would double its accounting.
 func resolveTargets(projs []pullProj) []team.ProjectTarget {
 	var targets []team.ProjectTarget
 	for _, p := range projs {
-		key, err := team.ProjectKey(p.dir)
-		if err != nil {
-			key = "" // git couldn't say — treat it as remoteless, not as absent
-		}
+		key, _ := team.ResolveKey(p.dir, p.alias)
 		targets = append(targets, team.ProjectTarget{Key: key, MemoryDir: p.memDir})
 	}
 	return targets

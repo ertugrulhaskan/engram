@@ -49,7 +49,8 @@ type Model struct {
 	storeTimeAsked map[string]bool
 
 	themeIdx       int
-	editorOverride string // optional editor command from config; "" = use env/host
+	editorOverride string            // optional editor command from config; "" = use env/host
+	aliases        map[string]string // config projectAliases: memory dir → alias, for projects with no git remote
 	typeIdx        int
 	groupBy        groupMode
 	focus          focus
@@ -94,10 +95,11 @@ type Model struct {
 	scanOverrode int             // flagged memories the user included anyway
 
 	// promote scope picker (modePromoteScope)
-	promotePath   string // memory file being promoted
-	promoteTitle  string // its title, for the modal header
-	promoteKey    string // resolved project key, or "" when the project has no remote
-	promoteCursor int    // 0 = this project, 1 = global
+	promotePath   string           // memory file being promoted
+	promoteTitle  string           // its title, for the modal header
+	promoteKey    string           // resolved project key, or "" when the project has no key
+	promoteState  team.RemoteState // why, when it has none: no remote (>alias would help), gone, or git couldn't say
+	promoteCursor int              // 0 = this project, 1 = global
 
 	// withdraw confirm (modeWithdrawConfirm)
 	withdrawPath  string           // memory being withdrawn
@@ -151,6 +153,7 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 		docs:           docs,
 		themeIdx:       themeIdx,
 		editorOverride: strings.TrimSpace(cfg.Editor),
+		aliases:        cleanAliases(cfg.ProjectAliases),
 		search:         se,
 		palette:        pal,
 		input:          ti,
@@ -191,9 +194,12 @@ func (m *Model) styleInputs() {
 
 // setTheme switches the active theme by index, restyles inputs, re-renders, and
 // persists the choice (best-effort) so it survives restarts.
-func (m *Model) setTheme(idx int) {
+// applyTheme switches the theme for the session; setTheme also persists it.
+// The /settings reload applies only — the file it just read is the source of
+// truth there, and saving would rewrite the file the user just edited.
+func (m *Model) applyTheme(idx int) bool {
 	if idx < 0 || idx >= len(themes) {
-		return
+		return false
 	}
 	m.themeIdx = idx
 	m.styleInputs()
@@ -205,11 +211,25 @@ func (m *Model) setTheme(idx int) {
 	m.buildRenderer()
 	m.previewCache = nil // glamour style changed
 	m.rebuildRows()
-	// Round-trip the file so unrelated settings (secret-scan policy) survive.
-	cfg := config.Load()
-	cfg.Theme = m.theme().Key
-	cfg.Editor = m.editorOverride
-	_ = config.Save(cfg)
+	return true
+}
+
+// setTheme applies the theme and persists it through config.Update, which
+// keeps unrelated settings and refuses to write over a file that did not
+// parse; that refusal is the one thing worth a status here.
+func (m *Model) setTheme(idx int) tea.Cmd {
+	if !m.applyTheme(idx) {
+		return nil
+	}
+	err := config.Update(func(c *config.Config) error {
+		c.Theme = m.theme().Key
+		c.Editor = m.editorOverride
+		return nil
+	})
+	if err != nil {
+		return m.setDanger("theme not saved — " + configErr(err))
+	}
+	return nil
 }
 
 func (m Model) Init() tea.Cmd { return pollCmd() }

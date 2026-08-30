@@ -47,8 +47,8 @@ func TestBatchScopeSub(t *testing.T) {
 		t.Fatalf("distinctKeys = (%d, %d), want (2, 1)", keys, remoteless)
 	}
 	sub := batchScopeSub(batchFixture())
-	if !strings.Contains(sub, "2 project keys") || !strings.Contains(sub, "no remote") {
-		t.Errorf("scope sub = %q, want the key count and the remote-less disclosure", sub)
+	if !strings.Contains(sub, "2 project keys") || !strings.Contains(sub, "without a key") {
+		t.Errorf("scope sub = %q, want the key count and the no-key disclosure", sub)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestBatchScopeModalNoRemotes(t *testing.T) {
 	m.promoteCursor = 1
 	m.mode = modePromoteScope
 	out := ansi.Strip(m.scopeModal())
-	if !strings.Contains(out, "none of these projects has a git remote") {
+	if !strings.Contains(out, "none of these projects has a key to promote under") {
 		t.Errorf("modal must disclose why only global is offered:\n%s", out)
 	}
 	if strings.Contains(out, "their own projects") {

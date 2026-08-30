@@ -171,7 +171,8 @@ var globalRuleFiles = []ruleFile{
 > resolve** UX, pull reconciling global-scoped memories, and multi-select promote,
 > including **promoting a whole type at once** — the type filter is the selection,
 > and `a` marks it.
-> Remaining: the remote-less alias fallback.
+> Remaining: alias *coordination* — the remote-less alias fallback itself shipped
+> 2026-08-29 (`>alias`).
 
 The shared store is **one git repo** the whole team can read/write. engram keeps
 a managed local clone and shells out to git for all sync.
@@ -182,7 +183,7 @@ a managed local clone and shells out to git for all sync.
   the team repo to `~/.config/engram/team/` (alongside the existing config), and
   if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
 - **Day-to-day, the team verbs live under the `>` command palette** (`ctrl+p` → `>`:
-  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`), a third prefix beside
+  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>alias <name>`), a third prefix beside
   `/` sources and `@Claude`, so engram stays a no-arg TUI for normal use. `>init` mirrors
   the `engram init-team` subcommand, which remains for first-run/CLI setup.
 - **No servers and no engram-level auth.** Access is whatever the git host grants
@@ -198,8 +199,61 @@ canonical `host/path` slug — lowercased, with the protocol, any `user@`, a
 trailing `.git`, and a trailing `/` stripped — so `git@github.com:acme/app.git`,
 `https://github.com/acme/app`, and `ssh://git@github.com/acme/app` all map to the
 same `github.com/acme/app`. Monorepos sharing one remote share one bucket in Phase 2
-(sub-keys are a later refinement). Projects with no remote fall back to a
-user-assigned alias.
+(sub-keys are a later refinement).
+
+Projects with no remote fall back to a **user-assigned alias**: `>alias <name>` on a
+memory in the project stores it as `projectAliases` (memory dir → alias) in the config
+— keyed by the memory dir because that is the project's stable identity, where the
+project dir is decoded best-effort from Claude's folder name and can change when the
+tree does. `team.NormalizeAlias` lowercases it — for the same reason `NormalizeRemote`
+does, so two spellings can't become two buckets a case-folding filesystem then merges
+— and admits exactly one path component that is safe on every platform the store
+might be checked out on (no slash, leading or trailing dot, or Windows device name),
+and `team.AliasKey` turns it into the key `alias/<name>`, so the store tree shows
+which buckets came from an alias. The remote always wins, and the fallback is narrow
+on purpose: `projectKey` (promote, batch promote) and `resolveTargets` (pull) consult
+the alias only for `team.ErrNoRemote` — the directory exists and either no repository
+encloses it or the repository has no `origin` — never for any other `ProjectKey`
+failure (a missing directory, an origin whose URL has no host/path, a repository git
+won't read), which would otherwise let a stale alias override a real remote on a
+hiccup. The rule lives once, in `team.ResolveKey`, which promote and pull both call;
+`team.ClassifyRemote` names the answer git reached (found / none / gone / unknown), and
+`ResolveKey` returns it beside the key, so `>alias` refuses by state and the promote
+dialog explains a key-less project truthfully — suggesting `>alias` only when there is
+no remote, not when git couldn't say. `ProjectKey` classifies
+a failure by git's exit status, not its message (2: no such remote; 128: not a
+repository — or one git can't read, so git itself is asked which with `rev-parse
+--git-dir`, under its own discovery rules rather than a hand-rolled `.git` walk). So
+a project that later gains a remote promotes under its remote key from then on; what
+was already promoted under the alias stays in that bucket, which pull reports as
+skipped, until it is promoted again (pull reads one key per memory dir — a second
+would double the tombstone pass's accounting — so migrating that bucket is a
+follow-up). A project whose directory has since vanished keeps using its alias (the
+alias was granted while the directory was there and had no remote; its going missing
+creates none — this is what keying by memory dir is for), though no new alias can be
+set on one. The map is validated once where it is read, by `team.CleanAliases`: values
+normalized, a malformed name dropped, a name two memory dirs both claim dropped from
+both — pull would treat one key in two memory dirs as one repo cloned twice, right for
+a remote and wrong for two projects — so promote and pull agree by construction.
+`>alias` refuses, saying why, on a project that has a remote (naming the key), on one
+git can't answer for, on Claude's home-folder project (keying it would push personal
+notes into a team bucket — `team.IsHomeDir`, which `ResolveKey` also honours, so even a
+hand-edited entry never keys it), on a name another project already holds
+(`team.SetAlias` — a holder whose memory dir is gone still holds the store bucket its
+memories were shared under, so the name is freed deliberately via `/settings`, never
+reclaimed), and on a config file that doesn't parse. That last rule is enforced in one
+place, `config.Update`: it reads through `config.Read`, which tells absent from
+unparseable (`ErrUnparseable`), so every writer — `>alias`, the theme keys, the seeded
+settings file — refuses rather than replacing the user's settings with defaults, and
+says so; the `/settings` reload applies the file it just read without saving it back,
+and names any `projectAliases` entry `CleanAliases` had to ignore. The `alias/`
+namespace is reserved at the key level: `NormalizeRemote` refuses a remote whose host
+is literally `alias`, so `IsAliasKey` is exact and an ssh alias of that name can never
+share a bucket with an alias-keyed project. Two witnesses decide "no repository":
+`rev-parse --git-dir` exiting 128 *and* no `.git` entry up the tree — either seeing a
+repository means git could not say, since a repository git refuses to read (dubious
+ownership) exits 128 from both commands. What the alias does not solve is
+coordination: two teammates must independently choose the same name to meet (§10).
 
 ### Shared repo layout
 
@@ -370,6 +424,10 @@ file) and applies a configured policy:
   (which action) lives in the TUI. A scan error blocks (fails closed).
 - `secretScanScope`: `secrets` (default — keys/tokens/private keys) · `secrets+pii`
   (also emails and card-like numbers; noisier).
+- `scanRoots`: extra directories to look for projects in (§8.2).
+- `projectAliases`: memory dir → alias, for projects with no git remote; set with
+  `>alias <name>`, cleared with `>alias -` (the alias fallback under "Project identity
+  across machines").
 
 Findings are **always redacted** (a short prefix + mask); the raw secret is never
 rendered or logged. For a provider key that prefix is a format marker (`AKIA`,
@@ -481,11 +539,12 @@ engram/
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
-        config/              # load/save theme + editor under the XDG config dir; Dir() base-path helper
+        config/              # load/save settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse); Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
             team.go          # package doc + Dir() (managed clone path) + IsInitialized()
             remote.go        # NormalizeRemote: git remote URL → canonical host/path key
-            identity.go      # ProjectKey: resolve a project's git remote to its team key
+            identity.go      # ProjectKey (git remote → key; ErrNoRemote by exit status), ClassifyRemote, ResolveKey (the one remote-first / alias fallback rule)
+            alias.go         # NormalizeAlias / AliasKey / IsAliasKey / CleanAliases: the alias fallback for a project with no remote (projects/alias/<name>/)
             init.go          # InitTeam: clone team repo, scaffold empty layout, commit, push (engram init-team)
             promote.go       # Promote a memory into the store (global/ or projects/<key>/), stamp the anchor, commit, push
             scan.go          # ScanForSecrets: read a file and run internal/secrets over it (IO kept out of the TUI)
@@ -513,6 +572,7 @@ engram/
             confirms.go      # pre-action confirms: pull accounting, resolve hunk preview, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
+            alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Read) + projectKey adapter over team.ResolveKey
             promote.go       # >promote: team scope picker modal + background promote command
             promotebatch.go  # >promote over a marked set: each memory's own project key, one commit
             marks.go         # the marked set: `a` toggles every memory in the list (the type filter is the selection)
@@ -769,10 +829,10 @@ owns the copy, so full capability applies.
 - Promoting whole *types* at once (e.g. "all feedback") — multi-select promote itself has shipped.
 - Monorepo sub-keys. Subprojects that share one git remote share one bucket under
   `projects/<key>/`; per-subdirectory keys are a later refinement.
-- Alias coordination for remote-less projects. The alias fallback itself is still
-  unbuilt (ROADMAP Phase 2), and even once it lands, two teammates must
-  independently choose the *same* alias for their memories to meet — a shared alias
-  map committed in the team repo is the likely fix.
+- Alias coordination for remote-less projects. The alias fallback shipped (`>alias`,
+  keys under `projects/alias/<name>/`), but two teammates must still independently
+  choose the *same* alias for their memories to meet — a shared alias map committed
+  in the team repo is the likely fix.
 - Phase 4: other assistants, in two tiers (source list in ROADMAP Phase 4). Local
   instruction files first — files on disk, no API needed. Server-side memories
   (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing

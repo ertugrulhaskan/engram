@@ -73,7 +73,10 @@ func (m *Model) openSettingsFile() tea.Cmd {
 		return m.setDanger("settings: " + err.Error())
 	}
 	if _, statErr := os.Stat(p); os.IsNotExist(statErr) {
-		_ = config.Save(config.Config{Theme: m.theme().Key, Editor: m.editorOverride})
+		_ = config.Update(func(c *config.Config) error {
+			c.Theme, c.Editor = m.theme().Key, m.editorOverride
+			return nil
+		})
 	}
 	return m.editCmd(p)
 }

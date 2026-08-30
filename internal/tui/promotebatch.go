@@ -25,19 +25,21 @@ type batchItem struct {
 func (m Model) actionPromoteBatch() (tea.Model, tea.Cmd) {
 	// Marked memories cluster into far fewer projects than there are marks —
 	// `t` then `a` marks a whole type, which is typically one project's worth
-	// several times over. team.ProjectKey shells out to git, and this runs on the
+	// several times over. projectKey shells out to git, and this runs on the
 	// Bubble Tea event loop, so resolving per memory would stall the UI for one
-	// process per mark. Resolve per project directory instead and reuse it.
+	// process per mark. Resolve per project instead and reuse it — per memory
+	// dir, the project's stable identity, since two memory dirs can decode to
+	// one best-effort project dir and would otherwise share one key.
 	keys := make(map[string]string, 8)
 	items := make([]batchItem, 0, len(m.marks))
 	for _, mm := range m.memories {
 		if !m.marks[mm.Path] {
 			continue
 		}
-		key, seen := keys[mm.Project.Dir]
+		key, seen := keys[mm.Project.MemoryDir]
 		if !seen {
-			key, _ = team.ProjectKey(mm.Project.Dir) // "" when the project has no remote
-			keys[mm.Project.Dir] = key
+			key = m.projectKey(mm.Project.Dir, mm.Project.MemoryDir) // "" when the project has neither a remote nor an alias
+			keys[mm.Project.MemoryDir] = key
 		}
 		items = append(items, batchItem{path: mm.Path, title: mm.Title, key: key})
 	}
@@ -127,7 +129,7 @@ func batchScopeSub(items []batchItem) string {
 	keys, remoteless := distinctKeys(items)
 	s := pluralLine(keys, "1 project key", "%d project keys")
 	if remoteless > 0 {
-		s += " · " + pluralLine(remoteless, "1 has no remote → global", "%d have no remote → global")
+		s += " · " + pluralLine(remoteless, "1 without a key → global", "%d without a key → global")
 	}
 	return s
 }

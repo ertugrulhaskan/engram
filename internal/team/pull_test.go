@@ -839,3 +839,37 @@ func TestPullReconcilesWhenRecordedScopeIsGone(t *testing.T) {
 		t.Error("the local copy was stranded instead of taking the store's only copy")
 	}
 }
+
+// The alias round trip: a memory promoted under an alias key lands under
+// projects/alias/<name>/, and a project that declares the same alias pulls it
+// back — the two ends ENGR-15 asks to meet.
+func TestAliasKeyRoundTrip(t *testing.T) {
+	root, _, writeMem := batchStore(t)
+	p := writeMem("note.md", "# Note\n\nfrom a project with no git remote")
+	key := AliasKey("acme-app")
+	if _, err := Promote(p, key); err != nil {
+		t.Fatalf("Promote under %s: %v", key, err)
+	}
+	store, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(store, "projects", "alias", "acme-app", "note.md")); err != nil {
+		t.Fatalf("store copy not under projects/alias/acme-app: %v", err)
+	}
+
+	otherMem := filepath.Join(root, "other", "memory")
+	if err := os.MkdirAll(otherMem, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Pull([]ProjectTarget{{Key: key, MemoryDir: otherMem}})
+	if err != nil {
+		t.Fatalf("Pull by alias key: %v", err)
+	}
+	if res.Placed != 1 {
+		t.Errorf("Placed = %d, want 1 (%+v)", res.Placed, res)
+	}
+	if _, err := os.Stat(filepath.Join(otherMem, "note.md")); err != nil {
+		t.Errorf("note.md not placed into the alias-keyed project: %v", err)
+	}
+}

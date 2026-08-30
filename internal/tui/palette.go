@@ -22,6 +22,7 @@ const (
 	palWithdraw                   // > withdraw the selected memory
 	palResolve                    // > resolve a conflict
 	palInit                       // > init the team store from a git URL (arg)
+	palAlias                      // > alias the selected memory's remote-less project (arg)
 )
 
 // Palette sections, in display order. Rows are grouped section-contiguously and
@@ -116,6 +117,9 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case palInit:
 			m.mode = modeNormal
 			return m.actionInit(sel.arg)
+		case palAlias:
+			m.mode = modeNormal
+			return m.actionAlias(sel.arg)
 		}
 		return m, nil
 	}
@@ -163,19 +167,23 @@ func (m Model) matchCommands(q string) []palItem {
 // selected memory (except init) through an actionX method, so the palette owns the
 // team verbs that used to be single keys (p / P / w / c).
 type teamVerb struct {
-	name string
-	item palItem
+	name   string
+	item   palItem
+	argSub func(arg string) string // for a verb that takes an argument: the row's sub text once one is typed
 }
 
 func (m Model) teamVerbs() []teamVerb {
 	t := m.theme()
 	sig := func(it palItem) palItem { it.glyph, it.section = ">", palSecTeam; return it }
 	return []teamVerb{
-		{"promote", sig(palItem{glyphColor: t.TProject, label: "promote", sub: "share the selected memory", action: palPromote})},
-		{"pull", sig(palItem{glyphColor: t.TReference, label: "pull", sub: "bring team memories into their projects", action: palPull})},
-		{"resolve", sig(palItem{glyphColor: t.TFeedback, label: "resolve", sub: "merge a conflicting memory in $EDITOR", action: palResolve})},
-		{"withdraw", sig(palItem{glyphColor: t.TUser, label: "withdraw", sub: "take a promoted memory back", action: palWithdraw})},
-		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: "set up the team store — >init <git-url>", action: palInit})},
+		{"promote", sig(palItem{glyphColor: t.TProject, label: "promote", sub: "share the selected memory", action: palPromote}), nil},
+		{"pull", sig(palItem{glyphColor: t.TReference, label: "pull", sub: "bring team memories into their projects", action: palPull}), nil},
+		{"resolve", sig(palItem{glyphColor: t.TFeedback, label: "resolve", sub: "merge a conflicting memory in $EDITOR", action: palResolve}), nil},
+		{"withdraw", sig(palItem{glyphColor: t.TUser, label: "withdraw", sub: "take a promoted memory back", action: palWithdraw}), nil},
+		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: "set up the team store — >init <git-url>", action: palInit}),
+			func(arg string) string { return "set up the team store from " + arg }},
+		{"alias", sig(palItem{glyphColor: t.TReference, label: "alias", sub: "key a project that has no git remote — >alias <name>", action: palAlias}),
+			func(arg string) string { return "key the selected memory's project as " + arg }},
 	}
 }
 
@@ -308,9 +316,8 @@ func (m *Model) rebuildPalette() {
 		for _, v := range m.teamVerbs() {
 			if verb == "" || strings.HasPrefix(v.name, verb) {
 				it := v.item
-				if it.action == palInit && arg != "" {
-					it.arg = arg
-					it.sub = "set up the team store from " + arg
+				if arg != "" && v.argSub != nil {
+					it.arg, it.sub = arg, v.argSub(arg)
 				}
 				rows = append(rows, it)
 			}

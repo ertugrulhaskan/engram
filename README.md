@@ -119,7 +119,7 @@ them anymore:
   exits. Requires the `claude` CLI on `PATH`; without it the palette action shows
   a one-line hint.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
-  `>withdraw` — covered in [Team sharing](#team-sharing) below.
+  `>withdraw`, `>alias` — covered in [Team sharing](#team-sharing) below.
 
 ### `/files` — read-only view of your instruction files
 
@@ -271,6 +271,18 @@ up yet:
   owner: it removes the copy from the store, resets your memory to personal,
   and, via a tombstone, removes it from teammates on their next pull.
   `>promote` again puts it back.
+- **`>alias <name>`** — keys a project that has **no git remote**. Identity
+  normally comes from the remote, so such a project could only promote globally;
+  an alias (`>alias acme-app`, on any memory in that project) gives it a bucket
+  of its own, `projects/alias/acme-app/`, that `>promote` offers and `>pull`
+  fills. Lowercased, one path component, one project per alias; stored as
+  `projectAliases` in the config; `>alias -` clears it. The remote always wins
+  — the alias is only consulted while git reports there is none (not when git
+  merely fails), and on a project that has a remote the command tells you its
+  real key instead. A project that later gains a remote promotes under its
+  remote key from then on; what you already shared under the alias stays in
+  that bucket (pull reports it skipped) until you promote it again. Teammates
+  must choose the *same* alias to meet.
 
 ## Configuration
 
@@ -283,6 +295,8 @@ engram's config lives at `~/.config/engram/config.json` (open it with
 | `editor` | editor command override, e.g. `"code --wait"` — when unset, `$VISUAL` / `$EDITOR` apply | — |
 | `secretScanAction` | `block` · `block-strict` (no override) · `warn` · `off` | `block` |
 | `secretScanScope` | `secrets` · `secrets+pii` | `secrets` |
+| `scanRoots` | extra directories to look for projects in — see [`/files`](#files--read-only-view-of-your-instruction-files) | — |
+| `projectAliases` | memory dir → alias, for projects with no git remote — set with `>alias <name>`, see [Team sharing](#team-sharing) | — |
 
 The secret scan matches known key formats, secret-ish variable names, and values
 that simply look generated — a guard, not a guarantee, so treat the override as a

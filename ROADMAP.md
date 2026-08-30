@@ -53,7 +53,13 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
 Goal: share the team-useful memories across people and projects, no servers.
 
 - [x] `engram init-team <git-url>` — set up the managed clone of the team repo
-- [x] Project identity via git remote URL — *consumed by promote/pull; alias fallback for remote-less repos pending*
+- [x] Project identity via git remote URL — consumed by promote/pull. **Alias fallback
+      for remote-less repos shipped 2026-08-29:** `>alias <name>` keys such a project
+      under `projects/alias/<name>/`, consulted only while git reports there is no
+      remote (not on any git failure), so a project that later gains one promotes under
+      its remote key from then on — what was promoted under the alias stays in that
+      bucket until promoted again. Coordinating the *same* alias across teammates, and
+      migrating an alias bucket once a remote appears, stay open (SPEC §10)
 - [x] `promote` → commit + push — single memory, or **mark several with `space`** and
       promote them as **one commit and one push**, each memory landing in its own
       project. Every marked memory is secret-scanned, and a flagged one is decided

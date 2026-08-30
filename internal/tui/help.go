@@ -32,7 +32,7 @@ var helpGroups = [][]struct{ key, desc string }{
 	},
 	{
 		{"^P · ^K", "palette · / sources · @Claude · > team"},
-		{">", "team: promote · pull · resolve · withdraw · init"},
+		{">", "team: promote · pull · resolve · withdraw · init · alias"},
 		{"P · p · r", "promote · pull · resolve — offered per row"},
 		{"@", "open the selected project in a Claude session"},
 		{"?", "this help"},

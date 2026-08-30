@@ -51,12 +51,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Editing the config file (via /settings): re-read it and apply theme +
 		// editor, rather than treating it as a memory.
 		if cp, _ := config.Path(); msg.path != "" && msg.path == cp {
-			cfg := config.Load()
+			cfg, err := config.Read()
+			if err != nil {
+				// Keep the settings the session already has rather than the
+				// defaults a failed parse would hand back.
+				return m, m.setDanger("settings not applied — " + configErr(err))
+			}
 			m.editorOverride = strings.TrimSpace(cfg.Editor)
+			var dropped []string
+			m.aliases, dropped = team.CleanAliases(cfg.ProjectAliases)
 			// Only switch when the value resolves — an unknown or empty theme in a
 			// hand-edited config keeps the current theme instead of resetting it.
+			// Applied, not saved: the file just read is the source of truth.
 			if idx, ok := resolveTheme(cfg.Theme); ok {
-				m.setTheme(idx)
+				m.applyTheme(idx)
+			}
+			if len(dropped) > 0 {
+				return m, m.setDanger("settings updated — projectAliases entries ignored: " + strings.Join(dropped, "; "))
 			}
 			return m, m.setStatus("settings updated")
 		}
@@ -283,8 +294,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "1", "2", "3":
 		idx := int(msg.String()[0] - '1')
-		m.setTheme(idx)
-		return m, nil
+		return m, m.setTheme(idx)
 	case "tab":
 		if m.focus == focusList {
 			m.focus = focusPreview

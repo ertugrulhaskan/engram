@@ -70,6 +70,21 @@ func (m Model) updatePromoteScope(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// noKeyLine explains a promote that can only go global: lead states the lack
+// of a key ("this project has no key to promote under"), and the reason that
+// follows depends on what kept the key away — with no remote, >alias would
+// give one; when git could not say, no alias would be consulted, so that hint
+// would mislead.
+func noKeyLine(lead string, state team.RemoteState) string {
+	switch state {
+	case team.RemoteUnknown:
+		return lead + " — git couldn't tell whether it has a remote — promoting globally"
+	case team.RemoteGone:
+		return lead + " — its directory is gone — promoting globally"
+	}
+	return lead + " — promoting globally (>alias <name> keys a project that has no git remote)"
+}
+
 // scopeModal renders the promote scope picker in the shared dialog anatomy
 // (Warn — promoting publishes): scope is the question, so the two scopes are
 // the selectable rows, then the honest mechanics line. The project row is
@@ -102,13 +117,17 @@ func (m Model) scopeModal() string {
 		addRow("their own projects", batchScopeSub(m.batchItems), m.promoteCursor == 0)
 		addRow("global", "every project you work in", m.promoteCursor == 1)
 	case len(m.batchItems) > 0:
-		lines = append(lines, m.dlgText(cw, "none of these projects has a git remote — promoting globally", t.Dim)...)
+		lines = append(lines, m.dlgText(cw, noKeyLine("none of these projects has a key to promote under", team.RemoteNone), t.Dim)...)
 		addRow("global", "every project you work in", true)
 	case m.promoteKey != "":
-		addRow("this project", "keyed by "+m.promoteKey, m.promoteCursor == 0)
+		keyed := "keyed by " + m.promoteKey
+		if team.IsAliasKey(m.promoteKey) {
+			keyed += " (your alias)"
+		}
+		addRow("this project", keyed, m.promoteCursor == 0)
 		addRow("global", "every project you work in", m.promoteCursor == 1)
 	default:
-		lines = append(lines, m.dlgText(cw, "this project has no git remote — promoting globally", t.Dim)...)
+		lines = append(lines, m.dlgText(cw, noKeyLine("this project has no key to promote under", m.promoteState), t.Dim)...)
 		addRow("global", "every project you work in", true)
 	}
 	lines = append(lines, padBG("", cw, panel))

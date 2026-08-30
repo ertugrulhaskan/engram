@@ -17,7 +17,7 @@ const noStoreHint = "no team store — run `>init <git-url>` first"
 // gitMissing returns a danger command when git isn't on PATH — team sharing shells
 // out to git for everything — or nil when git is available. Every team action
 // checks it first so a missing git reads as a clear message, not a raw exec error.
-func (m Model) gitMissing() tea.Cmd {
+func (m *Model) gitMissing() tea.Cmd {
 	if !team.HasGit() {
 		return m.setDanger("git not found — team sharing needs git (https://git-scm.com)")
 	}
@@ -53,11 +53,12 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	key, _ := team.ProjectKey(it.ProjectDir) // "" when the project has no remote
-	m.batchItems = nil                       // this promote is the cursor row, not a leftover batch
+	key, state := team.ResolveKey(it.ProjectDir, m.aliases[it.MemDir]) // "" when the project has neither a remote nor an alias
+	m.batchItems = nil                                                 // this promote is the cursor row, not a leftover batch
 	m.promotePath = it.Path
 	m.promoteTitle = it.Title
 	m.promoteKey = key
+	m.promoteState = state
 	m.promoteCursor = 0
 	if key == "" {
 		m.promoteCursor = 1 // only "global" is available

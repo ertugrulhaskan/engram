@@ -10,6 +10,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`>alias <name>` keys a project that has no git remote.** Project identity
+  comes from the git remote, so a remoteless project could only ever promote
+  *globally* — its memories landed in the flat `global/` namespace, losing their
+  project and competing for filenames there. `>alias acme-app` on a memory in
+  such a project gives it a key of its own: promote offers *this project* again,
+  keyed by `alias/acme-app`, and pull places the team's copies back into it.
+  The name is lowercased and must be one safe path component (letters, digits,
+  `.`, `_`, `-`, and none of the names Windows reserves); it is stored in the
+  config as `projectAliases` (memory dir → alias) and survives `/settings`
+  edits. The remote always wins: the alias is consulted only while git reports
+  there is no origin — not when git fails for some other reason, which would
+  let a stale alias override a real remote on a hiccup — so a project that
+  later gains a remote promotes under its remote key from then on; what was
+  already promoted under the alias stays in that bucket (pull reports it
+  skipped) until promoted again. A project whose folder has since vanished
+  keeps its alias. Bare `>alias` reports the current key; `>alias -` clears it.
+  The command refuses, saying why, on a project that has a remote (naming the
+  key), on one git can't answer for, on your home folder's memory project, on a
+  name another project already holds (two projects on one alias would pull
+  into each other — a name held by a project that is gone is freed via
+  `/settings`, never taken over), and on a config file that doesn't parse
+  (writing over it would replace your settings with defaults — theme changes
+  and `/settings` edits now refuse the same way, and say so, instead of silently
+  resetting the file). Two teammates still have to pick the *same* alias to
+  meet — coordinating that is the open follow-up.
+- **"git not found" is now actually shown.** Every team verb checked for git
+  first, but the message landed on a discarded copy of the model, so a machine
+  without git saw the palette close silently.
+- **A hand-edited config can't wipe your settings any more.** Every write to
+  `config.json` goes through one path that refuses a file that doesn't parse
+  (and says so) instead of replacing it with defaults; the `/settings` reload
+  applies your edit without saving the file back, and names any
+  `projectAliases` entry it had to ignore.
+
 ### Fixed
 - `esc` on the plans or files source no longer clears — and announces clearing —
   memory marks that aren't drawn there. Marks belong to the memories list; they
