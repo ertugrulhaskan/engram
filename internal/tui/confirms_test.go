@@ -91,10 +91,10 @@ func TestResolveConfirmFlow(t *testing.T) {
 	m.mode = modeResolveConfirm
 	m.resolvePath = "/x/mem.md"
 	m.resolveTmp = tmp
-	m.resolveHunk, _ = team.FirstConflictHunk(tmp, 7)
+	m.resolveRows, _ = resolveDiff([]string{"mine"}, []string{"theirs"}, resolveDiffContext, m.resolveDiffRows())
 
 	out := m.View()
-	for _, want := range []string{"resolve — both sides moved", "<<<<<<< yours (local)", "mine", ">>>>>>> team", "Opens in $EDITOR."} {
+	for _, want := range []string{"resolve — both sides moved", "− yours · + the team store", "− mine", "+ theirs", "Opens in $EDITOR."} {
 		if !strings.Contains(out, want) {
 			t.Errorf("resolve confirm missing %q:\n%s", want, out)
 		}

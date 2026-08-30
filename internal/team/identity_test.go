@@ -130,3 +130,37 @@ func TestProjectKeyNoRemote(t *testing.T) {
 		t.Errorf("missing directory: err = %v, want one wrapping fs.ErrNotExist", err)
 	}
 }
+
+// An alias never keys the home folder — an alias is a name invented for a
+// project with no identity, and Claude's home-folder project isn't one — but a
+// real remote does key it, exactly as any other repository. Refusing the remote
+// too would strand memories already shared under it, and buys nothing: a
+// promote reaches the same shared store whichever bucket it lands in.
+func TestResolveKeyHomeFolder(t *testing.T) {
+	home := newRepo(t, "git@github.com:acme/dotfiles.git")
+	t.Setenv("HOME", home)
+	if got, err := os.UserHomeDir(); err != nil || got != home {
+		t.Skipf("HOME override not honoured on this platform (%q, %v)", got, err)
+	}
+	if !IsHomeDir(home) {
+		t.Fatal("setup: IsHomeDir(home) is false")
+	}
+	// A home directory that is a repo keeps its remote key.
+	if key, state := ResolveKey(home, "personal"); key != "github.com/acme/dotfiles" || state != RemoteFound {
+		t.Errorf("home with a remote = (%q, %v), want its remote key", key, state)
+	}
+	// A home directory without one is not keyed by an alias.
+	plainHome := t.TempDir()
+	t.Setenv("HOME", plainHome)
+	if got, _ := os.UserHomeDir(); got != plainHome {
+		t.Skip("HOME override not honoured")
+	}
+	if key, state := ResolveKey(plainHome, "personal"); key != "" || state != RemoteNone {
+		t.Errorf("home with only an alias = (%q, %v), want no key", key, state)
+	}
+	// The same directory, not the home dir, does take the alias.
+	t.Setenv("HOME", t.TempDir())
+	if key, _ := ResolveKey(plainHome, "personal"); key != "alias/personal" {
+		t.Errorf("non-home remoteless dir = %q, want alias/personal", key)
+	}
+}

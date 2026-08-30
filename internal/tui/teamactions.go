@@ -136,14 +136,25 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	if s := m.syncStates[it.Path]; s != team.StateDiverged && s != team.StateDiffers && s != team.StateIncoming {
 		return m, m.setStatus("nothing to resolve — already in sync")
 	}
-	tmp, err := team.BeginConflictResolve(it.Path)
+	rs, err := team.BeginConflictResolve(it.Path)
 	if err != nil {
 		return m, m.setDanger("resolve: " + err.Error())
 	}
-	// Show the first conflict hunk before $EDITOR opens. The preview is
-	// best-effort: without one the confirm still explains what happens next.
-	hunk, _ := team.FirstConflictHunk(tmp, 7)
-	m.resolvePath, m.resolveTmp, m.resolveHunk = it.Path, tmp, hunk
+	// Diff the two sides before $EDITOR opens, from the sides themselves — the
+	// merge file can't be split back into halves reliably (see ResolveSession).
+	m.resolvePath, m.resolveTmp = it.Path, rs.TmpPath
+	rows, changed := resolveDiff(rs.Yours, rs.Theirs, resolveDiffContext, m.resolveDiffRows())
+	m.resolveRows = rows
+	switch {
+	case changed:
+		m.resolveSame = resolveDiffers
+	case rs.Identical:
+		m.resolveSame = resolveIdentical
+	default:
+		// Nothing the diff can show, yet the bytes differ: line endings or
+		// trailing whitespace. Saying "identical" there would be wrong.
+		m.resolveSame = resolveInvisible
+	}
 	m.mode = modeResolveConfirm
 	return m, nil
 }

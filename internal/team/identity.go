@@ -123,10 +123,17 @@ func ClassifyRemote(dir string) (key string, state RemoteState, err error) {
 // project has neither, and "" too when git could not say — never a stale alias
 // over a real remote. The state comes back with the key so a dialog can say
 // which of those it is. The alias is normalized here as well, so a value that
-// bypassed CleanAliases still can't become an unsafe key, and the user's home
-// folder — Claude's project for sessions run outside any repository — is never
-// keyed, whatever the config says: that would push personal notes into a team
-// bucket.
+// bypassed CleanAliases still can't become an unsafe key.
+//
+// An *alias* never keys the user's home folder: an alias is a name invented for
+// a project that has no identity of its own, and Claude's home-folder project —
+// the memories of sessions run outside any repository — is not a project in that
+// sense. A real remote does key it, exactly as before: if the home directory is
+// itself a dotfiles repo, promoting from it offers that key and the scope dialog
+// names it. That is deliberate and the bucket is not a privacy boundary — a
+// promote copies the memory into the shared store whichever bucket it lands in,
+// so refusing the remote here would stranded already-shared memories to protect
+// nothing.
 func ResolveKey(dir, alias string) (string, RemoteState) {
 	key, state, _ := ClassifyRemote(dir)
 	switch state {

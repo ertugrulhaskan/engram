@@ -61,9 +61,14 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 		return m, m.setStatus("select a memory in a project first")
 	}
 	if team.IsHomeDir(it.ProjectDir) {
-		// Claude's home-folder project is where sessions run outside any repo;
-		// keying it would push personal notes into a team project bucket.
-		return m, m.setStatus("this is your home folder's memory project, not a repository — it promotes globally")
+		// An alias is a name invented for a project with no identity of its own;
+		// Claude's home-folder project — sessions run outside any repository —
+		// isn't one. A real remote still keys it (team.ResolveKey agrees), so
+		// this refuses only the alias, and says which case the user is in.
+		if key, err := team.ProjectKey(it.ProjectDir); err == nil {
+			return m, m.setStatus("your home folder is a git repository — already keyed by " + key + "; an alias would never be used")
+		}
+		return m, m.setStatus("your home folder's memory project can't take an alias — those memories promote globally")
 	}
 	name = strings.TrimSpace(name)
 	if name == "-" {

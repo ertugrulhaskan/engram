@@ -58,6 +58,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.setDanger("settings not applied — " + configErr(err))
 			}
 			m.editorOverride = strings.TrimSpace(cfg.Editor)
+			// The scan policy is read here too: it was left behind before, so a
+			// promote kept using the policy the session started with while the
+			// status line said the settings had been applied.
+			m.scanAction, m.scanPII = cfg.ScanAction(), cfg.ScanPII()
 			var dropped []string
 			m.aliases, dropped = team.CleanAliases(cfg.ProjectAliases)
 			// Only switch when the value resolves — an unknown or empty theme in a

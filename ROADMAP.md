@@ -69,7 +69,9 @@ Goal: share the team-useful memories across people and projects, no servers.
 - [x] `pull` → place project team memories into matching local projects + refresh `MEMORY.md`; **fast-forward** a clean incoming update, leave a local-ahead copy, flag a real divergence
 - [x] Personal vs team scope, enforced (personal never auto-syncs; pull never overwrites a personal file)
 - [x] **Sync anchor** (`syncedHash` in the `engram:` block) enabling direction-aware states: `[synced]` / `[behind]` / `[ahead]` / `[conflict]` / `[missing]` *(`[unknown]` for pre-anchor memories)*
-- [x] Conflict resolution UX (`>resolve`) — git-style markers in `$EDITOR`, re-anchored on save
+- [x] Conflict resolution UX (`>resolve`) — git-style markers in `$EDITOR`, re-anchored on save,
+      with an **inline diff of the two sides in the confirm** before the editor opens
+      *(the diff shipped 2026-08-29; SPEC §8.4)*
 - [x] Scope chip (`global` / `project`) on shared rows
 - [x] Global vs project-scoped team memories *(promote writes `global/` or `projects/<key>/`)*
 - [x] Secret-scan guard on `promote` — block credentials from reaching the shared store (configurable, redacted findings)

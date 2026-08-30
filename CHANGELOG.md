@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`>resolve` shows an inline diff before `$EDITOR` opens.** The confirm used
+  to print the first conflict hunk verbatim — the raw `<<<<<<<` / `=======` /
+  `>>>>>>>` block — which showed the two versions stacked but left you to spot
+  the difference. It now diffs them line by line: `−` for your lines, `+` for
+  the store's, in the same two colors the row badges already use for *ahead*
+  and *behind*, with two lines of context and longer unchanged runs collapsed
+  to a count (`⋮ 6 unchanged lines`). When only the sync anchor differs and the
+  shared content matches, it says exactly that rather than showing an empty
+  box. A long conflict is capped, and the row that stands for the rest says
+  "more lines", never "unchanged" — what it hides includes changes. The resolve
+  mechanics underneath are unchanged.
+
+  It's a unified diff, not two columns: a dialog is capped at 68 cells, so
+  side-by-side would leave ~32 per side and shred ordinary prose.
 - **`>alias <name>` keys a project that has no git remote.** Project identity
   comes from the git remote, so a remoteless project could only ever promote
   *globally* — its memories landed in the flat `global/` namespace, losing their

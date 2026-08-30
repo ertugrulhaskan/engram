@@ -70,9 +70,10 @@ type Model struct {
 	pullPlan team.PullResult // the accounting shown pre-confirm; y applies this same walk
 
 	// resolve confirm (modeResolveConfirm)
-	resolvePath string   // the conflicted memory
-	resolveTmp  string   // merge temp file BeginConflictResolve wrote (removed on cancel)
-	resolveHunk []string // first conflict hunk, shown before $EDITOR opens
+	resolvePath string          // the conflicted memory
+	resolveTmp  string          // merge temp file BeginConflictResolve wrote (removed on cancel)
+	resolveRows []diffRow       // inline diff of the two sides, shown before $EDITOR opens
+	resolveSame resolveSameness // when the diff shows nothing, why
 
 	width, height           int
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
@@ -192,9 +193,9 @@ func (m *Model) styleInputs() {
 	m.input.Cursor.Style = fg(t.Accent).Background(panel)
 }
 
-// setTheme switches the active theme by index, restyles inputs, re-renders, and
-// persists the choice (best-effort) so it survives restarts.
-// applyTheme switches the theme for the session; setTheme also persists it.
+// applyTheme switches the active theme by index for this session — restyles
+// inputs and re-renders — and persists nothing; setTheme is the persisting
+// variant.
 // The /settings reload applies only — the file it just read is the source of
 // truth there, and saving would rewrite the file the user just edited.
 func (m *Model) applyTheme(idx int) bool {
@@ -222,8 +223,7 @@ func (m *Model) setTheme(idx int) tea.Cmd {
 		return nil
 	}
 	err := config.Update(func(c *config.Config) error {
-		c.Theme = m.theme().Key
-		c.Editor = m.editorOverride
+		c.Theme = m.theme().Key // only the theme: Update keeps every other setting as the file has it
 		return nil
 	})
 	if err != nil {

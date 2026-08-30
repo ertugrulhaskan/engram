@@ -213,8 +213,9 @@ and `team.AliasKey` turns it into the key `alias/<name>`, so the store tree show
 which buckets came from an alias. The remote always wins, and the fallback is narrow
 on purpose: `projectKey` (promote, batch promote) and `resolveTargets` (pull) consult
 the alias only for `team.ErrNoRemote` — the directory exists and either no repository
-encloses it or the repository has no `origin` — never for any other `ProjectKey`
-failure (a missing directory, an origin whose URL has no host/path, a repository git
+encloses it or the repository has no `origin` — and for a directory that has since
+vanished, whose alias was granted while it was there and had no remote. Never for any
+other `ProjectKey` failure (an origin whose URL has no host/path, a repository git
 won't read), which would otherwise let a stale alias override a real remote on a
 hiccup. The rule lives once, in `team.ResolveKey`, which promote and pull both call;
 `team.ClassifyRemote` names the answer git reached (found / none / gone / unknown), and
@@ -236,9 +237,7 @@ normalized, a malformed name dropped, a name two memory dirs both claim dropped 
 both — pull would treat one key in two memory dirs as one repo cloned twice, right for
 a remote and wrong for two projects — so promote and pull agree by construction.
 `>alias` refuses, saying why, on a project that has a remote (naming the key), on one
-git can't answer for, on Claude's home-folder project (keying it would push personal
-notes into a team bucket — `team.IsHomeDir`, which `ResolveKey` also honours, so even a
-hand-edited entry never keys it), on a name another project already holds
+git can't answer for, on Claude's home-folder project, on a name another project already holds
 (`team.SetAlias` — a holder whose memory dir is gone still holds the store bucket its
 memories were shared under, so the name is freed deliberately via `/settings`, never
 reclaimed), and on a config file that doesn't parse. That last rule is enforced in one
@@ -254,6 +253,18 @@ share a bucket with an alias-keyed project. Two witnesses decide "no repository"
 repository means git could not say, since a repository git refuses to read (dubious
 ownership) exits 128 from both commands. What the alias does not solve is
 coordination: two teammates must independently choose the same name to meet (§10).
+
+**An alias never keys the home folder; a real remote does.** An alias is a name invented
+for a project that has no identity of its own, and Claude's home-folder project — the
+memories of sessions run outside any repository — is not a project in that sense, so
+`team.IsHomeDir` guards the alias branch of `ResolveKey` and `>alias` refuses there,
+naming which case the user is in. A home directory that is itself a dotfiles repo keeps
+its remote key and promotes under it, exactly as any other repository. A middle version
+of this refused the remote too, on the reasoning that it would publish personal notes
+into a team bucket; that was wrong twice over — the bucket is not a privacy boundary
+(a promote copies the memory into the shared store whichever bucket it lands in, behind
+an explicit scope dialog that names the key), and refusing it would strand memories
+already shared under that key.
 
 ### Shared repo layout
 
@@ -402,8 +413,9 @@ filename. The id is assigned once, on the first promote.
   (`<<<<<<< yours … ======= … >>>>>>> team`), opens `$EDITOR`, and on save writes the
   resolved content back — re-anchoring on the store version so "take theirs" reads as
   `synced` and a kept merge reads as `ahead`. A file still holding a marker line, or
-  emptied, aborts with the memory untouched. *(Whole-content markers, not a line-level
-  diff, so a frontmatter-only divergence is surfaced too.)*
+  emptied, aborts with the memory untouched. *(Whole-content markers in the file, so a
+  frontmatter-only divergence is surfaced too.)* The confirm before `$EDITOR` shows an
+  **inline diff** of the two sides — see §8.4.
 - **Sync is manual.** Personal memories never leave the machine unless promoted,
   and engram never auto-pulls. On launch it does a cheap check against the team
   repo and badges memories that have updates (a `[behind]` pill); files are only
@@ -516,8 +528,8 @@ presence (no orphan chip).
   the recorded base) rewrites a local file; an `ahead` or `conflict` (or any anchor-less
   `unknown`) is left untouched. Matching is by `id`, not filename.
 - **Resolving** (`>resolve`) brackets both versions' shared content with git-style markers in
-  `$EDITOR` and re-anchors on save (see **resolve** under §7 Operations). An inline diff
-  view is a later refinement.
+  `$EDITOR` and re-anchors on save (see **resolve** under §7 Operations), and previews the
+  two sides as an inline diff first (§8.4).
 
 **Known limits.** The anchor is a 64-bit digest — ample for change detection, and a
 collision only ever degrades to a conservative conflict, never a silent overwrite. A
@@ -553,7 +565,7 @@ engram/
             storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
             withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
-            resolve.go       # BeginConflictResolve / FinishConflictResolve: git-style $EDITOR merge (>resolve)
+            resolve.go       # BeginConflictResolve (returns a ResolveSession: the merge file + the two sides) / FinishConflictResolve: git-style $EDITOR merge (>resolve)
         secrets/             # NO UI here — pure credential scanning for the promote guard
             scan.go          # Scan: curated regexes + entropy layer over content → redacted findings (Scope: secrets / secrets+pii)
         source/              # NO UI, NO IO — the per-source capability model (§8.3)
@@ -569,7 +581,7 @@ engram/
             palette.go       # command palette: types, candidates, rendering
             render.go        # list/preview/row rendering, drift banner, manual rounded-dialog frame (frameLines)
             dialog.go        # shared dialog anatomy: icon+title header, wrapped body, Bg2 footer action band
-            confirms.go      # pre-action confirms: pull accounting, resolve hunk preview, reconcile naming files
+            confirms.go      # pre-action confirms: pull accounting, resolve inline diff, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
             alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Read) + projectKey adapter over team.ResolveKey
@@ -579,6 +591,7 @@ engram/
             pull.go          # >pull: resolve project keys, plan (PullPlan) + apply (PullApply) off-thread
             withdraw.go      # >withdraw: owner-only confirm modal + background withdraw command
             resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save
+            diff.go          # the resolve confirm's line diff: LCS alignment, context collapse, row cap (§8.4)
             secret.go        # secret-scan modal: scan before promote, show redacted findings + override
             style.go         # color/pad/clip text helpers, type labels, humanize
             paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
@@ -775,6 +788,42 @@ imports (server-side memories brought in by export or paste) become regular memo
 once imported — the import is an explicit user action, after which the vendor no longer
 owns the copy, so full capability applies.
 
+
+### 8.4 The resolve inline diff (Phase 2 refinement)
+
+`>resolve` writes a git-marker merge file and opens it in `$EDITOR` (§7). The confirm in
+front of that now shows the two sides **diffed** rather than the raw marker block, so the
+decision is made on what actually differs.
+
+`BeginConflictResolve` returns the two sides it merged (`ResolveSession`) alongside the temp
+file, and `internal/tui/diff.go` aligns them. **The merge file is never parsed back into
+halves**, and that is the whole design point: once the two sides are bracketed by markers, a
+side that itself contains a line of equals signs — an ordinary setext heading underline — is
+indistinguishable from the divider, so any split is a guess. A first attempt did parse the
+file, on the argument that the preview would then provably match what `$EDITOR` opens; the
+review gate produced the counter-example (`Backups / ======= / keep 30 days` on both sides
+split at the *content* line and showed half of "yours" as the store's text), which is also
+what makes the claim false. Returning the sides from the one place that has them unambiguously
+costs nothing extra either: `BeginConflictResolve` already extracted both to build the file.
+
+The alignment is a longest-common-subsequence diff with the common prefix and suffix trimmed
+first, which for a typical edit leaves a handful of lines to align. `maxDiffCells` bounds the
+table: a pathological pair falls back to showing each side whole — true, since every line
+differs somewhere, if less precise — rather than stalling the UI thread. Unchanged runs longer
+than two lines of context collapse to one row naming how many lines they stand for, and the
+whole view is capped at twelve rows so a long conflict can't outgrow the terminal. The capped
+tail is its own kind of row, not an "unchanged" elision: what it hides is the rest of the
+diff, changes included — possibly an entire side — and a confirm dialog that called that
+"unchanged" would be telling the user the hidden remainder agrees.
+
+Two presentation decisions worth recording. It is a **unified** diff, not two columns:
+`boxWidth` caps a dialog at 68 cells, so side-by-side would leave about 32 per side and wrap
+ordinary memory prose to shreds. And the two sides are colored `Warn` and `Info` — the same
+colors the row badges use for `ahead` and `behind` — so "mine" and "the store's" read with a
+vocabulary the user already has, rather than introducing a third pair. When the shared content
+is identical and only the anchor differs (a resolve is reachable on `unknown`), the dialog
+says that instead of rendering an empty diff.
+
 ## 9. Distribution
 
 - `go install` for Go users.
@@ -824,8 +873,6 @@ owns the copy, so full capability applies.
 
 ## 10. Open questions / future
 
-- Inline diff view for `>resolve` (it currently opens both versions with git-style
-  markers in `$EDITOR`; conflict resolution itself shipped in Phase 2).
 - Promoting whole *types* at once (e.g. "all feedback") — multi-select promote itself has shipped.
 - Monorepo sub-keys. Subprojects that share one git remote share one bucket under
   `projects/<key>/`; per-subdirectory keys are a later refinement.

@@ -331,7 +331,8 @@ func TestSymmetricConflictAndResolveBetweenTwoInstalls(t *testing.T) {
 	}
 
 	// --- B resolves, keeping a merge of both edits ---
-	tmp, err := BeginConflictResolve(pathB)
+	tmpSess, err := BeginConflictResolve(pathB)
+	tmp := tmpSess.TmpPath
 	if err != nil {
 		t.Fatalf("B BeginConflictResolve: %v", err)
 	}

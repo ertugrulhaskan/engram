@@ -263,10 +263,11 @@ up yet:
   their matching local projects; a *global* memory you already hold is
   reconciled the same way, but one you hold nowhere is never placed — it lives
   in the store until you promote it into a project yourself.
-- **`>resolve`** — shows the **first conflict hunk** (git-style markers) in a
-  confirm, then opens the full merge in your `$EDITOR` and writes your merge
-  back, re-anchored so "take theirs" reads as synced. Cancelling touches
-  nothing.
+- **`>resolve`** — shows an **inline diff** of the two versions in a confirm
+  (`−` yours, `+` the store's, unchanged runs collapsed to a count), then opens
+  the full merge in your `$EDITOR` and writes your merge back, re-anchored so
+  "take theirs" reads as synced. If only the sync anchor differs it says so
+  instead. Cancelling touches nothing.
 - **`>withdraw`** — takes a shared memory back (after a confirm), if you're its
   owner: it removes the copy from the store, resets your memory to personal,
   and, via a tombstone, removes it from teammates on their next pull.

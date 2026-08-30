@@ -183,7 +183,12 @@ func (m Model) teamVerbs() []teamVerb {
 		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: "set up the team store — >init <git-url>", action: palInit}),
 			func(arg string) string { return "set up the team store from " + arg }},
 		{"alias", sig(palItem{glyphColor: t.TReference, label: "alias", sub: "key a project that has no git remote — >alias <name>", action: palAlias}),
-			func(arg string) string { return "key the selected memory's project as " + arg }},
+			func(arg string) string {
+				if strings.TrimSpace(arg) == "-" {
+					return "clear the selected memory's project alias"
+				}
+				return "key the selected memory's project as " + arg
+			}},
 	}
 }
 

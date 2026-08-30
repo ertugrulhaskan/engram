@@ -47,62 +47,93 @@ func storeCopyRaw(memPath string) (string, bool, error) {
 	return copies[0], true, nil // fall back to any copy of the id
 }
 
+// ResolveSession is what BeginConflictResolve set up: the merge file $EDITOR
+// will open, and the two sides that went into it, as lines. The sides come
+// back with the file because this is the only place they are unambiguous —
+// once bracketed by markers, a side that itself contains a line of equals
+// signs (a setext heading underline) can no longer be told from the divider,
+// so the merge file must not be parsed back into halves.
+type ResolveSession struct {
+	TmpPath   string
+	Yours     []string // your local shared content
+	Theirs    []string // the team store copy's
+	Identical bool     // the two sides' shared content is byte-identical (only the anchor differs)
+}
+
 // BeginConflictResolve writes a git-style merge of a memory's local and team-store
-// bodies to a temp file for the user to reconcile in $EDITOR, and returns its path.
-// It errors when the store isn't initialized or has no copy to resolve against
-// (e.g. the memory was withdrawn upstream). The caller opens the temp file, then
-// hands it back to FinishConflictResolve.
-func BeginConflictResolve(memPath string) (string, error) {
+// bodies to a temp file for the user to reconcile in $EDITOR, and returns it with
+// the two sides it merged. It errors when the store isn't initialized or has no
+// copy to resolve against (e.g. the memory was withdrawn upstream). The caller
+// opens the temp file, then hands it back to FinishConflictResolve.
+func BeginConflictResolve(memPath string) (ResolveSession, error) {
+	var rs ResolveSession
 	if !IsInitialized() {
-		return "", errors.New("no team store — run `engram init-team <git-url>` first")
+		return rs, errors.New("no team store — run `engram init-team <git-url>` first")
 	}
 	localRaw, err := os.ReadFile(memPath)
 	if err != nil {
-		return "", err
+		return rs, err
 	}
 	storeRaw, ok, err := storeCopyRaw(memPath)
 	if err != nil {
-		return "", err
+		return rs, err
 	}
 	if !ok {
-		return "", errors.New("no team-store copy to resolve against")
+		return rs, errors.New("no team-store copy to resolve against")
 	}
-	text, err := conflictText(string(localRaw), storeRaw)
+	yours, err := memory.ShareContent(string(localRaw))
 	if err != nil {
-		return "", err
+		return rs, err
+	}
+	theirs, err := memory.ShareContent(storeRaw)
+	if err != nil {
+		return rs, err
 	}
 	f, err := os.CreateTemp("", "engram-resolve-*.md")
 	if err != nil {
-		return "", err
+		return rs, err
 	}
 	defer f.Close()
-	if _, err := f.WriteString(text); err != nil {
+	if _, err := f.WriteString(conflictText(yours, theirs)); err != nil {
 		os.Remove(f.Name())
-		return "", err
+		return rs, err
 	}
-	return f.Name(), nil
+	return ResolveSession{
+		TmpPath: f.Name(),
+		Yours:   contentLines(yours),
+		Theirs:  contentLines(theirs),
+		// Compared before contentLines normalizes: two sides that differ only in
+		// line endings are NOT identical, and the UI has to be able to say which
+		// of the two it is looking at.
+		Identical: yours == theirs,
+	}, nil
+}
+
+// contentLines splits a side's shared content into display lines, dropping the
+// trailing empty that a final newline leaves. CRLF is normalized so a Windows
+// teammate's copy doesn't diff as every-line-changed over invisible carriage
+// returns; ResolveSession.Identical is computed before this, so a difference
+// that is only line endings is still reported as a difference.
+func contentLines(s string) []string {
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	return lines
 }
 
 // conflictText brackets each side's SHARED CONTENT — Claude's frontmatter and body,
 // with engram's own block removed — so a divergence in a frontmatter field (not just
 // the body) is visible and reconcilable. engram's block is reattached on apply, so
 // the user never edits bookkeeping.
-func conflictText(localRaw, storeRaw string) (string, error) {
-	ls, err := memory.ShareContent(localRaw)
-	if err != nil {
-		return "", err
-	}
-	ss, err := memory.ShareContent(storeRaw)
-	if err != nil {
-		return "", err
-	}
+func conflictText(yours, theirs string) string {
 	var b strings.Builder
 	b.WriteString(conflictOurs + "\n")
-	b.WriteString(ensureTrailingNL(ls))
+	b.WriteString(ensureTrailingNL(yours))
 	b.WriteString(conflictMid + "\n")
-	b.WriteString(ensureTrailingNL(ss))
+	b.WriteString(ensureTrailingNL(theirs))
 	b.WriteString(conflictEnd + "\n")
-	return b.String(), nil
+	return b.String()
 }
 
 // FinishConflictResolve applies the user's edited temp file and always removes it.
@@ -167,40 +198,6 @@ func hasMarkerLine(text string) bool {
 // AbortConflictResolve discards a resolve session's temp file (used when the editor
 // exits with an error, so the TUI needn't touch the filesystem itself).
 func AbortConflictResolve(tmpPath string) { _ = os.Remove(tmpPath) }
-
-// FirstConflictHunk reads a resolve temp file and returns up to max lines of
-// its first conflict hunk — the "yours" marker through the "team" marker — so
-// the UI can show what $EDITOR will open before it opens. A longer hunk keeps
-// its head and closing marker with an elision line between.
-func FirstConflictHunk(tmpPath string, max int) ([]string, error) {
-	raw, err := os.ReadFile(tmpPath)
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n")
-	start := -1
-	for i, ln := range lines {
-		if strings.HasPrefix(ln, "<<<<<<<") {
-			start = i
-			break
-		}
-	}
-	if start < 0 {
-		return nil, errors.New("no conflict markers in the merge file")
-	}
-	var hunk []string
-	for _, ln := range lines[start:] {
-		hunk = append(hunk, ln)
-		if strings.HasPrefix(ln, ">>>>>>>") {
-			break
-		}
-	}
-	if max > 2 && len(hunk) > max {
-		head := append([]string{}, hunk[:max-2]...)
-		hunk = append(append(head, "…"), hunk[len(hunk)-1])
-	}
-	return hunk, nil
-}
 
 // ensureTrailingNL guarantees a section ends with a newline so the following
 // conflict marker starts on its own line.

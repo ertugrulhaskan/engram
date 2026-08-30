@@ -117,7 +117,10 @@ func (m Model) scopeModal() string {
 		addRow("their own projects", batchScopeSub(m.batchItems), m.promoteCursor == 0)
 		addRow("global", "every project you work in", m.promoteCursor == 1)
 	case len(m.batchItems) > 0:
-		lines = append(lines, m.dlgText(cw, noKeyLine("none of these projects has a key to promote under", team.RemoteNone), t.Dim)...)
+		// No reason clause: a batch spans projects that may lack a key for
+		// different reasons, and naming one — ">alias would fix this" — would
+		// be wrong for the others, which actionAlias then refuses.
+		lines = append(lines, m.dlgText(cw, "none of these projects has a key to promote under — promoting globally", t.Dim)...)
 		addRow("global", "every project you work in", true)
 	case m.promoteKey != "":
 		keyed := "keyed by " + m.promoteKey

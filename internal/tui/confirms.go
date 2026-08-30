@@ -154,19 +154,67 @@ func (m Model) updateResolveConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// resolveModal shows the first conflict hunk — marker lines in Danger — so the
-// decision is made before $EDITOR opens.
+// Shape of the inline diff in the resolve confirm: two lines of context around
+// each change, and a row budget so a long conflict can't outgrow the terminal.
+const (
+	resolveDiffContext = 2
+	resolveDiffMaxRows = 12 // the most diff rows worth showing before "see it in $EDITOR"
+	resolveDiffMinRows = 3  // below this the preview says nothing useful; show it anyway
+	// resolveChromeRows is what the modal costs besides the diff: the header
+	// block, the legend, three blank lines, the mechanics line, the footer, and
+	// the frame's own two border rows.
+	resolveChromeRows = 10
+)
+
+// resolveDiffRows is how many diff rows fit this terminal. Deriving it from the
+// height is the point: a fixed cap made the modal up to 22 rows, which a short
+// terminal clips from the bottom — taking the footer, and with it the only
+// statement of what enter does.
+func (m Model) resolveDiffRows() int {
+	n := m.height - resolveChromeRows
+	if n > resolveDiffMaxRows {
+		n = resolveDiffMaxRows
+	}
+	if n < resolveDiffMinRows {
+		n = resolveDiffMinRows
+	}
+	return n
+}
+
+// resolveModal shows an inline diff of the two sides — yours in the same color
+// the row badges use for "ahead", the store's in the "behind" color, so the
+// legend is one the user already knows — so the decision is made before
+// $EDITOR opens.
 func (m Model) resolveModal() string {
 	t := m.theme()
 	cw := m.boxWidth()
 	panel := m.panelBg()
 	lines := m.dlgHeader(cw, "↔", "resolve — both sides moved", t.Danger)
-	for _, ln := range m.resolveHunk {
-		c := t.Dim
-		if strings.HasPrefix(ln, "<<<<<<<") || strings.HasPrefix(ln, "=======") || strings.HasPrefix(ln, ">>>>>>>") {
-			c = t.Danger
+	switch {
+	case m.resolveSame == resolveIdentical:
+		lines = append(lines, m.dlgText(cw, "The shared content is identical — only the sync anchor differs.", t.Dim)...)
+	case m.resolveSame == resolveInvisible:
+		lines = append(lines, m.dlgText(cw, "The two versions differ only in line endings or trailing whitespace — nothing visible to show.", t.Warn)...)
+	case len(m.resolveRows) > 0:
+		lines = append(lines, m.dlgText(cw, "− yours · + the team store", t.Faint)...)
+		lines = append(lines, padBG("", cw, panel))
+		for _, r := range m.resolveRows {
+			mark, txt, c := " ", r.text, t.Dim
+			switch r.op {
+			case diffYours:
+				mark, c = "−", t.Warn
+			case diffTheirs:
+				mark, c = "+", t.Info
+			case diffElide:
+				mark, c = "⋮", t.Faint
+				txt = pluralLine(r.n, "1 unchanged line", "%d unchanged lines")
+			case diffMore:
+				// Not "unchanged": the cap cuts the diff wherever it fell.
+				mark, c = "⋮", t.Warn
+				txt = pluralLine(r.n, "1 more line — see it all in $EDITOR", "%d more lines — see them all in $EDITOR")
+			}
+			lines = append(lines, padBG(onbg(c, panel).Render(clip("  "+mark+" "+txt, cw)), cw, panel))
 		}
-		lines = append(lines, padBG(onbg(c, panel).Render(clip("  "+ln, cw)), cw, panel))
 	}
 	lines = append(lines, padBG("", cw, panel))
 	lines = append(lines, m.dlgText(cw, "Opens in $EDITOR. Your merge is written back and re-anchored.", t.Dim)...)

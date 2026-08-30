@@ -57,7 +57,8 @@ func TestConflictResolveFrontmatterAndMarkers(t *testing.T) {
 	}
 
 	// The frontmatter divergence is visible in the conflict editor (both descriptions).
-	tmp, err := BeginConflictResolve(memPath)
+	tmpSess, err := BeginConflictResolve(memPath)
+	tmp := tmpSess.TmpPath
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
@@ -75,7 +76,8 @@ func TestConflictResolveFrontmatterAndMarkers(t *testing.T) {
 	}
 
 	// Take theirs → the local description becomes the team's, and it reads synced.
-	tmp2, err := BeginConflictResolve(memPath)
+	tmp2Sess, err := BeginConflictResolve(memPath)
+	tmp2 := tmp2Sess.TmpPath
 	if err != nil {
 		t.Fatalf("Begin (2): %v", err)
 	}
@@ -141,7 +143,8 @@ func TestConflictResolve(t *testing.T) {
 	}
 
 	// Begin: a temp merge holding both bodies with markers.
-	tmp, err := BeginConflictResolve(memPath)
+	tmpSess, err := BeginConflictResolve(memPath)
+	tmp := tmpSess.TmpPath
 	if err != nil {
 		t.Fatalf("BeginConflictResolve: %v", err)
 	}
@@ -159,7 +162,8 @@ func TestConflictResolve(t *testing.T) {
 	}
 
 	// Resolve by taking the team body; the memory updates and reads as synced.
-	tmp2, err := BeginConflictResolve(memPath)
+	tmp2Sess, err := BeginConflictResolve(memPath)
+	tmp2 := tmp2Sess.TmpPath
 	if err != nil {
 		t.Fatalf("BeginConflictResolve (2): %v", err)
 	}
@@ -199,4 +203,148 @@ func setBody(raw, body string) string {
 		return raw[:i+len("\n---\n")] + body
 	}
 	return body
+}
+
+// BeginConflictResolve hands back the two sides it merged, so the UI can diff
+// them without parsing the merge file — which cannot be split back reliably: a
+// side may itself contain a line of equals signs (a setext heading underline),
+// indistinguishable from the divider once bracketed.
+func TestBeginConflictResolveReturnsSides(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = R\n\temail = r@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	memDir := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(memDir, "note.md")
+	// Both sides carry a bare "=======" — a setext heading underline, which the
+	// merge file's own divider is indistinguishable from once written.
+	if err := os.WriteFile(memPath, []byte("---\nname: note\n---\nBackups\n=======\n\nkeep 30 days\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(memPath, "global"); err != nil {
+		t.Fatalf("Promote: %v", err)
+	}
+	// The store advances; the local copy keeps its own text and its old anchor.
+	teamDir, _ := Dir()
+	storePath := filepath.Join(teamDir, "global", "note.md")
+	sraw, _ := os.ReadFile(storePath)
+	sm, _, _ := memory.ReadEngram(string(sraw))
+	teamContent := "---\nname: note\n---\nBackups\n=======\n\nkeep 90 days\n"
+	sm.SyncedHash, _ = memory.ContentDigest(teamContent)
+	newStore, _ := memory.WriteEngram(teamContent, sm)
+	if err := os.WriteFile(storePath, []byte(newStore), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rs, err := BeginConflictResolve(memPath)
+	if err != nil {
+		t.Fatalf("BeginConflictResolve: %v", err)
+	}
+	defer os.Remove(rs.TmpPath)
+
+	yours, theirs := strings.Join(rs.Yours, "\n"), strings.Join(rs.Theirs, "\n")
+	if !strings.Contains(yours, "keep 30 days") || strings.Contains(yours, "keep 90 days") {
+		t.Errorf("Yours = %q, want only the local side", yours)
+	}
+	if !strings.Contains(theirs, "keep 90 days") || strings.Contains(theirs, "keep 30 days") {
+		t.Errorf("Theirs = %q, want only the store side", theirs)
+	}
+	// Each side keeps its own equals line as content — no split ever happened.
+	for name, side := range map[string][]string{"Yours": rs.Yours, "Theirs": rs.Theirs} {
+		var equals int
+		for _, ln := range side {
+			if ln == "=======" {
+				equals++
+			}
+		}
+		if equals != 1 {
+			t.Errorf("%s has %d equals-only lines, want 1 kept as content: %q", name, equals, side)
+		}
+	}
+	// The merge file still holds both sides for $EDITOR.
+	raw, err := os.ReadFile(rs.TmpPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "keep 30 days") || !strings.Contains(string(raw), "keep 90 days") {
+		t.Errorf("merge file lost a side:\n%s", raw)
+	}
+}
+
+// Two sides that differ only in line endings are not "identical": the diff has
+// nothing visible to show, but the bytes differ and the UI has to say which.
+func TestResolveSessionIdenticalIsByteExact(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	cfg := filepath.Join(root, "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = R\n\temail = r@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	bare := filepath.Join(root, "remote.git")
+	gitT(t, "", "init", "--bare", bare)
+	if err := InitTeam("file://" + bare); err != nil {
+		t.Fatalf("InitTeam: %v", err)
+	}
+	memDir := filepath.Join(root, "proj", "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	memPath := filepath.Join(memDir, "note.md")
+	if err := os.WriteFile(memPath, []byte("---\nname: note\n---\n# Note\n\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(memPath, "global"); err != nil {
+		t.Fatalf("Promote: %v", err)
+	}
+
+	// Same session, unchanged: byte-identical.
+	rs, err := BeginConflictResolve(memPath)
+	if err != nil {
+		t.Fatalf("BeginConflictResolve: %v", err)
+	}
+	os.Remove(rs.TmpPath)
+	if !rs.Identical {
+		t.Errorf("unchanged copies: Identical = false, want true")
+	}
+
+	// The store copy gains CRLF line endings and nothing else.
+	teamDir, _ := Dir()
+	storePath := filepath.Join(teamDir, "global", "note.md")
+	sraw, _ := os.ReadFile(storePath)
+	sm, _, _ := memory.ReadEngram(string(sraw))
+	crlf := "---\r\nname: note\r\n---\r\n# Note\r\n\r\nbody\r\n"
+	sm.SyncedHash, _ = memory.ContentDigest(crlf)
+	newStore, _ := memory.WriteEngram(crlf, sm)
+	if err := os.WriteFile(storePath, []byte(newStore), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rs2, err := BeginConflictResolve(memPath)
+	if err != nil {
+		t.Fatalf("BeginConflictResolve (crlf): %v", err)
+	}
+	os.Remove(rs2.TmpPath)
+	if rs2.Identical {
+		t.Error("sides differing only in line endings reported as identical")
+	}
+	if strings.Join(rs2.Yours, "\n") != strings.Join(rs2.Theirs, "\n") {
+		t.Errorf("display lines should match after CRLF normalization:\n%q\n%q", rs2.Yours, rs2.Theirs)
+	}
 }
