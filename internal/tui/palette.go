@@ -46,7 +46,7 @@ type palItem struct {
 	action     palAction
 	src        srcKind
 	path       string
-	provider   string // assistant provider for palAssistant ("claude"); "" otherwise
+	provider   string // assistant provider key for palAssistant ("claude", "gemini", …); "" otherwise
 	arg        string // for palInit: the git URL typed after ">init"
 
 }
@@ -210,29 +210,15 @@ func (m Model) matchAssistants(q string) []palItem {
 	t := m.theme()
 	q = strings.ToLower(q)
 	var rows []palItem
-	for _, p := range m.assistantProviders() {
-		if strings.HasPrefix(p.key, q) {
+	for _, a := range installedAssistants() {
+		if strings.HasPrefix(a.key, q) {
 			rows = append(rows, palItem{
-				glyph: "@", glyphColor: t.Accent, label: p.label, sub: p.sub,
-				section: palSecAssistant, action: palAssistant, provider: p.key,
+				glyph: "@", glyphColor: t.Accent, label: a.label, sub: a.sub,
+				section: palSecAssistant, action: palAssistant, provider: a.key,
 			})
 		}
 	}
 	return rows
-}
-
-// palProvider is one AI assistant reachable via "@" in the palette. Today only
-// Claude Code exists; the registry keeps adding another (Phase 3) a one-line change.
-type palProvider struct {
-	key   string // matched against the text after "@"
-	label string // primary line, e.g. "@Claude"
-	sub   string // secondary muted line
-}
-
-func (m Model) assistantProviders() []palProvider {
-	return []palProvider{
-		{key: "claude", label: "@Claude", sub: "fix & edit memories/plans with Claude Code"},
-	}
 }
 
 // palJumpCap bounds the Jump-to section so an empty query over a large corpus
@@ -459,3 +445,25 @@ const (
 	palHint         = "type anything — prefixes optional"
 	palHintMinWidth = 64
 )
+
+// openPalette opens the command palette seeded with a query — "" for the plain
+// opener, "@" for the assistant key.
+//
+// The cursor and scroll offset reset HERE rather than in rebuildPalette, because
+// reopening must start at the top while typing must not: updatePalette already
+// zeroes them per keystroke, but neither opener did, so the palette reopened
+// wherever it was left. Pressing @ after arrowing down twice highlighted the
+// third assistant, and ↵ would have launched an AI session the user never chose;
+// a leftover palTop scrolled the first rows out of the frame entirely.
+func (m *Model) openPalette(q string) tea.Cmd {
+	m.mode = modePalette
+	m.palette.SetValue(q)
+	// SetValue repositions the cursor only when the field was empty or the old
+	// position now overruns (bubbles v0.20.0 setValueInternal), so a palette
+	// left with its cursor at column 0 would put "@" *after* the caret and turn
+	// the next keystrokes into "cla@". Place it explicitly.
+	m.palette.CursorEnd()
+	m.palCursor, m.palTop = 0, 0
+	m.rebuildPalette()
+	return m.palette.Focus()
+}

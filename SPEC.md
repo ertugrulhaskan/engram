@@ -184,7 +184,7 @@ a managed local clone and shells out to git for all sync.
   if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
 - **Day-to-day, the team verbs live under the `>` command palette** (`ctrl+p` → `>`:
   `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>alias <name>`), a third prefix beside
-  `/` sources and `@Claude`, so engram stays a no-arg TUI for normal use. `>init` mirrors
+  `/` sources and `@` assistants, so engram stays a no-arg TUI for normal use. `>init` mirrors
   the `engram init-team` subcommand, which remains for first-run/CLI setup.
 - **No servers and no engram-level auth.** Access is whatever the git host grants
   on the repo; push/pull use the user's existing git credentials (SSH / credential
@@ -596,7 +596,8 @@ engram/
             style.go         # color/pad/clip text helpers, type labels, humanize
             paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
-            claude.go        # @Claude assistant: launch interactive Claude Code, seed prompt, context/orphan detection
+            assistant.go     # the @ registry: which assistants exist, how each is invoked, $PATH detection
+            seed.go          # assistant handoff: launch cwd + add-dir choice, seed prompt, orphan detection
             status.go        # transient footer status: kinds, flash/auto-dismiss
             layout.go        # resize geometry, glamour renderer build, listRows
             navigation.go    # cursor move/page, selection, source switch, preview sync
@@ -609,7 +610,7 @@ engram/
 > recency), switchable via the command palette. The sharing design below (Phase 2)
 > concerns memories only.
 
-### 8.1 `@Claude` assistant (Phase 1.5)
+### 8.1 `@` assistant handoff (Phase 1.5)
 
 The palette is one sectioned list — *Jump to* (every memory and plan, capped at
 30), then *Sources*, *Team*, and *Assistant* — filtered as a whole by typing:
@@ -620,27 +621,50 @@ Rows are single lines (section sigil + label, description right-aligned) and
 section headers are render-time lines, so the cursor only ever addresses
 candidate rows.
 
-The palette's `@` prefix offers AI providers (today only `@Claude`; the
-`palProvider` registry and `palItem.provider` field keep room for others). Selecting
-`@Claude` launches an **interactive** Claude Code session via the same
-`tea.ExecProcess` suspend/resume handoff `editor.go` uses for `$EDITOR` — no `-p`
-(headless), no engram-side diff UI; Claude Code's own permission prompts gate edits.
+The palette's `@` prefix offers AI assistants, held in one `assistants` registry
+(`assistant.go`) that `palItem.provider` keys into: `@Claude`, `@Gemini`, `@Codex`
+and `@Copilot`. The section lists whichever CLIs are on `$PATH` — offering an action
+that cannot run is the same mistake the status bar's offered-action rule avoids — and
+falls back to listing all four when none is installed, so `@` is never an empty section
+that explains nothing. The bare `@` key opens this list rather than launching a
+provider: with several installed there is no single right answer, and choosing silently
+would start a session the user never picked.
+
+Selecting one launches an **interactive** session via the same `tea.ExecProcess`
+suspend/resume handoff `editor.go` uses for `$EDITOR` — no headless flag, no
+engram-side diff UI; the assistant's own permission prompts gate edits. Two properties
+are required of every registry entry, and a CLI lacking either does not belong in the
+table: it must accept a seed prompt **without** dropping to non-interactive mode (each
+of the four also has a one-shot `-p`-style flag that would silently turn the handoff
+into a single answer), and it must be able to reach a directory outside its cwd, since
+the memories live under `~/.claude` while engram launches in the project dir. The
+spellings differ — `--add-dir` for Claude, Codex and Copilot, `--include-directories`
+for Gemini — so each entry builds its own argv through an `args(prompt, addDir)`
+closure. `TestAssistantArgsCarryAddDir` fails a future entry that forgets.
 
 The launch is seeded so the session starts with context, not blind: `buildSeedPrompt`
 injects the current source, the project/memory dirs, a live `memory.IndexDrift`
-snapshot, and a soft scope ("memory/plan files only; ask before editing"). The cwd is
-the selected memory's **project dir** when it resolves and exists (so Claude reads the
-right `CLAUDE.md` and recalls the right memories); the memory dir lives under `~/.claude`,
-outside the project, so it's granted with `--add-dir` for edit access. When the project
+snapshot, and a soft scope ("memory/plan files only; ask before editing"). When the
+assistant reads an instruction file of its own (`GEMINI.md`, `AGENTS.md`,
+`.github/copilot-instructions.md`), the prompt names it and says these are Claude
+Code's files — otherwise a non-Claude session can mistake the memories it was opened
+to maintain for its own rules. The cwd is the selected memory's **project dir** when it
+resolves and exists (so the assistant reads the right instruction file and, for Claude,
+recalls the right memories); the memory dir lives under `~/.claude`, outside the
+project, so it's passed as the add-dir for edit access. When the project
 dir can't be resolved on disk — a **renamed/moved folder**, or a key that can't be reversed
 to a real path (a `.` in the folder name flattens to `-` ambiguously) — engram launches in
 the **`~/.claude/projects`** root instead: inside `.claude`, narrow relative to `$HOME`, and
 broad enough that relocating memories across project keys needs no extra trust prompt
-(`--add-dir` is then redundant and omitted). Because that fallback can be a false positive,
-the seed prompt's wording is non-committal — it asks Claude to relocate files only if they
-are genuinely misfiled. `claude` is a new **optional** runtime dependency: absent, the
-action shows a hint and does nothing. On exit engram reloads (and resets the drift cache)
-so changes appear immediately.
+(the add-dir is then redundant and omitted). Because that fallback can be a false positive,
+the seed prompt's wording is non-committal — it asks the assistant to relocate files only if
+they are genuinely misfiled. Every assistant CLI is an **optional** runtime dependency:
+absent, the provider is left out of the palette list, and selecting it from the
+none-installed fallback shows a hint naming where to get it. On exit engram reloads (and
+resets the drift cache), and the status line names the assistant that ran — the label
+travels on `assistantFinishedMsg` rather than on the `Model`, because the exit callback
+fires long after the `Update` that launched the session, so a `Model` field would be state
+kept alive only to bridge those two moments.
 
 ### 8.2 `/files` read-only source (Phase 1.5; the non-Claude files in Phase 4 tier 1)
 
@@ -661,7 +685,7 @@ projects root to `~/.claude` and up once more — so the tree stays redirectable
 dir in tests. A global doc belongs to no project, so it carries empty
 `ProjectName`/`ProjectDir`/`MemoryDir`, exactly as `~/.claude/CLAUDE.md` always has. The
 TUI reads that as "no repo to open": `assistantContext` returns `claudeHome()` when both
-dirs are empty, so `@Claude` launches in `~/.claude` rather than in an unrelated project.
+dirs are empty, so the `@` handoff launches in `~/.claude` rather than in an unrelated project.
 
 Two vendor limits are deliberate. Copilot has no home-dir equivalent — VS Code keeps
 user-level instructions in profile settings, not a file at a fixed path — and Codex's
@@ -681,13 +705,13 @@ monorepo-nested `.cursor/rules` under arbitrary subdirectories (a repo-tree walk
 poll tick — the scanRoots depth-1 argument), the legacy `.cursorrules` (absent from
 current Cursor docs), and Cursor/Copilot user-level rules (app-internal storage, no file).
 `memory.DiscoverDocs`/`DocsSignature` walk these (the
-signature folds into `combinedSig`, so external/`@Claude` edits — including to `CLAUDE.md`,
+signature folds into `combinedSig`, so external and `@`-assistant edits — including to `CLAUDE.md`,
 which lives outside the memory tree — trigger the poll reload). **`DocsSignature` must stay in
 step with `DiscoverDocs`:** a file surfaced by one but missed by the other displays correctly
 and then never refreshes, a staleness bug no rendering test catches. They are **view-only**: the
-`e` and `d` keys return a hint to edit via `@Claude` rather than launching the editor or the
+`e` and `d` keys return a hint to edit via an assistant (`@`) rather than launching the editor or the
 delete-confirm modal, so the index and instruction files aren't hand-corrupted. Selecting a
-doc still carries its `ProjectDir`/`MemoryDir`, so launching `@Claude` from `/files` opens in
+doc still carries its `ProjectDir`/`MemoryDir`, so launching an assistant from `/files` opens in
 the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / index-sync;
 "read-only" only governs direct hand-editing.
 

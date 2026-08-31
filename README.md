@@ -85,7 +85,7 @@ The list reloads automatically when memory files change on disk.
 | `R`        | reconcile the project's `MEMORY.md` index (shown when out of sync) |
 | `1`–`3`    | switch theme                            |
 | `P` / `p` / `r` | promote / pull / resolve — the status bar offers the one that fits the selected row's sync state. `P` promotes every marked memory as one commit when marks are set |
-| `@`        | open the selected project in a Claude Code session |
+| `@`        | pick an assistant to hand the selected project to (opens the palette's `@` list) |
 | `ctrl+p` / `ctrl+k` | open the command palette (see below) |
 | `?`        | help — a keybinding cheat-sheet overlay (any key closes) |
 | `q` / `ctrl+c` | quit                                |
@@ -111,13 +111,16 @@ them anymore:
 - **`/` — sources.** `/memories` (the default; `/memory` still works),
   `/plans` (grouped by recency), `/files` (see below), or `/settings` (opens
   engram's config file in your `$EDITOR`).
-- **`@` — assistant.** `@Claude` hands off to an interactive
-  [Claude Code](https://claude.com/claude-code) session, seeded with the selected
-  project's memory/plan health, to fix what `R` can't (malformed frontmatter,
-  broken `[[links]]`, memories stranded by a renamed project folder) and to
-  create, rewrite, or merge memories on request. engram reloads when the session
-  exits. Requires the `claude` CLI on `PATH`; without it the palette action shows
-  a one-line hint.
+- **`@` — assistants.** `@Claude`, `@Gemini`, `@Codex` and `@Copilot` each hand
+  off to an **interactive** session with that assistant's CLI, seeded with the
+  selected project's memory/plan health, to fix what `R` can't (malformed
+  frontmatter, broken `[[links]]`, memories stranded by a renamed project folder)
+  and to create, rewrite, or merge memories on request. engram reloads when the
+  session exits and tells you which one ran.
+
+  The list shows whichever CLIs you actually have on `PATH` — they're all
+  optional, and engram runs fine with none of them. Pressing `@` on its own opens
+  this list rather than picking for you.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
   `>withdraw`, `>alias` — covered in [Team sharing](#team-sharing) below.
 
@@ -146,8 +149,8 @@ settings rather than a file — and engram reads Codex's default
 `~/.codex/AGENTS.md` only, not a relocated `CODEX_HOME` or an
 `AGENTS.override.md`.
 
-These are **view-only** — `e`/`d` point you at `@Claude` instead of editing them
-directly, so the index and your instructions don't get hand-corrupted.
+These are **view-only** — `e`/`d` point you at an assistant (`@`) instead of
+editing them directly, so the index and your instructions don't get hand-corrupted.
 
 By default engram surfaces these **for projects it already knows about** — ones
 with a folder under `~/.claude/projects/`. To include repos you've never opened
@@ -329,7 +332,7 @@ Files are never modified except when you explicitly edit one. See
 ## Roadmap (short version)
 
 - **Phase 1** — browse / search / view / edit local memories *(done — `v0.1.0`)*
-- **Phase 1.5** — assisted maintenance: `@Claude`, read-only `/files` *(core in `v0.1.0`)*
+- **Phase 1.5** — assisted maintenance: `@` handoff to Claude Code / Gemini / Codex / Copilot, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
 - **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md`, Copilot's instructions and Cursor rules are all browsable — per project and, where a vendor has one, globally), then server-side memories (Claude.ai, ChatGPT, …) as access allows

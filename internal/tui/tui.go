@@ -99,7 +99,7 @@ var srcCaps = [srcCount]source.Caps{
 // files source names its escape hatch, everywhere else the denial is silent —
 // the key is absent from the controls row too, so there is nothing to explain.
 var readOnlyHint = [srcCount]string{
-	srcFiles: "read-only — edit with @Claude (ctrl+p, then @)",
+	srcFiles: "read-only — edit with an assistant (press @)",
 }
 
 // caps returns the current source's capability set.

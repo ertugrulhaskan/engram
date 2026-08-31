@@ -27,7 +27,7 @@ func TestPaletteSectionedEmpty(t *testing.T) {
 	got := m.(Model)
 	rows := got.palRows
 
-	wantRows := 5 + 2 + len(got.paletteCommands()) + len(got.teamVerbs()) + len(got.assistantProviders())
+	wantRows := 5 + 2 + len(got.paletteCommands()) + len(got.teamVerbs()) + len(installedAssistants())
 	if len(rows) != wantRows {
 		t.Fatalf("empty palette = %d rows, want %d (jump + commands + verbs + assistant)", len(rows), wantRows)
 	}

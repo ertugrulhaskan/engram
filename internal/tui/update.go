@@ -89,10 +89,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// so don't touch a single path — just reload. Reset the drift cache so
 		// the "out of sync" badge recomputes (mirrors the R-key handler).
 		m.driftDir = ""
-		if msg.err != nil {
-			return m, tea.Batch(m.setDanger("claude exited: "+msg.err.Error()), reloadCmd())
+		who := msg.label
+		if who == "" {
+			who = "the assistant"
 		}
-		return m, tea.Batch(m.setStatus("reloaded after @Claude"), reloadCmd())
+		if msg.err != nil {
+			return m, tea.Batch(m.setDanger(who+" exited: "+msg.err.Error()), reloadCmd())
+		}
+		return m, tea.Batch(m.setStatus("reloaded after "+who), reloadCmd())
 
 	case scanFinishedMsg:
 		// A pre-promote secret scan came back — promote, block, or warn per policy.
@@ -451,10 +455,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+p", "ctrl+k":
 		// Two aliases for one palette: ^P is the legacy opener, ^K the spec's.
 		// Inside the palette ctrl+k keeps meaning "move up" (updatePalette).
-		m.mode = modePalette
-		m.palette.SetValue("")
-		m.rebuildPalette()
-		return m, m.palette.Focus()
+		return m, m.openPalette("")
 	case "P":
 		// Direct team keys mirror the `>` palette verbs; the action methods
 		// self-guard (source, git, store, state) with the same messages.
@@ -464,11 +465,12 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		return m.actionResolve()
 	case "@":
-		// Hand the selected project to an interactive Claude session — the same
-		// action as the palette's @claude entry (the hint was previously
-		// advertised in the files source but not bound).
-		cmd := m.assistantCmd("claude")
-		return m, cmd
+		// Open the palette filtered to assistants rather than launching one
+		// outright: with several providers installed there is no single right
+		// answer, and choosing silently would start a session the user never
+		// picked. One rule for every install combination — and when none is on
+		// $PATH the rows still list them all, each carrying its install hint.
+		return m, m.openPalette("@")
 	case "?":
 		m.mode = modeHelp
 		return m, nil

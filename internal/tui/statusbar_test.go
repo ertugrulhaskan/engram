@@ -114,18 +114,79 @@ func TestCtrlKPaletteAlias(t *testing.T) {
 	}
 }
 
-// TestAtKeyLaunchesAssistant: @ is bound in normal mode (it was advertised in
-// the files hints but did nothing). With no claude binary the handler must
-// answer with its not-found message — proof the key reaches the assistant path.
-func TestAtKeyLaunchesAssistant(t *testing.T) {
+// TestAtKeyOpensAssistantPalette: @ is bound in normal mode and opens the
+// palette filtered to assistants rather than launching one, since with several
+// providers installed there is no single right answer. The cursor must land
+// after the "@" so the next keystrokes narrow the list instead of preceding it.
+func TestAtKeyOpensAssistantPalette(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	orig := lookClaude
-	lookClaude = func() string { return "" }
-	defer func() { lookClaude = orig }()
+	orig := lookPath
+	lookPath = func(bin string) string { return "/usr/bin/" + bin }
+	defer func() { lookPath = orig }()
 
 	var cur tea.Model = actionModel(team.StateNone, "")
 	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("@")})
-	if got := cur.(Model).status; !strings.Contains(got, "claude CLI not found") {
-		t.Errorf("@ did not reach the assistant handler; status = %q", got)
+	got := cur.(Model)
+
+	if got.mode != modePalette {
+		t.Fatalf("@ left mode = %v, want the palette", got.mode)
+	}
+	if got.palette.Value() != "@" {
+		t.Errorf("palette query = %q, want \"@\"", got.palette.Value())
+	}
+	if pos := got.palette.Position(); pos != 1 {
+		t.Errorf("cursor at %d, want 1 (after the @) — typing would misplace the query", pos)
+	}
+	if len(got.palRows) != len(assistants) {
+		t.Fatalf("@ listed %d rows, want all %d assistants: %+v", len(got.palRows), len(assistants), got.palRows)
+	}
+	for _, r := range got.palRows {
+		if r.action != palAssistant {
+			t.Errorf("@ leaked a non-assistant row: %+v", r)
+		}
+	}
+
+	// Typing narrows rather than relaunching: "@cl" keeps only claude.
+	cur, _ = cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("cl")})
+	if rows := cur.(Model).palRows; len(rows) != 1 || rows[0].provider != "claude" {
+		t.Errorf("@cl rows = %+v, want one claude row", rows)
+	}
+}
+
+// Reopening the palette must start at the top. updatePalette zeroes the cursor
+// per keystroke but neither opener did, so the palette came back wherever it was
+// left: @ after two ↓ highlighted the third assistant, and ↵ would have launched
+// an AI session the user never chose. A stale palTop is the worse half — it
+// scrolls the first rows out of the frame, so they can't even be seen.
+func TestPaletteOpenersResetCursor(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	orig := lookPath
+	lookPath = func(bin string) string { return "/usr/bin/" + bin }
+	defer func() { lookPath = orig }()
+
+	for _, tc := range []struct {
+		name string
+		key  tea.KeyMsg
+	}{
+		{"ctrl+p", tea.KeyMsg{Type: tea.KeyCtrlP}},
+		{"@", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("@")}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var m tea.Model = ready(t)
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+			for i := 0; i < 3; i++ {
+				m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+			}
+			if m.(Model).palCursor == 0 {
+				t.Fatal("setup failed: ↓ did not move the palette cursor")
+			}
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+			m, _ = m.Update(tc.key)
+			got := m.(Model)
+			if got.palCursor != 0 || got.palTop != 0 {
+				t.Errorf("reopened at cursor=%d top=%d, want 0/0 — the highlight lands on a row the user never aimed at", got.palCursor, got.palTop)
+			}
+		})
 	}
 }

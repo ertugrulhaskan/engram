@@ -31,10 +31,10 @@ var helpGroups = [][]struct{ key, desc string }{
 		{"1–3", "switch theme"},
 	},
 	{
-		{"^P · ^K", "palette · / sources · @Claude · > team"},
+		{"^P · ^K", "palette · / sources · @ assistants · > team"},
 		{">", "team: promote · pull · resolve · withdraw · init · alias"},
 		{"P · p · r", "promote · pull · resolve — offered per row"},
-		{"@", "open the selected project in a Claude session"},
+		{"@", "pick an assistant to open the selected project in"},
 		{"?", "this help"},
 		{"q · ^C", "quit"},
 	},

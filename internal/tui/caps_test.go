@@ -33,14 +33,14 @@ func TestCapsMatrix(t *testing.T) {
 	want := [srcCount]source.Caps{
 		srcMemories: {Edit: true, Create: true, Delete: true, Share: true},
 		srcPlans:    {Delete: true},
-		srcFiles:    {}, // read-only: repairs go through @Claude
+		srcFiles:    {}, // read-only: repairs go through an @assistant
 	}
 	if srcCaps != want {
 		t.Errorf("srcCaps = %+v\nwant the ENGR-12 matrix %+v", srcCaps, want)
 	}
 	// The hint table is the other half of a source's policy: only the files
 	// source names an escape hatch; every other denial is silent.
-	wantHint := [srcCount]string{srcFiles: "read-only — edit with @Claude (ctrl+p, then @)"}
+	wantHint := [srcCount]string{srcFiles: "read-only — edit with an assistant (press @)"}
 	if readOnlyHint != wantHint {
 		t.Errorf("readOnlyHint = %q, want %q", readOnlyHint, wantHint)
 	}

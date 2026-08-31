@@ -35,7 +35,7 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
       a light theme survives a dark terminal, a two-row header block, a contextual
       status bar, one shared dialog anatomy, and confirms before every team write
 
-## Phase 1.5 — Assisted memory maintenance *(core shipped in `v0.1.0`; one item left)*
+## Phase 1.5 — Assisted memory maintenance *(complete — core in `v0.1.0`; the multi-assistant seam is unreleased)*
 
 Goal: hand the fiddly memory/plan upkeep to an AI, instead of fixing it by hand.
 Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
@@ -46,7 +46,13 @@ Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
       renamed project folder) and to create/rewrite/merge memories and plans on request
 - [x] `/files` source — browse the global + per-project `CLAUDE.md` and each project's
       `MEMORY.md` read-only; edits are reserved for `@Claude`
-- [ ] Other assistants behind the same `@<provider>` seam (overlaps Phase 4)
+- [x] Other assistants behind the same `@<provider>` seam — `@Claude`, `@Gemini`,
+      `@Codex` and `@Copilot` share one registry, and the palette lists whichever are
+      installed. Every entry must launch *interactively* (each of these CLIs also has a
+      one-shot prompt flag that would quietly turn the handoff into a single answer) and
+      must pass the memory dir through — `--add-dir`, or `--include-directories` for
+      Gemini — since a session that can't reach `~/.claude` can't do the repair it was
+      opened for
 
 ## Phase 2 — Team sharing over git *(shipped in v0.2.0 — direction badges, conflict resolution, secret-scan, `>` palette)*
 

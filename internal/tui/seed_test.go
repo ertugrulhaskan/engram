@@ -44,18 +44,28 @@ func modelWithMemory(t *testing.T, projDir, memDir string) Model {
 	return got
 }
 
-// "@" surfaces only the assistant provider(s); "@cla" still matches "claude";
+// "@" surfaces only the assistant providers; "@cla" still matches "claude";
 // a non-matching suffix yields nothing, and no fuzzy-jump memory rows leak in.
+//
+// Every provider is stubbed as installed, so the row count is the registry's
+// and not a fact about whichever CLIs this machine happens to have — the palette
+// otherwise lists only installed ones, which made this assertion machine-dependent.
 func TestPaletteAssistant(t *testing.T) {
+	old := lookPath
+	defer func() { lookPath = old }()
+	lookPath = func(bin string) string { return "/usr/bin/" + bin }
+
 	var m tea.Model = ready(t)
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = typeRunes(m, "@")
 	got := m.(Model)
-	if len(got.palRows) != 1 {
-		t.Fatalf("'@' produced %d rows, want 1 (no fuzzy leak): %+v", len(got.palRows), got.palRows)
+	if len(got.palRows) != len(assistants) {
+		t.Fatalf("'@' produced %d rows, want %d (no fuzzy leak): %+v", len(got.palRows), len(assistants), got.palRows)
 	}
-	if got.palRows[0].action != palAssistant || got.palRows[0].provider != "claude" {
-		t.Fatalf("'@' row = %+v, want palAssistant/claude", got.palRows[0])
+	for _, r := range got.palRows {
+		if r.action != palAssistant || r.provider == "" {
+			t.Fatalf("'@' row = %+v, want a palAssistant row naming a provider", r)
+		}
 	}
 
 	m = typeRunes(m, "cla") // input is now "@cla"
@@ -72,9 +82,9 @@ func TestPaletteAssistant(t *testing.T) {
 // Selecting @Claude from the palette dispatches the assistant and closes the
 // palette; with claude missing it surfaces a danger status instead of crashing.
 func TestPaletteAssistantDispatchMissingBinary(t *testing.T) {
-	old := lookClaude
-	defer func() { lookClaude = old }()
-	lookClaude = func() string { return "" }
+	old := lookPath
+	defer func() { lookPath = old }()
+	lookPath = func(string) string { return "" }
 
 	var m tea.Model = ready(t)
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
@@ -91,7 +101,7 @@ func TestPaletteAssistantDispatchMissingBinary(t *testing.T) {
 
 func TestBuildSeedPromptDrift(t *testing.T) {
 	var m Model // srcKind defaults to srcMemories
-	out := m.buildSeedPrompt("/home/me/proj", driftDir(t), false)
+	out := m.buildSeedPrompt(claudeAssistant(t), "/home/me/proj", driftDir(t), false)
 
 	for _, want := range []string{"out of sync", "a.md", "gone.md", "Ask before editing", "/home/me/proj"} {
 		if !strings.Contains(out, want) {
@@ -116,7 +126,7 @@ func TestBuildSeedPromptInSync(t *testing.T) {
 	}
 
 	var m Model
-	out := m.buildSeedPrompt("/home/me/proj", dir, false)
+	out := m.buildSeedPrompt(claudeAssistant(t), "/home/me/proj", dir, false)
 	if !strings.Contains(out, "in sync") {
 		t.Errorf("expected 'in sync' phrasing:\n%s", out)
 	}
@@ -128,7 +138,7 @@ func TestBuildSeedPromptInSync(t *testing.T) {
 func TestBuildSeedPromptUnresolved(t *testing.T) {
 	memDir := driftDir(t)
 	var m Model
-	out := m.buildSeedPrompt("/gone/old-project", memDir, true)
+	out := m.buildSeedPrompt(claudeAssistant(t), "/gone/old-project", memDir, true)
 
 	for _, want := range []string{"couldn't resolve", "renamed or moved", "/gone/old-project", "relocate"} {
 		if !strings.Contains(out, want) {
@@ -169,26 +179,10 @@ func TestAssistantContext(t *testing.T) {
 	}
 }
 
-func TestBuildClaudeCmd(t *testing.T) {
-	c := buildClaudeCmd("claude", "/proj", "SEED", "/mem")
-	if c.Dir != "/proj" {
-		t.Errorf("cwd = %q, want /proj", c.Dir)
-	}
-	want := []string{"claude", "--add-dir", "/mem", "--", "SEED"}
-	if strings.Join(c.Args, "\x00") != strings.Join(want, "\x00") {
-		t.Errorf("args = %v, want %v", c.Args, want)
-	}
-
-	// No add-dir → still terminate options with "--" so the prompt stays positional.
-	c2 := buildClaudeCmd("claude", "/proj", "SEED", "")
-	want2 := []string{"claude", "--", "SEED"}
-	if strings.Join(c2.Args, "\x00") != strings.Join(want2, "\x00") {
-		t.Errorf("args (no addDir) = %v, want %v", c2.Args, want2)
-	}
-}
-
 // On a clean exit the assistant handler resets the drift cache and reloads; on
-// error it surfaces a danger status and still reloads.
+// error it surfaces a danger status and still reloads. Both messages name the
+// provider that ran, so a non-claude label is used here — the wording must come
+// from the message, not from a hardcoded "claude".
 func TestAssistantFinishedReloads(t *testing.T) {
 	m := ready(t)
 	m.driftDir = "stale"
@@ -204,9 +198,9 @@ func TestAssistantFinishedReloads(t *testing.T) {
 		t.Error("expected a status message after a clean exit")
 	}
 
-	m3, _ := ready(t).Update(assistantFinishedMsg{err: errors.New("boom")})
+	m3, _ := ready(t).Update(assistantFinishedMsg{label: "@Gemini", err: errors.New("boom")})
 	bad := m3.(Model)
-	if bad.statusKind != statusDanger || !strings.Contains(bad.status, "claude") {
+	if bad.statusKind != statusDanger || !strings.Contains(bad.status, "@Gemini") {
 		t.Errorf("error exit status = %q (kind=%v), want a danger message", bad.status, bad.statusKind)
 	}
 }

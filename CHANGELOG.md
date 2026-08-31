@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`@Gemini`, `@Codex` and `@Copilot` join `@Claude`.** The assistant handoff is
+  a registry now, not a single provider. The palette's `@` section lists whichever
+  of the four CLIs you have on `PATH` (all of them optional — engram runs fine with
+  none), and each one launches an **interactive** session seeded with the selected
+  project's memory/plan health, exactly as `@Claude` always has. When the session
+  exits, the status line names the assistant that ran.
+
+  Every provider passes the memory directory through to its CLI — `--add-dir` for
+  Claude, Codex and Copilot, `--include-directories` for Gemini. engram launches in
+  the project directory while the memories live under `~/.claude` outside it, so a
+  provider that dropped it would open a session pointed at files it wasn't allowed
+  to touch.
+
+  Where an assistant reads instructions of its own — `GEMINI.md`, `AGENTS.md`,
+  `.github/copilot-instructions.md` — the seed prompt names that file and says the
+  memories are Claude Code's, so the session treats them as data to maintain rather
+  than mistaking them for its own rules.
 - **`>resolve` shows an inline diff before `$EDITOR` opens.** The confirm used
   to print the first conflict hunk verbatim — the raw `<<<<<<<` / `=======` /
   `>>>>>>>` block — which showed the two versions stacked but left you to spot
@@ -58,6 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (and says so) instead of replacing it with defaults; the `/settings` reload
   applies your edit without saving the file back, and names any
   `projectAliases` entry it had to ignore.
+
+### Changed
+- **`@` opens the assistant list instead of launching Claude Code.** With four
+  providers there is no single right answer for a bare keypress, and picking
+  silently would start a session you never chose — so `@` now opens the palette
+  scoped to `@`, with the cursor after it so typing narrows (`@co` → Codex and
+  Copilot). The `/files` read-only hint drops its stale "ctrl+p, then @" detour
+  and just says to press `@`.
 
 ### Fixed
 - `esc` on the plans or files source no longer clears — and announces clearing —

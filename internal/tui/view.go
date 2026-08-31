@@ -232,7 +232,7 @@ func (m Model) bottomBar() string {
 	var left string
 	switch {
 	case m.mode == modePalette:
-		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memories · plans · files · settings · @claude · >team") +
+		left = t.bar(t.Dim).Render(" ") + t.bar(t.Accent).Render("memories · plans · files · settings · @assistant · >team") +
 			t.bar(t.Dim).Render(" · type to jump · ") + t.bar(t.Accent).Render("↑↓") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("↵") + t.bar(t.Dim).Render(" · ") +
 			t.bar(t.Accent).Render("esc") + t.bar(t.Dim).Render(" close ")
@@ -328,7 +328,7 @@ func (m Model) hints(t Theme) string {
 		// A source that names an escape hatch for its denied edits advertises it
 		// here. Keyed on the hint alone, not on !Edit, so a source wrongly
 		// carrying both shows both keys — visible drift, not a masked one.
-		pairs = append(pairs, [2]string{"@", "edit via Claude"})
+		pairs = append(pairs, [2]string{"@", "edit via assistant"})
 	}
 	pairs = append(pairs, [2]string{"^P", "palette"})
 	pairs = append(pairs, [2]string{"q", "quit"})

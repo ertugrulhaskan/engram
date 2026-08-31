@@ -3,86 +3,34 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
 )
 
-// --- @Claude assistant ---
+// --- the assistant handoff: launch context and seed prompt ---
+//
+// Which assistants exist and how each is invoked lives in assistant.go; this
+// file decides *where* to launch and *what to tell it*, which is the same work
+// for every provider.
 
-// assistantFinishedMsg is delivered when the launched assistant session exits;
-// it carries the process error (nil on a clean exit). The handler reloads from
-// disk so any memories/plans the assistant touched show immediately.
-type assistantFinishedMsg struct{ err error }
-
-// lookClaude resolves the claude binary on $PATH. It's a package var so tests
-// can simulate "not installed" without mutating $PATH.
-var lookClaude = func() string { return firstInPath("claude") }
+// assistantFinishedMsg is delivered when the launched assistant session exits.
+// It carries the provider's label and the process error (nil on a clean exit),
+// so the status line can name which assistant ran. The label rides on the
+// message rather than on the Model because the exit callback fires long after
+// the Update that launched the session — a Model field would be state kept
+// alive only to bridge those two moments, and it would have to survive whatever
+// the user did in between. The handler reloads from disk so any memories/plans
+// the assistant touched show immediately.
+type assistantFinishedMsg struct {
+	label string
+	err   error
+}
 
 // seedListCap bounds how many drifted filenames get spelled out in the seed
 // prompt, so a pathological directory doesn't produce a giant CLI argument.
 const seedListCap = 10
-
-// assistantCmd dispatches to the chosen provider. Only "claude" exists today;
-// the provider seam keeps the door open for other assistants (Phase 3) without
-// touching the palette.
-func (m *Model) assistantCmd(provider string) tea.Cmd {
-	switch provider {
-	case "claude":
-		return m.claudeCmd()
-	default:
-		return m.setDanger("unknown assistant: " + provider)
-	}
-}
-
-// claudeCmd launches an interactive Claude Code session, seeded with the
-// selected project's memory/plan health, then reloads when it exits. It reuses
-// the same suspend/resume handoff editCmd uses for $EDITOR.
-func (m *Model) claudeCmd() tea.Cmd {
-	bin := lookClaude()
-	if bin == "" {
-		return m.setDanger("claude CLI not found on PATH — install Claude Code: https://claude.com/claude-code")
-	}
-	cwd, memDir, projDir, unresolved := m.assistantContext()
-	prompt := m.buildSeedPrompt(projDir, memDir, unresolved)
-	// Only grant the memory dir explicitly when it isn't already under cwd (the
-	// project-dir launch); in the ~/.claude/projects fallback it's already inside.
-	addDir := memDir
-	if within(memDir, cwd) {
-		addDir = ""
-	}
-	c := buildClaudeCmd(bin, cwd, prompt, addDir)
-	// Swap-seam: a future "new window / embedded pane" run mode replaces only
-	// this line — command construction, cwd, and the seed prompt are reusable.
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return assistantFinishedMsg{err: err}
-	})
-}
-
-// buildClaudeCmd assembles the interactive invocation: the seed prompt is the
-// trailing positional argument (no -p, so the session is interactive), cwd is
-// where Claude reads CLAUDE.md / recalls memories, and addDir (when set) grants
-// tool access to a directory outside cwd — the memory dir, when launching in the
-// project dir rather than under ~/.claude.
-func buildClaudeCmd(bin, cwd, prompt, addDir string) *exec.Cmd {
-	var args []string
-	if addDir != "" {
-		args = append(args, "--add-dir", addDir)
-	}
-	// "--" always ends option parsing, so the multi-line seed prompt is taken as
-	// the positional [prompt] in every launch mode — never swallowed by the
-	// variadic --add-dir (which would fail at startup with ENAMETOOLONG) and never
-	// misread as a flag if the prompt text ever changes. Verified: `claude --
-	// "<prompt>"` starts an interactive session even with no preceding options.
-	args = append(args, "--", prompt)
-	c := exec.Command(bin, args...)
-	c.Dir = cwd
-	return c
-}
 
 // assistantContext decides where to launch the assistant, reading the SELECTED
 // item's own dirs (not a memory-list fallback) so launching from /files on the
@@ -157,7 +105,7 @@ func within(path, base string) bool {
 // "already knows" the situation: scope, locations, a live index-health snapshot
 // (memories only), and — when relevant — the orphan/migration story. It reads
 // drift data from internal/memory; assembling the string here is UI work.
-func (m Model) buildSeedPrompt(projDir, memDir string, unresolved bool) string {
+func (m Model) buildSeedPrompt(a assistant, projDir, memDir string, unresolved bool) string {
 	var b strings.Builder
 	src := "memories"
 	switch m.srcKind {
@@ -167,7 +115,14 @@ func (m Model) buildSeedPrompt(projDir, memDir string, unresolved bool) string {
 		src = "instruction and index files"
 	}
 	b.WriteString("You've been launched from engram — a TUI for browsing the Claude Code memory and plan files under ~/.claude — to help maintain them.\n\n")
+	// The files are Claude Code's whichever assistant is reading them, so the
+	// scope line names them as such; what changes per provider is the
+	// instruction file this assistant will have loaded from the launch dir, and
+	// saying so keeps it from mistaking one vendor's file for its own.
 	b.WriteString("Scope: work only on Claude Code memory files and plan-mode plans. Ask before editing any file, and don't touch unrelated project source code.\n\n")
+	if a.rules != "" && a.rules != "CLAUDE.md" {
+		fmt.Fprintf(&b, "Note: these are Claude Code's files, not %s's own %s — read them as data to maintain.\n\n", a.label[1:], a.rules)
+	}
 
 	if memDir != "" {
 		fmt.Fprintf(&b, "Memory directory: %s\n", memDir)
