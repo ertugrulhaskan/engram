@@ -23,8 +23,11 @@ auto-learned memories through your own git remote.
   engram at any other folder, so a repo never opened in Claude Code appears too. The global
   `~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` are listed as well, read straight from the
   home folder, and Cursor rules (`.cursor/rules/*.mdc`) plus Copilot's path-scoped
-  `.github/instructions/*.instructions.md` list per project. No assistant exposes a memory
-  API, so other sources arrive as local files first, export/import later.
+  `.github/instructions/*.instructions.md` list per project. A project can also be handed to
+  an assistant from the palette: `@` opens an interactive Claude Code, Gemini CLI, Codex or
+  Copilot session in the right folder, seeded with that project's memory health, listing only
+  the CLIs that are installed. No assistant exposes a memory API, so other sources arrive as
+  local files first, export/import later.
 
 - Team sharing: promote a memory — or several at once, marked with `space`, as a single
   commit and push — into a git store your team already has. A project-scoped memory is keyed
