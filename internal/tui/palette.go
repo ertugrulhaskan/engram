@@ -210,7 +210,7 @@ func (m Model) matchAssistants(q string) []palItem {
 	t := m.theme()
 	q = strings.ToLower(q)
 	var rows []palItem
-	for _, a := range installedAssistants() {
+	for _, a := range m.installedAsst {
 		if strings.HasPrefix(a.key, q) {
 			rows = append(rows, palItem{
 				glyph: "@", glyphColor: t.Accent, label: a.label, sub: a.sub,

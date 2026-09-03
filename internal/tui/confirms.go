@@ -155,30 +155,83 @@ func (m Model) updateResolveConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // Shape of the inline diff in the resolve confirm: two lines of context around
-// each change, and a row budget so a long conflict can't outgrow the terminal.
+// each change, and a row budget so a long conflict can't outgrow the frame.
 const (
 	resolveDiffContext = 2
 	resolveDiffMaxRows = 12 // the most diff rows worth showing before "see it in $EDITOR"
-	resolveDiffMinRows = 3  // below this the preview says nothing useful; show it anyway
-	// resolveChromeRows is what the modal costs besides the diff: the header
-	// block, the legend, three blank lines, the mechanics line, the footer, and
-	// the frame's own two border rows.
-	resolveChromeRows = 10
+	resolveDiffMinRows = 3  // fewer rows than this says nothing useful, so show none at all
+	// The modal's two text blocks, named once because the row budget measures
+	// the same strings the modal renders. Reworded in place, a sentence that
+	// wrapped to one more row would cost the footer without the budget noticing.
+	resolveLegend    = "− yours · + the team store"
+	resolveMechanics = "Opens in $EDITOR. Your merge is written back and re-anchored."
+	// The three lines that stand in for the diff when there is nothing to draw.
+	// They replace the legend *and* the rows, so the modal is at its shortest
+	// here — but only while they stay short enough not to wrap past two rows on
+	// the narrowest dialog (a 30-cell box leaves a 26-cell text column), which
+	// is what keeps these branches inside the frame that the diff branch is
+	// budgeted into. resolveMsgInvisible names line endings and nothing else on
+	// purpose: contentLines normalizes CRLF and one trailing empty line, so a
+	// trailing *space* survives it and shows up as an ordinary changed row.
+	resolveMsgIdentical = "Identical — only the sync anchor differs."
+	resolveMsgInvisible = "They differ only in line endings."
+	resolveMsgNoRoom    = "The frame is too short to preview the diff."
 )
 
-// resolveDiffRows is how many diff rows fit this terminal. Deriving it from the
-// height is the point: a fixed cap made the modal up to 22 rows, which a short
-// terminal clips from the bottom — taking the footer, and with it the only
-// statement of what enter does.
+// resolveChromeRows is what the modal costs besides the diff rows: the header
+// block (2), the legend, two blank lines, the mechanics line, a blank, the
+// footer, and the frame's own two border rows. The two text blocks are
+// measured through the same wrap the renderer uses instead of being counted as
+// one row each — the mechanics sentence is 61 cells against a text column of
+// boxWidth()-4, so under 80 columns it takes two rows, which a hand-counted
+// constant missed.
+func (m Model) resolveChromeRows() int {
+	tw := m.boxWidth() - 4
+	return 8 + len(wrapPlain(resolveLegend, tw)) + len(wrapPlain(resolveMechanics, tw))
+}
+
+// resolveDiffRows is how many diff rows fit. The budget is dialogRows — what a
+// floating box can occupy, which is neither the terminal's height nor even the
+// frame's. Sized against m.height the modal came out a row too tall and lost
+// the footer off the bottom: the only statement of what enter does, and exactly
+// what deriving this was meant to protect.
+// It returns 0 when the frame can't seat even resolveDiffMinRows: the modal
+// then says so in a line instead of keeping its rows. A preview bought by
+// pushing the footer off the bottom is the wrong trade — it costs the sentence
+// that says what enter does to show a diff the user can't act on, and $EDITOR
+// is about to show the whole thing anyway.
 func (m Model) resolveDiffRows() int {
-	n := m.height - resolveChromeRows
+	n := m.dialogRows() - m.resolveChromeRows()
 	if n > resolveDiffMaxRows {
 		n = resolveDiffMaxRows
 	}
 	if n < resolveDiffMinRows {
-		n = resolveDiffMinRows
+		return 0
 	}
 	return n
+}
+
+// setResolveDiff (re)computes the inline diff for the frame as it is now. The
+// confirm calls it when it opens and again on every resize: the row budget is
+// derived from the frame, so rows sized for the old one are precisely the
+// too-tall dialog that budget exists to prevent.
+func (m *Model) setResolveDiff() {
+	rows, changed := resolveDiff(m.resolveYours, m.resolveTheirs, resolveDiffContext, m.resolveDiffRows())
+	m.resolveRows = rows
+	switch {
+	case changed && len(rows) > 0:
+		m.resolveSame = resolveDiffers
+	case changed:
+		m.resolveSame = resolveNoRoom
+	case m.resolveIdent:
+		m.resolveSame = resolveIdentical
+	default:
+		// Nothing the diff can show, yet the bytes differ — so it is one of the
+		// things contentLines normalizes: a CRLF copy, or a trailing newline.
+		// (A trailing *space* survives it and shows as an ordinary changed row.)
+		// Saying "identical" here would be wrong.
+		m.resolveSame = resolveInvisible
+	}
 }
 
 // resolveModal shows an inline diff of the two sides — yours in the same color
@@ -192,11 +245,15 @@ func (m Model) resolveModal() string {
 	lines := m.dlgHeader(cw, "↔", "resolve — both sides moved", t.Danger)
 	switch {
 	case m.resolveSame == resolveIdentical:
-		lines = append(lines, m.dlgText(cw, "The shared content is identical — only the sync anchor differs.", t.Dim)...)
+		lines = append(lines, m.dlgText(cw, resolveMsgIdentical, t.Dim)...)
 	case m.resolveSame == resolveInvisible:
-		lines = append(lines, m.dlgText(cw, "The two versions differ only in line endings or trailing whitespace — nothing visible to show.", t.Warn)...)
+		lines = append(lines, m.dlgText(cw, resolveMsgInvisible, t.Warn)...)
+	case m.resolveSame == resolveNoRoom:
+		// The sides differ, but the rows won't fit. Say that rather than draw a
+		// truncated preview, and let the mechanics line below point at $EDITOR.
+		lines = append(lines, m.dlgText(cw, resolveMsgNoRoom, t.Warn)...)
 	case len(m.resolveRows) > 0:
-		lines = append(lines, m.dlgText(cw, "− yours · + the team store", t.Faint)...)
+		lines = append(lines, m.dlgText(cw, resolveLegend, t.Faint)...)
 		lines = append(lines, padBG("", cw, panel))
 		for _, r := range m.resolveRows {
 			mark, txt, c := " ", r.text, t.Dim
@@ -217,7 +274,7 @@ func (m Model) resolveModal() string {
 		}
 	}
 	lines = append(lines, padBG("", cw, panel))
-	lines = append(lines, m.dlgText(cw, "Opens in $EDITOR. Your merge is written back and re-anchored.", t.Dim)...)
+	lines = append(lines, m.dlgText(cw, resolveMechanics, t.Dim)...)
 	lines = append(lines, padBG("", cw, panel))
 	bleed := map[int]string{len(lines): t.Bg2}
 	lines = append(lines, m.dlgFooter(cw, t.Danger, []dialogAction{{"esc cancel", false}, {"↵ open $EDITOR", true}}))

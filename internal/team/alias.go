@@ -11,9 +11,10 @@ import (
 // host/path keys. The prefix makes the key's origin legible in the store tree
 // and keeps a later shared alias map (SPEC §10) a plain name → key lookup.
 // A remote whose host is literally "alias" (an ssh_config Host of that name)
-// would normalize into the same namespace; IsAliasKey only ever decides a
-// dialog caption, so the cost of that unlikely overlap is a wrong "(your
-// alias)" label, never a placement or safety decision.
+// would normalize into this same namespace, so NormalizeRemote refuses that
+// host outright rather than letting the two kinds of key share a bucket. That
+// keeps IsAliasKey exact — it answers from the prefix alone, with no remote
+// able to spell its way in.
 const aliasPrefix = "alias/"
 
 // maxAliasLen bounds an alias the way a path segment should be bounded; a

@@ -142,19 +142,12 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	}
 	// Diff the two sides before $EDITOR opens, from the sides themselves — the
 	// merge file can't be split back into halves reliably (see ResolveSession).
+	// The sides are kept on the model, not just the rows they produced: the row
+	// budget comes from the frame, so a resize while this confirm is open has to
+	// re-diff them (setResolveDiff).
 	m.resolvePath, m.resolveTmp = it.Path, rs.TmpPath
-	rows, changed := resolveDiff(rs.Yours, rs.Theirs, resolveDiffContext, m.resolveDiffRows())
-	m.resolveRows = rows
-	switch {
-	case changed:
-		m.resolveSame = resolveDiffers
-	case rs.Identical:
-		m.resolveSame = resolveIdentical
-	default:
-		// Nothing the diff can show, yet the bytes differ: line endings or
-		// trailing whitespace. Saying "identical" there would be wrong.
-		m.resolveSame = resolveInvisible
-	}
+	m.resolveYours, m.resolveTheirs, m.resolveIdent = rs.Yours, rs.Theirs, rs.Identical
+	m.setResolveDiff()
 	m.mode = modeResolveConfirm
 	return m, nil
 }

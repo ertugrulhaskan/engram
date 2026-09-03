@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -68,7 +69,26 @@ func main() {
 		}
 	}
 
-	cfg := config.Load()
+	// Read, not Load: Load answers a broken config with defaults, which would
+	// start the session with an empty projectAliases and promote an aliased
+	// project's memories into global/ — a placement decision taken off a file
+	// engram couldn't read. Every write path added alongside aliases refuses
+	// that same file, so startup refuses it too. The error names the path and
+	// the JSON fault, which is what fixing it needs.
+	cfg, err := config.Read()
+	switch {
+	case errors.Is(err, config.ErrUnparseable):
+		// Only a parse fault is fatal, and only because it is the one the user
+		// can fix from the message: the error names the file and the JSON
+		// fault. Any other read failure (a permission-denied config left
+		// root-owned by one `sudo engram`, say) starts with defaults instead —
+		// refusing to launch there would take away the TUI that repairs it and
+		// leave no way in.
+		fmt.Fprintln(os.Stderr, "engram: "+err.Error())
+		os.Exit(1)
+	case err != nil:
+		fmt.Fprintln(os.Stderr, "engram: couldn't read the config, continuing with defaults: "+err.Error())
+	}
 
 	mems, err := memory.Discover("")
 	if err != nil {

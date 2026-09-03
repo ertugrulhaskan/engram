@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **`@Gemini`, `@Codex` and `@Copilot` join `@Claude`.** The assistant handoff is
   a registry now, not a single provider. The palette's `@` section lists whichever
-  of the four CLIs you have on `PATH` (all of them optional — engram runs fine with
-  none), and each one launches an **interactive** session seeded with the selected
-  project's memory/plan health, exactly as `@Claude` always has. When the session
-  exits, the status line names the assistant that ran.
+  of the four CLIs you have on `PATH` — all of them optional, and with none
+  installed it lists all four rather than nothing, so `@` is never an empty
+  section that explains nothing; picking one then says where to get it. Each one
+  launches an **interactive** session seeded with the selected project's
+  memory/plan health, exactly as `@Claude` always has. When the session exits,
+  the status line names the assistant that ran.
 
   Every provider passes the memory directory through to its CLI — `--add-dir` for
   Claude, Codex and Copilot, `--include-directories` for Gemini. engram launches in
@@ -77,6 +79,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `projectAliases` entry it had to ignore.
 
 ### Changed
+- **A `config.json` that doesn't parse now stops startup** instead of being
+  silently replaced by defaults. Defaults are the wrong answer once the file
+  carries `projectAliases`: engram would start with none of them, and a promote
+  on an aliased project would publish into `global/` — a placement decision made
+  off a file engram couldn't read. The message names the file and the JSON fault
+  so it can be fixed in any editor, and it matches what every write path already
+  did with the same file.
 - **`@` opens the assistant list instead of launching Claude Code.** With four
   providers there is no single right answer for a bare keypress, and picking
   silently would start a session you never chose — so `@` now opens the palette

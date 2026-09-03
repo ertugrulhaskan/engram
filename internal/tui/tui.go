@@ -71,6 +71,27 @@ const (
 	chromeRows   = headerRows + footerRows + reservedRows
 )
 
+// frameRows is how many rows View actually paints — the panes plus the chrome
+// above and below them, with reservedRows left unwritten. Budget a modal
+// against m.height instead and it loses its last row.
+//
+// resize floors panesH at 6, so on a very short terminal the join comes out
+// taller than the screen and clampFrame trims it; the rows really on screen are
+// whichever is smaller.
+func (m Model) frameRows() int {
+	n := headerRows + m.panesH + footerRows
+	if lim := m.height - reservedRows; m.height > 0 && n > lim {
+		n = lim
+	}
+	return n
+}
+
+// dialogRows is the tallest a floating dialog can be and still render whole:
+// one row short of the frame. overlay centers a box but never places it above
+// row 1, and placeOverlay writes only as many lines as the frame has — so a box
+// exactly frameRows tall has its last line, its bottom border, fall off the end.
+func (m Model) dialogRows() int { return m.frameRows() - 1 }
+
 // typeCycle is the order the `t` key steps through. "" means "all types".
 var typeCycle = []memory.Type{
 	"",

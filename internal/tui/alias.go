@@ -106,6 +106,7 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 		return m, m.setDanger("can't tell whether this project has a remote — " + err.Error())
 	}
 	var clean string
+	var saved map[string]string
 	err = config.Update(func(c *config.Config) error {
 		if c.ProjectAliases == nil {
 			c.ProjectAliases = map[string]string{}
@@ -114,12 +115,18 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 			return err
 		}
 		clean = c.ProjectAliases[it.MemDir]
+		// Take the map Update just wrote rather than reading the file back:
+		// config.Load discards a read error and answers with a zero Config, so
+		// a re-read that failed would silently empty every alias this session
+		// holds — promote and pull would fall back to global — while the status
+		// line below reported the new key. This map is what is on disk.
+		saved = c.ProjectAliases
 		return nil
 	})
 	if err != nil {
 		return m, m.setDanger("alias not saved — " + configErr(err))
 	}
-	m.aliases = cleanAliases(config.Load().ProjectAliases)
+	m.aliases = cleanAliases(saved)
 	return m, m.setStatus("keyed by " + team.AliasKey(clean) + " — promote and pull use it while this project has no git remote")
 }
 
@@ -128,11 +135,13 @@ var errNoAlias = errors.New("no alias set for this project")
 
 // clearAlias removes the alias configured for memDir (`>alias -`).
 func (m Model) clearAlias(memDir string) (tea.Model, tea.Cmd) {
+	var saved map[string]string
 	err := config.Update(func(c *config.Config) error {
 		if _, had := c.ProjectAliases[memDir]; !had {
 			return errNoAlias
 		}
 		delete(c.ProjectAliases, memDir)
+		saved = c.ProjectAliases // the map Update wrote — see actionAlias
 		return nil
 	})
 	switch {
@@ -141,6 +150,6 @@ func (m Model) clearAlias(memDir string) (tea.Model, tea.Cmd) {
 	case err != nil:
 		return m, m.setDanger("alias not cleared — " + configErr(err))
 	}
-	m.aliases = cleanAliases(config.Load().ProjectAliases)
+	m.aliases = cleanAliases(saved)
 	return m, m.setStatus("alias cleared — this project promotes globally until it has a key")
 }

@@ -17,6 +17,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.resize(msg.Width, msg.Height)
+		// The resolve confirm sizes its diff to the frame, so a resize while it
+		// is open leaves rows budgeted for the old one — the too-tall dialog the
+		// budget exists to prevent. Re-diff from the sides it kept.
+		if m.mode == modeResolveConfirm {
+			m.setResolveDiff()
+		}
 		return withStoreTimeFetch(m, nil)
 
 	case storeTimeMsg:

@@ -51,6 +51,11 @@ type Model struct {
 	themeIdx       int
 	editorOverride string            // optional editor command from config; "" = use env/host
 	aliases        map[string]string // config projectAliases: memory dir → alias, for projects with no git remote
+	// installedAsst is the assistant registry filtered to the CLIs on $PATH,
+	// resolved once at startup. Resolving it per call put four exec.LookPath
+	// sweeps of $PATH on the event loop for every keystroke in the palette,
+	// since the unprefixed query matches assistants too.
+	installedAsst  []assistant
 	typeIdx        int
 	groupBy        groupMode
 	focus          focus
@@ -70,10 +75,16 @@ type Model struct {
 	pullPlan team.PullResult // the accounting shown pre-confirm; y applies this same walk
 
 	// resolve confirm (modeResolveConfirm)
-	resolvePath string          // the conflicted memory
-	resolveTmp  string          // merge temp file BeginConflictResolve wrote (removed on cancel)
-	resolveRows []diffRow       // inline diff of the two sides, shown before $EDITOR opens
-	resolveSame resolveSameness // when the diff shows nothing, why
+	resolvePath string // the conflicted memory
+	resolveTmp  string // merge temp file BeginConflictResolve wrote (removed on cancel)
+	// The two sides BeginConflictResolve merged, kept rather than discarded once
+	// the rows are built: the row budget comes from the frame, so a resize while
+	// the confirm is open has to re-diff them (setResolveDiff).
+	resolveYours  []string
+	resolveTheirs []string
+	resolveIdent  bool            // the sides' shared content is byte-identical (only the anchor differs)
+	resolveRows   []diffRow       // inline diff of the two sides, shown before $EDITOR opens
+	resolveSame   resolveSameness // when the diff shows nothing, why
 
 	width, height           int
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
@@ -155,6 +166,7 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 		themeIdx:       themeIdx,
 		editorOverride: strings.TrimSpace(cfg.Editor),
 		aliases:        cleanAliases(cfg.ProjectAliases),
+		installedAsst:  installedAssistants(),
 		search:         se,
 		palette:        pal,
 		input:          ti,

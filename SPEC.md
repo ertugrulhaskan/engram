@@ -835,7 +835,15 @@ first, which for a typical edit leaves a handful of lines to align. `maxDiffCell
 table: a pathological pair falls back to showing each side whole — true, since every line
 differs somewhere, if less precise — rather than stalling the UI thread. Unchanged runs longer
 than two lines of context collapse to one row naming how many lines they stand for, and the
-whole view is capped at twelve rows so a long conflict can't outgrow the terminal. The capped
+whole view is capped at twelve rows so a long conflict can't outgrow the frame — fewer when
+the frame is short, because the budget is the rows `View` actually paints (`headerRows +
+panesH + footerRows`, one short of the terminal, since `reservedRows` leaves the last row
+unwritten) minus the modal's own chrome. That chrome is **measured**, by wrapping the
+dialog's two text blocks through the same helper the renderer uses, not counted by hand: the
+mechanics line is 61 cells against a text column of `boxWidth()-4`, so under 80 columns it
+takes a second row. Sized against the terminal's height with a hand-counted chrome instead,
+the modal came out a row too tall and lost its footer off the bottom — the only place the
+confirm states what enter does, which is what deriving the budget was meant to protect. The capped
 tail is its own kind of row, not an "unchanged" elision: what it hides is the rest of the
 diff, changes included — possibly an entire side — and a confirm dialog that called that
 "unchanged" would be telling the user the hidden remainder agrees.

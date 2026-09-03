@@ -138,6 +138,12 @@ func findAssistant(key string) (assistant, bool) {
 // follows. When none is installed the palette still lists them all, so "@" is
 // never an empty section that explains nothing — selecting one then gives the
 // install hint.
+//
+// Called once, at New, and kept on the Model (installedAsst): each call sweeps
+// $PATH four times, and the palette rebuilds on every keystroke. The cost of
+// resolving once is that a CLI installed mid-session appears at the next launch
+// rather than immediately — a fair trade for keeping the event loop off the
+// filesystem, and the same answer the whole session then agrees on.
 func installedAssistants() []assistant {
 	var out []assistant
 	for _, a := range assistants {

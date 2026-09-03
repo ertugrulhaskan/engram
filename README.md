@@ -119,8 +119,9 @@ them anymore:
   session exits and tells you which one ran.
 
   The list shows whichever CLIs you actually have on `PATH` — they're all
-  optional, and engram runs fine with none of them. Pressing `@` on its own opens
-  this list rather than picking for you.
+  optional, and engram runs fine with none of them, in which case it lists all
+  four rather than nothing, and picking one tells you where to get it. Pressing
+  `@` on its own opens this list rather than picking for you.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
   `>withdraw`, `>alias` — covered in [Team sharing](#team-sharing) below.
 

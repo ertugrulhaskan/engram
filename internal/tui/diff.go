@@ -17,7 +17,8 @@ type resolveSameness int
 const (
 	resolveDiffers   resolveSameness = iota // there is a diff; the rows hold it
 	resolveIdentical                        // byte-identical shared content: only the sync anchor differs
-	resolveInvisible                        // the bytes differ, but only in line endings or trailing whitespace
+	resolveInvisible                        // the bytes differ, but only where contentLines normalizes: CRLF, or a trailing newline
+	resolveNoRoom                           // there is a diff, but the frame can't seat even a minimal preview
 )
 
 // diffOp classifies one row of a rendered diff.
@@ -182,6 +183,12 @@ func capDiff(rows []diffRow, max int) []diffRow {
 // rows. changed reports whether the shared content differs at all — a resolve
 // is reachable on an anchor difference alone, and "no differences" is a real
 // answer worth saying rather than an empty box.
+//
+// A max below 1 means the frame has no room for a preview, and the answer is no
+// rows with changed still true: the caller says so in a line instead. capDiff's
+// own max < 1 guard returns the rows untrimmed, which is right for "don't cap"
+// and would be exactly wrong here — it would hand back the whole diff to a
+// dialog that has no room for any of it.
 func resolveDiff(yours, theirs []string, ctx, max int) (rows []diffRow, changed bool) {
 	full := diffLines(yours, theirs)
 	for _, r := range full {
@@ -192,6 +199,9 @@ func resolveDiff(yours, theirs []string, ctx, max int) (rows []diffRow, changed 
 	}
 	if !changed {
 		return nil, false
+	}
+	if max < 1 {
+		return nil, true
 	}
 	return capDiff(collapseDiff(full, ctx), max), true
 }

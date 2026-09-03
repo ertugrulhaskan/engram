@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,16 +21,39 @@ type pollResultMsg struct {
 	err error
 }
 
+// lastGoodRoots remembers the scanRoots of the last config that parsed. A tick
+// that finds a broken file then keeps scanning the roots the session was already
+// using, instead of degrading to none: config.Load answers an unparseable file
+// with a zero Config, so the poll would have dropped every scanRoots-discovered
+// instruction file out of /files two seconds after the editor handler told the
+// user the settings had *not* been applied. Guarded by a mutex because pollCmd
+// and reloadCmd run in command goroutines.
+var lastGoodRoots struct {
+	sync.Mutex
+	roots []string
+}
+
+// currentScanRoots re-reads the configured scan roots, falling back to the last
+// ones that parsed. The per-tick read is deliberate — a tiny file beside a ~1ms
+// scan — and it is what makes a scanRoot added in /settings take effect live
+// rather than at the next restart.
+func currentScanRoots() []string {
+	cfg, err := config.Read()
+	lastGoodRoots.Lock()
+	defer lastGoodRoots.Unlock()
+	if err == nil {
+		lastGoodRoots.roots = cfg.ScanRoots
+	}
+	return lastGoodRoots.roots
+}
+
 // combinedSig fingerprints both sources into one string, so a change in either
 // tree flips it. One baseline (m.fsSig) covers both — no second baseline (that
 // would risk a reload loop).
 func combinedSig() (string, error) {
 	ms, err := memory.Signature("")
 	ps, _ := plan.Signature("")
-	// Config is re-read per tick on purpose: it is a tiny file next to a ~1ms
-	// scan, and it means adding a scanRoot in /settings takes effect live rather
-	// than at the next restart.
-	ds, _ := memory.DocsSignature("", config.Load().ScanRoots) // CLAUDE.md edits aren't under the memory tree
+	ds, _ := memory.DocsSignature("", currentScanRoots()) // CLAUDE.md edits aren't under the memory tree
 	return ms + "|" + ps + "|" + ds, err
 }
 
@@ -64,11 +88,11 @@ func reloadCmd() tea.Cmd {
 		if err != nil {
 			return reloadMsg{err: err} // keep the current state rather than blanking plans
 		}
-		docs, _ := memory.DiscoverDocs("", config.Load().ScanRoots) // best-effort; don't fail the reload over docs
-		sync, _ := team.SyncStates(mems)                            // best-effort; empty when no team store
+		docs, _ := memory.DiscoverDocs("", currentScanRoots()) // best-effort; don't fail the reload over docs
+		syncStates, _ := team.SyncStates(mems)                 // best-effort; empty when no team store
 		// Capture the signature alongside the data so the reload updates the
 		// poll baseline atomically (no reload -> sig-changed -> reload loop).
 		sig, _ := combinedSig()
-		return reloadMsg{mems: mems, plans: plans, docs: docs, sync: sync, sig: sig}
+		return reloadMsg{mems: mems, plans: plans, docs: docs, sync: syncStates, sig: sig}
 	}
 }
