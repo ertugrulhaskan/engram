@@ -66,7 +66,7 @@ func TestPaletteSettingsOpensConfigFile(t *testing.T) {
 	if _, err := os.Stat(p); err != nil {
 		t.Fatalf("config file not created: %v", err)
 	}
-	if got := config.Load(); got.Theme != "paperback" {
+	if got := loadCfg(); got.Theme != "paperback" {
 		t.Errorf("seeded config theme = %q, want paperback", got.Theme)
 	}
 }
@@ -99,7 +99,7 @@ func TestThemeSwitchPersists(t *testing.T) {
 	if got := m.(Model).theme().Name; got != "CRT" {
 		t.Fatalf("after key 3, theme=%q want CRT", got)
 	}
-	if got := config.Load(); got.Theme != "crt" {
+	if got := loadCfg(); got.Theme != "crt" {
 		t.Errorf("persisted theme = %q, want crt", got.Theme)
 	}
 }
@@ -118,7 +118,7 @@ func TestSettingsReloadUnknownThemeKeepsCurrent(t *testing.T) {
 	if got := m.(Model).theme().Name; got != "CRT" {
 		t.Errorf("theme after bad config edit = %q, want CRT (unchanged)", got)
 	}
-	if got := config.Load().Theme; got != "Nope" {
+	if got := loadCfg().Theme; got != "Nope" {
 		t.Errorf("config rewritten to %q — an unknown value must be left alone", got)
 	}
 }
@@ -130,14 +130,24 @@ func TestThemeSwitchKeepsScanSettings(t *testing.T) {
 	if err := config.Save(config.Config{Theme: "midnight", SecretScanAction: "warn", SecretScanScope: "secrets+pii"}); err != nil {
 		t.Fatal(err)
 	}
-	var m tea.Model = New(sampleMemories(), nil, nil, config.Load())
+	var m tea.Model = New(sampleMemories(), nil, nil, loadCfg())
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
-	got := config.Load()
+	got := loadCfg()
 	if got.Theme != "paperback" {
 		t.Fatalf("persisted theme = %q, want paperback", got.Theme)
 	}
 	if got.SecretScanAction != "warn" || got.SecretScanScope != "secrets+pii" {
 		t.Errorf("scan settings lost on theme switch: %+v", got)
 	}
+}
+
+// loadCfg is config.Read with the error dropped, for tests asserting on what a
+// write left on disk. config.Load used to be this, exported; it was deleted
+// once every production caller had moved to Read, because "absent and
+// unreadable alike are defaults" is the policy the rest of the package now
+// argues against, and the short name invited it back.
+func loadCfg() config.Config {
+	c, _ := config.Read()
+	return c
 }

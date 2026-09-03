@@ -228,3 +228,33 @@ func TestPlanDeleteAndGating(t *testing.T) {
 		t.Errorf("plan file not deleted: stat err=%v", err)
 	}
 }
+
+// A palette row is an offer, and the offer has to be true. The >alias sub line
+// used to echo the raw argument, so ">alias Acme" advertised a key the store
+// never uses (it files the project under acme) and ">alias My App" advertised
+// an action actionAlias then refuses outright — the rule the controls row and
+// the status bar's offer both follow, broken by the one row that took an
+// argument.
+func TestAliasRowShowsTheKeyItWouldActuallyStore(t *testing.T) {
+	var sub func(string) string
+	for _, v := range ready(t).teamVerbs() {
+		if v.name == "alias" {
+			sub = v.argSub
+		}
+	}
+	if sub == nil {
+		t.Fatal("no >alias verb in the palette")
+	}
+	if got := sub("Acme-App"); !strings.Contains(got, "acme-app") || strings.Contains(got, "Acme-App") {
+		t.Errorf("sub(%q) = %q, want the normalized name", "Acme-App", got)
+	}
+	if got := sub("My App"); !strings.Contains(got, "can't") {
+		t.Errorf("sub(%q) = %q, want the refusal — enter answers with one", "My App", got)
+	}
+	if got := sub("-"); !strings.Contains(got, "clear") {
+		t.Errorf("sub(%q) = %q, want the clear wording", "-", got)
+	}
+	if got := sub("acme"); !strings.Contains(got, "acme") || strings.Contains(got, "can't") {
+		t.Errorf("sub(%q) = %q, want the plain offer", "acme", got)
+	}
+}

@@ -155,12 +155,31 @@ func TestResolveKeyHomeFolder(t *testing.T) {
 	if got, _ := os.UserHomeDir(); got != plainHome {
 		t.Skip("HOME override not honoured")
 	}
-	if key, state := ResolveKey(plainHome, "personal"); key != "" || state != RemoteNone {
-		t.Errorf("home with only an alias = (%q, %v), want no key", key, state)
+	// ...and it reports RemoteHome, not RemoteNone. The distinction is what
+	// lets the promote dialog and >alias refuse it without a second IsHomeDir
+	// call of their own: an ordinary remoteless project is offered >alias, and
+	// this one, which reaches ProjectKey identically, must not be.
+	if key, state := ResolveKey(plainHome, "personal"); key != "" || state != RemoteHome {
+		t.Errorf("home with only an alias = (%q, %v), want no key and RemoteHome", key, state)
 	}
-	// The same directory, not the home dir, does take the alias.
+	if _, state, _ := ClassifyRemote(plainHome); state != RemoteHome {
+		t.Errorf("ClassifyRemote(home) state = %v, want RemoteHome", state)
+	}
+	// The same directory, not the home dir, does take the alias — and comes
+	// back RemoteNone, so the only difference between the two is the state.
 	t.Setenv("HOME", t.TempDir())
-	if key, _ := ResolveKey(plainHome, "personal"); key != "alias/personal" {
-		t.Errorf("non-home remoteless dir = %q, want alias/personal", key)
+	if key, state := ResolveKey(plainHome, "personal"); key != "alias/personal" || state != RemoteNone {
+		t.Errorf("non-home remoteless dir = (%q, %v), want alias/personal and RemoteNone", key, state)
+	}
+}
+
+// The zero value of a RemoteState is what a caller gets when nobody asked git.
+// It must be the state that claims least: RemoteFound asserts a key exists and
+// RemoteNone invites >alias, so either as the zero value would let a field
+// nobody set decide what a dialog offers.
+func TestRemoteStateZeroValue(t *testing.T) {
+	var unset RemoteState
+	if unset != RemoteUnknown {
+		t.Errorf("zero RemoteState = %v, want RemoteUnknown", unset)
 	}
 }

@@ -19,7 +19,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg.Width, msg.Height)
 		// The resolve confirm sizes its diff to the frame, so a resize while it
 		// is open leaves rows budgeted for the old one — the too-tall dialog the
-		// budget exists to prevent. Re-diff from the sides it kept.
+		// budget exists to prevent. Re-cap the alignment it kept; only the row
+		// budget depends on the frame, so nothing is re-diffed here.
 		if m.mode == modeResolveConfirm {
 			m.setResolveDiff()
 		}
@@ -68,8 +69,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// promote kept using the policy the session started with while the
 			// status line said the settings had been applied.
 			m.scanAction, m.scanPII = cfg.ScanAction(), cfg.ScanPII()
+			// This is a settings write of its own as far as the poll is
+			// concerned: a tick already in flight read the file before the
+			// editor saved it, so bump the generation to discard it.
+			m.settingsGen++
 			var dropped []string
 			m.aliases, dropped = team.CleanAliases(cfg.ProjectAliases)
+			m.aliasDropped = dropped
 			// Only switch when the value resolves — an unknown or empty theme in a
 			// hand-edited config keeps the current theme instead of resetting it.
 			// Applied, not saved: the file just read is the source of truth.
@@ -249,6 +255,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case pollResultMsg:
 		// The poll loop re-arms here and nowhere else.
+		//
+		// Settings are adopted before the reload branches below, and outside
+		// them: a settings change is not a filesystem one, so it must land even
+		// on a tick whose signature is unchanged.
+		//
+		// Gated on parsed, not on the map being non-nil — a config whose last
+		// alias was just cleared parses to a nil map, and treating that as
+		// "couldn't read it" would keep the deleted alias for the life of the
+		// session. And gated on the generation, so a tick that read the file
+		// before an in-session >alias write is discarded rather than undoing it.
+		if msg.parsed && msg.gen == m.settingsGen {
+			m.aliases, m.aliasDropped = msg.aliases, msg.dropped
+			m.scanAction, m.scanPII = msg.cfg.ScanAction(), msg.cfg.ScanPII()
+			m.editorOverride = strings.TrimSpace(msg.cfg.Editor)
+		}
 		switch {
 		case msg.err != nil:
 			// Transient FS error — ignore so the footer doesn't churn.
@@ -257,9 +278,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm && m.mode != modePullConfirm && m.mode != modeResolveConfirm && m.mode != modeReconcileConfirm:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
-			return m, tea.Batch(reloadCmd(), pollCmd())
+			return m, tea.Batch(reloadCmd(), pollCmd(m.settingsGen))
 		}
-		return m, pollCmd()
+		return m, pollCmd(m.settingsGen)
 
 	case tea.KeyMsg:
 		return withStoreTimeFetch(m.dispatchKey(msg))

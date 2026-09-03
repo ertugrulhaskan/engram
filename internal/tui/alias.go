@@ -72,16 +72,11 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 	if cmd := m.gitMissing(); cmd != nil {
 		return m, cmd // without git, "no remote" can't be told from "no git"
 	}
-	if team.IsHomeDir(it.ProjectDir) {
-		// An alias is a name invented for a project with no identity of its own;
-		// Claude's home-folder project — sessions run outside any repository —
-		// isn't one. A real remote still keys it (team.ResolveKey agrees), so
-		// this refuses only the alias, and says which case the user is in.
-		if key, err := team.ProjectKey(it.ProjectDir); err == nil {
-			return m, m.setStatus("your home folder is a git repository — already keyed by " + key + "; an alias would never be used")
-		}
-		return m, m.setStatus("your home folder's memory project can't take an alias — those memories promote globally")
-	}
+	// The home folder is refused below as team.RemoteHome, not by a check of
+	// its own: an alias is a name invented for a project with no identity of
+	// its own, and Claude's home-folder project — sessions run outside any
+	// repository — isn't one. A real remote still keys it, and arrives here as
+	// RemoteFound like any other, so only the alias is refused.
 	key, state, err := team.ClassifyRemote(it.ProjectDir)
 	alias := m.aliases[it.MemDir]
 	if name == "" { // report the key in effect
@@ -92,16 +87,29 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 			if alias != "" {
 				return m, m.setStatus("keyed by " + team.AliasKey(alias) + " — change it with >alias <name>, clear it with >alias -")
 			}
+			// The config may well name an alias for this project that
+			// CleanAliases threw out — malformed, or claimed by two memory
+			// dirs. Saying "no key" there is actively false, and leaves the
+			// user no way inside engram to learn why what they wrote isn't
+			// applying, since the /settings warning is a one-shot they may
+			// have missed.
+			if len(m.aliasDropped) > 0 {
+				return m, m.setDanger("no key in effect — projectAliases entries were ignored: " + strings.Join(m.aliasDropped, "; "))
+			}
 			return m, m.setStatus("usage: >alias <name> — this project has no git remote, so it promotes globally until it has a key")
 		case team.RemoteGone:
 			if alias != "" {
 				return m, m.setStatus("keyed by " + team.AliasKey(alias) + " — its directory is gone, the alias still applies; clear it with >alias -")
 			}
 			return m, m.setStatus("this project's directory is gone and it has no alias — it promotes globally")
-		}
-		if state == team.RemoteReserved {
+		case team.RemoteHome:
+			return m, m.setStatus("your home folder's memory project can't take an alias — those memories promote globally")
+		case team.RemoteReserved:
 			return m, m.setDanger("this project's remote host is engram's reserved \"alias\" namespace — rename the ssh alias to key it")
 		}
+		// RemoteUnknown, and any state added without a case above: this switch
+		// and the one below must stay in step, so both end in the same fallback
+		// rather than one of them silently returning nothing.
 		return m, m.setDanger("can't tell whether this project has a remote — " + err.Error())
 	}
 	switch state {
@@ -121,6 +129,15 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 		// bucket the refusal exists to keep unambiguous, so it is refused too —
 		// and the message names the real fix rather than blaming git.
 		return m, m.setDanger("this project's remote host is engram's reserved \"alias\" namespace — rename the ssh alias rather than aliasing it here")
+	case team.RemoteHome:
+		return m, m.setStatus("your home folder's memory project can't take an alias — those memories promote globally")
+	case team.RemoteNone:
+		// The one state an alias is for; everything below writes it.
+	default:
+		// A state added without a case here must not reach the write: an alias
+		// stored against a project engram can't classify is exactly the stale
+		// key team.ResolveKey refuses to honour.
+		return m, m.setDanger("can't tell whether this project has a remote — no alias set")
 	}
 	var clean string
 	var saved map[string]string
@@ -132,11 +149,11 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 			return err
 		}
 		clean = c.ProjectAliases[it.MemDir]
-		// Take the map Update just wrote rather than reading the file back:
-		// config.Load discards a read error and answers with a zero Config, so
-		// a re-read that failed would silently empty every alias this session
-		// holds — promote and pull would fall back to global — while the status
-		// line below reported the new key. This map is what is on disk.
+		// Take the map Update just wrote rather than reading the file back: a
+		// re-read that failed and was answered with a zero Config would
+		// silently empty every alias this session holds — promote and pull
+		// would fall back to global — while the status line below reported the
+		// new key. This map is what is on disk.
 		saved = c.ProjectAliases
 		return nil
 	})
@@ -144,6 +161,10 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 		return m, m.setDanger("alias not saved — " + configErr(err))
 	}
 	m.aliases = cleanAliases(saved)
+	// A poll tick already in flight read the file before this write landed;
+	// bumping the generation makes the handler discard it rather than let the
+	// pre-write snapshot undo what the status line is about to report.
+	m.settingsGen++
 	return m, m.setStatus("keyed by " + team.AliasKey(clean) + " — promote and pull use it while this project has no git remote")
 }
 
@@ -168,5 +189,9 @@ func (m Model) clearAlias(memDir string) (tea.Model, tea.Cmd) {
 		return m, m.setDanger("alias not cleared — " + configErr(err))
 	}
 	m.aliases = cleanAliases(saved)
+	// A poll tick already in flight read the file before this write landed;
+	// bumping the generation makes the handler discard it rather than let the
+	// pre-write snapshot undo what the status line is about to report.
+	m.settingsGen++
 	return m, m.setStatus("alias cleared — this project promotes globally until it has a key")
 }

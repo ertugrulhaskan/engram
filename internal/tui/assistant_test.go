@@ -43,19 +43,78 @@ func TestAssistantArgsCarryAddDir(t *testing.T) {
 	}
 }
 
+// nonInteractiveVerbs are the subcommands a CLI uses for its one-shot mode.
+// codex's non-interactive form is `codex exec`, a positional token — not a
+// flag — so a flag-only check waves it straight through. A subcommand can only
+// come first, so that is the only position worth refusing.
+var nonInteractiveVerbs = map[string]bool{"exec": true, "run": true}
+
+// nonInteractive reports the token that would drop a built invocation to a
+// one-shot answer, or "" when there is none. seed and memDir are the two values
+// an invocation legitimately carries, so every *other* argument is inspected —
+// deciding "is this a flag position?" by exclusion rather than by looking at
+// the argument before it, which treated the prompt after a "--" separator as
+// that separator's value and skipped it, exactly where claude and codex put it.
+func nonInteractive(args []string, seed, memDir string) string {
+	for i, arg := range args {
+		if arg == seed || arg == memDir {
+			continue // a value, not a flag: "-p" here would be prompt text
+		}
+		switch arg {
+		case "-p", "--prompt", "--print":
+			return arg
+		}
+		if i == 0 && nonInteractiveVerbs[arg] {
+			return arg
+		}
+	}
+	return ""
+}
+
 // The seam exists to hand off to an *interactive* session; every CLI here also
-// has a non-interactive prompt flag that would silently turn the handoff into a
+// has a non-interactive form that would silently turn the handoff into a
 // one-shot answer. None of them may appear in a built invocation.
 func TestAssistantArgsAreInteractive(t *testing.T) {
+	const (
+		seed   = "SEED"
+		memDir = "/mem"
+	)
 	for _, a := range assistants {
-		args := a.args("SEED", "/mem")
-		for i, arg := range args {
-			// Only flag positions count — "-p" as a *value* would be prompt text.
-			if i > 0 && !strings.HasPrefix(args[i-1], "-") || i == 0 {
-				if arg == "-p" || arg == "--prompt" {
-					t.Errorf("%s uses the non-interactive prompt flag %q: %v", a.key, arg, args)
-				}
-			}
+		args := a.args(seed, memDir)
+		if bad := nonInteractive(args, seed, memDir); bad != "" {
+			t.Errorf("%s would run non-interactively (%q): %v", a.key, bad, args)
+		}
+	}
+}
+
+// The check above only means anything if it actually inspects every position a
+// non-interactive token can occupy. These are the shapes it must catch — each
+// one a form the guard it replaced let through.
+func TestAssistantArgsCheckEveryPosition(t *testing.T) {
+	const (
+		seed   = "SEED"
+		memDir = "/mem"
+	)
+	for _, shape := range [][]string{
+		{"--", "-p", seed},                           // after a separator: the position the old form skipped
+		{"-p", seed},                                 // leading
+		{"--add-dir", memDir, "-p", seed},            // after a flag's value
+		{"-i", seed, "--print", "--add-dir", memDir}, // after the prompt
+		{"exec", "--add-dir", memDir, "--", seed},    // codex's one-shot subcommand — no flag check sees it
+	} {
+		if nonInteractive(shape, seed, memDir) == "" {
+			t.Errorf("a planted non-interactive form went unnoticed in %v", shape)
+		}
+	}
+	// And it must not fire on a legitimate invocation. "exec" anywhere but
+	// position 0 is a value, not a subcommand.
+	for _, fine := range [][]string{
+		{"--add-dir", memDir, "--", seed},
+		{"-i", seed, "--include-directories", memDir},
+		{"--add-dir", "exec", "--", seed},
+	} {
+		if bad := nonInteractive(fine, seed, memDir); bad != "" {
+			t.Errorf("false positive %q on a legitimate invocation %v", bad, fine)
 		}
 	}
 }
@@ -130,4 +189,20 @@ func claudeCmdFor(t *testing.T, prompt, addDir string) *exec.Cmd {
 	c := exec.Command("claude", a.args(prompt, addDir)...)
 	c.Dir = "/proj"
 	return c
+}
+
+// With nothing installed the list falls back to every provider — but as a copy.
+// Handing back the package-level slice would let anything that later appends to
+// or sorts the Model's copy rewrite the registry every other reader shares.
+func TestInstalledAssistantsFallbackIsACopy(t *testing.T) {
+	t.Setenv("PATH", t.TempDir()) // no CLI resolves
+	got := installedAssistants()
+	if len(got) != len(assistants) {
+		t.Fatalf("fallback returned %d providers, want all %d", len(got), len(assistants))
+	}
+	first := assistants[0]
+	got[0] = assistant{key: "mutated"}
+	if assistants[0].key != first.key {
+		t.Errorf("writing the returned slice rewrote the registry: assistants[0] is now %q", assistants[0].key)
+	}
 }

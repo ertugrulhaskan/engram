@@ -67,8 +67,22 @@ func NormalizeRemote(raw string) (string, error) {
 	// "alias " would be distinct directories here and one directory once a
 	// teammate checks the store out on Windows — collapsing into the very
 	// namespace the reserved-host check below exists to keep separate.
+	//
+	// The path gets the same treatment, per segment, because the key becomes a
+	// directory path in the store and the collapse is identical there: without
+	// it "github.com/acme/app." and "github.com/acme/app" are two projects/
+	// buckets on the author's machine and one on a teammate's Windows checkout,
+	// and applyPull's byKey would cross-place two unrelated projects' memories —
+	// the same failure the reserved host exists to prevent, reached through the
+	// other half of the key.
+	//
+	// A path segment that is a Windows *device* name (con, nul, lpt1 …) is
+	// knowingly not refused, unlike in NormalizeAlias. An alias is a name the
+	// user invents and can change on request; a remote is not, so refusing
+	// github.com/acme/con would strand a real repository over a checkout
+	// platform its owner may never use. Trimming loses nothing; refusing would.
 	host = strings.TrimRight(strings.ToLower(host), ". ")
-	path = strings.ToLower(path)
+	path = trimPathSegments(strings.ToLower(path))
 
 	if host == "" {
 		return "", fmt.Errorf("remote URL has no host: %q", raw)
@@ -104,4 +118,19 @@ func stripUserinfo(host string) string {
 		return host[i+1:]
 	}
 	return host
+}
+
+// trimPathSegments strips trailing dots and spaces from each segment of a
+// normalized key's path, so two spellings NTFS would merge into one directory
+// are one key here too. Empty segments left behind (".../" or a segment that
+// was only dots) are dropped, since they name no directory.
+func trimPathSegments(path string) string {
+	parts := strings.Split(path, "/")
+	out := parts[:0]
+	for _, seg := range parts {
+		if seg = strings.TrimRight(seg, ". "); seg != "" {
+			out = append(out, seg)
+		}
+	}
+	return strings.Join(out, "/")
 }

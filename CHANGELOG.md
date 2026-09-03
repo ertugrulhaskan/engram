@@ -109,6 +109,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   memory marks that aren't drawn there. Marks belong to the memories list; they
   wait for you to come back, where the mark column shows them again — and a
   batch promote still confirms its count before anything moves.
+- **Saving the config can no longer produce a file engram refuses to start
+  from.** The write truncated the file before writing the new contents, and
+  engram writes it on every `1`/`2`/`3` theme keypress and every `>alias` — a
+  crash, a `kill`, or a full disk in between left a half-written `config.json`,
+  which the change above then treats as a fatal startup error, with the repair
+  it points at (`/settings`) inside the TUI that no longer opens. The new
+  contents now go to a temp file beside it and are renamed over, so a reader
+  sees the whole old file or the whole new one. Your file's permissions are
+  carried across the rename, so a `chmod 600` on `config.json` sticks — and a
+  `config.json` your dotfiles manager symlinks into a repo is still written
+  *through* the link, rather than being replaced by a regular file.
+- **A project key no longer depends on how a teammate's filesystem spells it.**
+  A remote whose path ends in a dot or a space (`github.com/acme/app.`) keyed a
+  different store bucket from the same remote without it — until a teammate
+  checked the store out on Windows, where NTFS strips both and merges the two
+  directories, mixing up two unrelated projects' memories. Both are now trimmed
+  from the host and from every path segment. If you have such a remote and had
+  already promoted under it, those memories stay in the old bucket (`>pull`
+  reports them skipped) until you promote them again — the same migration note
+  that applies to a project which gains a remote after being keyed by `>alias`.
+- **Settings changed outside this engram session are picked up within two
+  seconds** instead of at the next restart. The poll re-read `scanRoots` and
+  nothing else, so a second window — or a hand edit — left this one deciding
+  off values it could no longer see: `projectAliases`, which decides *where* a
+  promote places a memory (so it would land in `global/` while the scope dialog
+  said the project had no key), and `secretScanAction`, which decides whether
+  credentials are caught before a push. The theme is deliberately excluded: it
+  changes only when you press `1`–`3` or edit `/settings`.
+- `>alias` on a project whose configured alias engram had to ignore — malformed,
+  or claimed by two memory dirs — now says so, instead of reporting the project
+  as one that was never aliased.
+- Palette rows no longer pass a description straight to the renderer when it is
+  short enough not to need truncating. Control characters were stripped on the
+  clipping path only, so a project name read off disk could carry a terminal
+  escape sequence into the frame as long as it fit.
+- **The `>alias` palette row shows the key it would actually store.** It echoed
+  what you typed, so `>alias Acme` advertised a key the store never uses (it
+  files the project under `acme`) and `>alias My App` advertised an action the
+  command then refuses outright. It now shows the normalized name, or the
+  refusal — the same rule the rest of the UI follows: never offer an action
+  that can't run.
+- **The promote dialog stops offering `>alias` on the one project that refuses
+  it** by reading a single value instead of a state plus a flag. Your home
+  folder's memory project reaches git exactly like any project with no remote,
+  so `team.ClassifyRemote` now reports it as its own state rather than leaving
+  the dialog to ask separately — which also means the check runs once per
+  promote instead of three times.
+- The resolve confirm's inline diff no longer replaces a **single** skipped
+  line with "⋮ 1 unchanged line". The elision took the same screen row and
+  showed less; with two lines of context, two changes five lines apart hit this
+  every time.
+- Leaving the resolve confirm now drops what it was holding — both memory
+  bodies, the rendered diff and the paths — on the accept path as well as the
+  cancel path. Resolving one long memory kept both copies on the model for the
+  rest of the session, and a later failure to open a conflict would have shown
+  the previous memory's diff.
 
 ## [0.4.0] - 2026-08-24
 

@@ -48,6 +48,8 @@ www/
     robots.txt       # crawler policy — nothing disallowed, AI agents named explicitly
     sitemap.xml      # 2 URLs, hand-maintained <lastmod>
     llms.txt         # plain-text site summary for LLMs
+    favicon.svg      # tab icon
+    og.png           # Open Graph / Twitter card image
     css/
         input.css    # Tailwind entry — source(none) + one @source per scanned file
         styles.css   # generated, committed
@@ -108,11 +110,12 @@ pre-paint theme guard inline in `<head>` so the right theme paints on the first 
 ```
 main.go                  # entry point: discover → launch TUI; init-team subcommand
 internal/
-    memory/              # discovery + parsing + file mutation
+    memory/              # discovery + parsing + file mutation; the instruction-file (/files) source
     plan/                # plan-mode plans (a second read-only source)
-    config/              # theme + editor settings under the XDG config dir
+    config/              # settings under the XDG config dir (theme, editor, scanRoots, projectAliases, secret scan)
     team/                # the shared team store over git
     secrets/             # credential scanning for the promote guard
+    source/              # the per-source capability model — no UI and no IO
     tui/                 # Bubble Tea UI
 ```
 
@@ -121,6 +124,14 @@ and `internal/tui` contains *no file logic*. The UI consumes parsed
 `memory.Memory` values and calls into `memory` / `team` for anything that touches
 disk or git; it never reads or writes files directly. Keep it that way — it's
 what keeps the project testable. `SPEC.md` §8 lists every file and its job.
+
+**What a source lets the user do is declared, not re-derived.** Each data package
+states its own `source.Caps{Edit, Create, Delete, Share}` next to the code that has
+to honour it, and the TUI gates every action on it. The zero value grants nothing,
+so a new source is read-only until a capability is granted deliberately —
+forgetting to declare one fails as a missing feature, never as a silent write. The
+same rule governs any enum a dialog reads: make the *least* claiming value the zero
+value, so a field nobody set can't decide what the UI offers.
 
 ## Guidelines
 

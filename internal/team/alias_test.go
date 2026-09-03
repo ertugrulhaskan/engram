@@ -147,3 +147,35 @@ func TestAliasKeyPlacement(t *testing.T) {
 		t.Errorf("placementPath = %q, want %q", got, want)
 	}
 }
+
+// The NTFS collapse the reserved host guards against reaches the key through
+// its path too: the key becomes a directory path in the store, so a segment
+// with a trailing dot or space is a separate bucket here and the same bucket
+// once a teammate checks the store out on Windows — and applyPull's byKey would
+// then cross-place two unrelated projects' memories, exactly as it would for a
+// colliding host.
+func TestRemotePathSegmentsSurviveNTFS(t *testing.T) {
+	for _, raw := range []string{
+		"git@github.com:acme/app..git", "git@github.com:acme/app.", "https://github.com/acme/app.",
+		"git@github.com:acme./app", "https://github.com/ACME./APP.",
+	} {
+		key, err := NormalizeRemote(raw)
+		if err != nil {
+			t.Errorf("NormalizeRemote(%q): %v", raw, err)
+			continue
+		}
+		if key != "github.com/acme/app" {
+			t.Errorf("NormalizeRemote(%q) = %q, want github.com/acme/app", raw, key)
+		}
+	}
+	// A device name in a *path* is deliberately kept: unlike an alias, a remote
+	// is not the user's to rename, so refusing it would strand a real repo over
+	// a checkout platform its owner may never use.
+	if key, err := NormalizeRemote("git@github.com:acme/con.git"); err != nil || key != "github.com/acme/con" {
+		t.Errorf("a device-named path segment is kept: key=%q err=%v", key, err)
+	}
+	// A dot inside a segment is ordinary and must survive.
+	if key, err := NormalizeRemote("git@github.com:acme/app.v2.git"); err != nil || key != "github.com/acme/app.v2" {
+		t.Errorf("an interior dot must survive: key=%q err=%v", key, err)
+	}
+}

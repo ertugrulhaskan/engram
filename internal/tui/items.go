@@ -139,8 +139,10 @@ func (m Model) activeItems() []Item {
 // docItems maps the read-only instruction docs (CLAUDE.md / AGENTS.md /
 // GEMINI.md / copilot-instructions.md / MEMORY.md) into Items,
 // grouped by scope (global first, then per project) — the source is already
-// sorted that way so the groups stay contiguous. These rows are view-only; the
-// `e`/`d` handlers point the user at @Claude instead.
+// sorted that way so the groups stay contiguous. These rows are view-only:
+// source.Caps grants the files source nothing, so `e`, `n` and `d` are all
+// refused, and readOnlyHint[srcFiles] points the user at the @ handoff — an
+// assistant, not Claude Code specifically.
 func (m Model) docItems() []Item {
 	t := m.theme()
 	items := make([]Item, 0, len(m.docs))

@@ -59,7 +59,6 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	m.promoteTitle = it.Title
 	m.promoteKey = key
 	m.promoteState = state
-	m.promoteAliasable = !team.IsHomeDir(it.ProjectDir)
 	m.promoteCursor = 0
 	if key == "" {
 		m.promoteCursor = 1 // only "global" is available
@@ -147,8 +146,7 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	// budget comes from the frame, so a resize while this confirm is open has to
 	// re-diff them (setResolveDiff).
 	m.resolvePath, m.resolveTmp = it.Path, rs.TmpPath
-	m.resolveYours, m.resolveTheirs, m.resolveIdent = rs.Yours, rs.Theirs, rs.Identical
-	m.setResolveDiff()
+	m.setResolveSides(rs.Yours, rs.Theirs, rs.Identical)
 	m.mode = modeResolveConfirm
 	return m, nil
 }

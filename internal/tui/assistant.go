@@ -152,7 +152,11 @@ func installedAssistants() []assistant {
 		}
 	}
 	if len(out) == 0 {
-		return assistants
+		// A copy, not the registry itself: the caller keeps this on the Model
+		// for the session, and handing back the package-level slice would let
+		// anything that later appends to or sorts it rewrite the registry every
+		// other reader shares.
+		return append([]assistant(nil), assistants...)
 	}
 	return out
 }

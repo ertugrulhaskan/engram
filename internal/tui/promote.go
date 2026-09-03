@@ -76,26 +76,30 @@ func (m Model) updatePromoteScope(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // give one; when git could not say, no alias would be consulted, so that hint
 // would mislead.
 //
-// aliasable is false for the one project >alias itself refuses — Claude's
-// home-folder project, which resolves as RemoteNone like any remoteless project
-// and so is indistinguishable from the state alone. Without it the dialog hands
-// the user a command that answers "can't", breaking the same rule the controls
-// row and the status bar's offer follow: never advertise an action that can't run.
-func noKeyLine(lead string, state team.RemoteState, aliasable bool) string {
+// Only RemoteNone earns the >alias hint, and the switch is exhaustive so that
+// stays true as states are added. The home folder is the case that makes the
+// distinction necessary: it reaches ProjectKey as a remoteless project like any
+// other, and offering it >alias would hand the user a command that answers
+// "can't" — breaking the same rule the controls row and the status bar's offer
+// follow, never advertise an action that can't run. team.ClassifyRemote tells
+// the two apart (RemoteHome), so the dialog reads one value instead of a state
+// plus a flag whose zero value would restore the bug.
+func noKeyLine(lead string, state team.RemoteState) string {
 	switch state {
-	case team.RemoteUnknown:
-		return lead + " — git couldn't tell whether it has a remote — promoting globally"
+	case team.RemoteNone:
+		return lead + " — promoting globally (>alias <name> keys a project that has no git remote)"
 	case team.RemoteGone:
 		return lead + " — its directory is gone — promoting globally"
 	case team.RemoteReserved:
 		// git answered fine here; engram refused the answer. Say so, and name
 		// the fix — blaming git would send the user looking in the wrong place.
 		return lead + " — its remote host is engram's reserved \"alias\" namespace; rename the ssh alias — promoting globally"
+	case team.RemoteHome:
+		return lead + " — your home folder's memories always promote globally"
 	}
-	if !aliasable {
-		return lead + " — promoting globally"
-	}
-	return lead + " — promoting globally (>alias <name> keys a project that has no git remote)"
+	// RemoteUnknown, and any state added without a case here: git could not
+	// say, so no alias is consulted and no offer would be honest.
+	return lead + " — git couldn't tell whether it has a remote — promoting globally"
 }
 
 // scopeModal renders the promote scope picker in the shared dialog anatomy
@@ -143,7 +147,7 @@ func (m Model) scopeModal() string {
 		addRow("this project", keyed, m.promoteCursor == 0)
 		addRow("global", "every project you work in", m.promoteCursor == 1)
 	default:
-		lines = append(lines, m.dlgText(cw, noKeyLine("this project has no key to promote under", m.promoteState, m.promoteAliasable), t.Dim)...)
+		lines = append(lines, m.dlgText(cw, noKeyLine("this project has no key to promote under", m.promoteState), t.Dim)...)
 		addRow("global", "every project you work in", true)
 	}
 	lines = append(lines, padBG("", cw, panel))

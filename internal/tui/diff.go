@@ -138,21 +138,30 @@ func collapseDiff(rows []diffRow, ctx int) []diffRow {
 	}
 	var out []diffRow
 	skipped := 0
-	flush := func() {
-		if skipped > 0 {
+	// end is one past the skipped run, so rows[end-1] is its last (and, at
+	// skipped == 1, its only) line.
+	flush := func(end int) {
+		switch {
+		case skipped == 0:
+		case skipped == 1:
+			// A run of one costs the same screen row either way, so an elision
+			// standing for it buys no space and shows strictly less than the
+			// line it replaced. Keep the line.
+			out = append(out, rows[end-1])
+		default:
 			out = append(out, diffRow{op: diffElide, n: skipped})
-			skipped = 0
 		}
+		skipped = 0
 	}
 	for i, r := range rows {
 		if !keep[i] {
 			skipped++
 			continue
 		}
-		flush()
+		flush(i)
 		out = append(out, r)
 	}
-	flush()
+	flush(len(rows))
 	return out
 }
 
@@ -190,6 +199,20 @@ func capDiff(rows []diffRow, max int) []diffRow {
 // and would be exactly wrong here — it would hand back the whole diff to a
 // dialog that has no room for any of it.
 func resolveDiff(yours, theirs []string, ctx, max int) (rows []diffRow, changed bool) {
+	collapsed, changed := alignDiff(yours, theirs, ctx)
+	if !changed || max < 1 {
+		return nil, changed
+	}
+	return capDiff(collapsed, max), true
+}
+
+// alignDiff is resolveDiff's frame-independent half: the LCS alignment and the
+// context collapse, neither of which depends on how many rows the dialog has.
+// It is split out because the confirm re-diffs on every tea.WindowSizeMsg, and
+// a drag-resize is a stream of them — re-running the O(n*m) table for two
+// 500-line memories is a 250k-cell allocation per event, on the event loop,
+// to change one integer. setResolveDiff caches this and re-runs only capDiff.
+func alignDiff(yours, theirs []string, ctx int) (rows []diffRow, changed bool) {
 	full := diffLines(yours, theirs)
 	for _, r := range full {
 		if r.op == diffYours || r.op == diffTheirs {
@@ -200,8 +223,5 @@ func resolveDiff(yours, theirs []string, ctx, max int) (rows []diffRow, changed 
 	if !changed {
 		return nil, false
 	}
-	if max < 1 {
-		return nil, true
-	}
-	return capDiff(collapseDiff(full, ctx), max), true
+	return collapseDiff(full, ctx), true
 }

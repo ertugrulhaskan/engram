@@ -282,9 +282,12 @@ up yet:
   of its own, `projects/alias/acme-app/`, that `>promote` offers and `>pull`
   fills. Lowercased, one path component, one project per alias; stored as
   `projectAliases` in the config; `>alias -` clears it. The remote always wins
-  — the alias is only consulted while git reports there is none (not when git
-  merely fails), and on a project that has a remote the command tells you its
-  real key instead. A project that later gains a remote promotes under its
+  — the alias is consulted only when git *reports* there is no remote, or when
+  the project's directory has gone (the alias was granted while it was there
+  and had none); never when git merely fails, so a hiccup can't let a stale
+  alias stand in for a real remote. On a project that has a remote the command
+  tells you its real key instead, and your home folder's memories never take an
+  alias at all — they always promote globally. A project that later gains a remote promotes under its
   remote key from then on; what you already shared under the alias stays in
   that bucket (pull reports it skipped) until you promote it again. Teammates
   must choose the *same* alias to meet.
@@ -306,6 +309,12 @@ engram's config lives at `~/.config/engram/config.json` (open it with
 The secret scan matches known key formats, secret-ish variable names, and values
 that simply look generated — a guard, not a guarantee, so treat the override as a
 real decision.
+
+A `config.json` that isn't valid JSON **stops startup**, naming the file and the
+fault, rather than being silently replaced by defaults — once the file carries
+`projectAliases`, defaults are a placement decision made off a file engram
+couldn't read. Every write refuses the same file for the same reason, and
+engram's own writes are atomic, so it can't produce one.
 
 ## CLI
 

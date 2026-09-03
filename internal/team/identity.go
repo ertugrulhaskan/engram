@@ -20,14 +20,22 @@ import (
 var ErrNoRemote = errors.New("no git origin remote")
 
 // RemoteState is what kind of answer ClassifyRemote reached.
+//
+// RemoteUnknown is first so that it, not RemoteFound, is the zero value. A
+// RemoteState that was never set is a state nobody asked git about, and the
+// dialogs read it to decide what to offer: "git couldn't tell" withholds every
+// offer, while RemoteFound asserts a key exists and RemoteNone invites >alias.
+// The zero value must be the one that claims least — the same rule source.Caps
+// follows, where an undeclared capability grants nothing.
 type RemoteState int
 
 const (
-	RemoteFound    RemoteState = iota // git reports an origin; the key is its normalized URL
+	RemoteUnknown  RemoteState = iota // git could not say: an unkeyable origin, a repository git won't read, no git at all
+	RemoteFound                       // git reports an origin; the key is its normalized URL
 	RemoteNone                        // the directory exists with no repository or no origin — an alias may stand in
 	RemoteGone                        // the project directory no longer exists — an alias already granted keeps standing in
-	RemoteUnknown                     // git could not say: an unkeyable origin, a repository git won't read, no git at all
 	RemoteReserved                    // git answered fine, but the origin's host is engram's own "alias" namespace
+	RemoteHome                        // the user's home folder, with no remote of its own — never keyed, by alias or otherwise
 )
 
 // ProjectKey resolves a project directory's canonical team key: it reads the
@@ -87,7 +95,19 @@ func noRemote(dir string, err error) bool {
 // insideRepo reports whether dir or any ancestor holds a .git entry (a
 // directory, or the file a worktree keeps). It only stats <ancestor>/.git on
 // the way up; it reads nothing.
+//
+// The path is made absolute first. A relative one ends its walk at ".", since
+// filepath.Dir(".") is ".", so the ancestors above the working directory are
+// never looked at — while `git -C` resolves the same relative path against the
+// cwd and does keep walking. On a repository git refuses to read, both
+// witnesses would then exit 128 with insideRepo wrongly agreeing there is no
+// repository, and noRemote would answer true: exactly the inversion its comment
+// promises never to allow, letting a stale alias key a project that has a real
+// remote. ProjectKey is exported, so the guard has to hold for any caller.
 func insideRepo(dir string) bool {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
 	for d := filepath.Clean(dir); ; {
 		if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {
 			return true
@@ -104,14 +124,30 @@ func insideRepo(dir string) bool {
 // is, for a caller that needs more than key-or-nothing — the >alias command,
 // which refuses differently for each state. err is ProjectKey's error for
 // every state but RemoteFound.
+//
+// The home folder gets a state of its own rather than a flag beside one.
+// Claude's home-folder project reaches ProjectKey exactly like any remoteless
+// project and comes back ErrNoRemote, yet it is the one project an alias may
+// never key — so callers reading RemoteNone alone would offer >alias to a
+// project that refuses it. Deciding it here means IsHomeDir is asked once, on
+// the goroutine that already pays for a git spawn, instead of once per caller
+// on the UI thread.
 func ClassifyRemote(dir string) (key string, state RemoteState, err error) {
 	key, err = ProjectKey(dir)
 	switch {
 	case err == nil:
 		return key, RemoteFound, nil
-	case errors.Is(err, ErrNoRemote):
-		return "", RemoteNone, err
-	case errors.Is(err, fs.ErrNotExist):
+	case errors.Is(err, ErrNoRemote), errors.Is(err, fs.ErrNotExist):
+		// The two states an alias may stand in for — unless this is the home
+		// folder, which none of them may key. A home *with* a remote never
+		// arrives here: it returned RemoteFound above, and that key still
+		// applies (see ResolveKey).
+		if IsHomeDir(dir) {
+			return "", RemoteHome, err
+		}
+		if errors.Is(err, ErrNoRemote) {
+			return "", RemoteNone, err
+		}
 		return "", RemoteGone, err
 	case errors.Is(err, ErrReservedHost):
 		// Kept apart from RemoteUnknown: git answered, and correctly. Only
@@ -134,12 +170,13 @@ func ClassifyRemote(dir string) (key string, state RemoteState, err error) {
 // An *alias* never keys the user's home folder: an alias is a name invented for
 // a project that has no identity of its own, and Claude's home-folder project —
 // the memories of sessions run outside any repository — is not a project in that
-// sense. A real remote does key it, exactly as before: if the home directory is
-// itself a dotfiles repo, promoting from it offers that key and the scope dialog
-// names it. That is deliberate and the bucket is not a privacy boundary — a
-// promote copies the memory into the shared store whichever bucket it lands in,
-// so refusing the remote here would stranded already-shared memories to protect
-// nothing.
+// sense. ClassifyRemote reports it as RemoteHome, which falls past the alias
+// branch below. A real remote does key it, exactly as before: if the home
+// directory is itself a dotfiles repo, ClassifyRemote answers RemoteFound,
+// promoting from it offers that key and the scope dialog names it. That is
+// deliberate and the bucket is not a privacy boundary — a promote copies the
+// memory into the shared store whichever bucket it lands in, so refusing the
+// remote here would strand already-shared memories to protect nothing.
 func ResolveKey(dir, alias string) (string, RemoteState) {
 	key, state, _ := ClassifyRemote(dir)
 	switch state {
@@ -147,7 +184,7 @@ func ResolveKey(dir, alias string) (string, RemoteState) {
 		return key, state
 	case RemoteNone, RemoteGone:
 		name, err := NormalizeAlias(alias)
-		if err != nil || IsHomeDir(dir) {
+		if err != nil {
 			return "", state
 		}
 		return AliasKey(name), state

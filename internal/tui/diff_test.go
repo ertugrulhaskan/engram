@@ -166,16 +166,29 @@ func TestResolveModalRendersDiff(t *testing.T) {
 	}
 }
 
-// A single unchanged line is not pluralized.
+// A single line is not pluralized — pinned where it is still reachable.
+// collapseDiff no longer elides a run of one (the row an elision costs is the
+// row it would save; see TestCollapseKeepsALoneLine), so the case this test
+// used to construct now returns the line itself. That is asserted here too, so
+// the two tests fail together if the rule is reverted. diffMore still counts
+// down to one, and pluralLine also serves the pull confirm.
 func TestElisionPlural(t *testing.T) {
 	rows := collapseDiff(diffLines(
 		[]string{"1", "2", "3", "4", "mine"},
 		[]string{"1", "2", "3", "4", "theirs"}), 3)
-	if len(rows) == 0 || rows[0].op != diffElide || rows[0].n != 1 {
-		t.Fatalf("rows = %+v, want a leading elision of 1", rows)
+	for _, r := range rows {
+		if r.op == diffElide && r.n == 1 {
+			t.Fatalf("an elision standing for one line costs the row it saves: %+v", rows)
+		}
 	}
-	if got := pluralLine(rows[0].n, "1 unchanged line", "%d unchanged lines"); got != "1 unchanged line" {
+	if got := pluralLine(1, "1 unchanged line", "%d unchanged lines"); got != "1 unchanged line" {
+		t.Errorf("singular = %q", got)
+	}
+	if got := pluralLine(4, "1 unchanged line", "%d unchanged lines"); got != "4 unchanged lines" {
 		t.Errorf("plural = %q", got)
+	}
+	if got := pluralLine(1, "1 more line — see it all in $EDITOR", "%d more lines — see them all in $EDITOR"); got != "1 more line — see it all in $EDITOR" {
+		t.Errorf("diffMore singular = %q", got)
 	}
 	_ = reflect.DeepEqual
 }
@@ -204,5 +217,40 @@ func TestCapDiffTailIsNotCalledUnchanged(t *testing.T) {
 	}
 	if !strings.Contains(out, "more lines — see them all in $EDITOR") {
 		t.Errorf("capped diff missing the honest tail line:\n%s", out)
+	}
+}
+
+// An elision must buy a row to be worth drawing. A run of exactly one skipped
+// line costs the same row as the "⋮ 1 unchanged line" that replaced it, so the
+// dialog paid the same and showed less. With ctx=2, two changes five lines
+// apart leave exactly one line outside both context windows — the case.
+func TestCollapseKeepsALoneLine(t *testing.T) {
+	rows := []diffRow{
+		{op: diffYours, text: "Y"},
+		{op: diffEqual, text: "a"}, {op: diffEqual, text: "b"},
+		{op: diffEqual, text: "c"},
+		{op: diffEqual, text: "d"}, {op: diffEqual, text: "e"},
+		{op: diffYours, text: "Y"},
+	}
+	got := collapseDiff(rows, 2)
+	if len(got) != len(rows) {
+		t.Fatalf("collapseDiff = %d rows, want %d unchanged", len(got), len(rows))
+	}
+	for i, r := range got {
+		if r.op == diffElide {
+			t.Fatalf("row %d is an elision standing for %d line(s) — it costs the row it saves", i, r.n)
+		}
+		if r.text != rows[i].text {
+			t.Errorf("row %d = %q, want %q", i, r.text, rows[i].text)
+		}
+	}
+	// Two or more still collapse: that is where the row is actually saved.
+	long := []diffRow{{op: diffYours, text: "Y"}}
+	for i := 0; i < 8; i++ {
+		long = append(long, diffRow{op: diffEqual, text: "x"})
+	}
+	long = append(long, diffRow{op: diffYours, text: "Y"})
+	if got := collapseDiff(long, 2); len(got) >= len(long) {
+		t.Errorf("a run of 4 skipped lines did not collapse: %d rows in, %d out", len(long), len(got))
 	}
 }

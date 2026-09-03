@@ -164,3 +164,38 @@ func TestReconcileToast(t *testing.T) {
 		}
 	}
 }
+
+// Both ways out of the resolve confirm drop what it was holding. The sides are
+// whole memory bodies kept on the Model only so a resize can re-diff them, and
+// they are stale state waiting for a caller: actionResolve returns early when
+// BeginConflictResolve fails, so anything rendering resolveModal without going
+// through it would draw the previous memory's diff under the current name.
+func TestResolveConfirmClearsItsStateOnBothExits(t *testing.T) {
+	for _, key := range []string{"enter", "esc"} {
+		m := ready(t)
+		m.mode = modeResolveConfirm
+		m.resolvePath, m.resolveTmp = "/a/memory/x.md", filepath.Join(t.TempDir(), "merge.md")
+		m.setResolveSides([]string{"one", "two"}, []string{"one", "three"}, true)
+		if len(m.resolveRows) == 0 {
+			t.Fatalf("%s: setup produced no diff rows", key)
+		}
+		press := tea.KeyMsg{Type: tea.KeyEnter}
+		if key == "esc" {
+			press = tea.KeyMsg{Type: tea.KeyEsc}
+		}
+		next, _ := m.updateResolveConfirm(press)
+		got := next.(Model)
+		if got.resolveYours != nil || got.resolveTheirs != nil {
+			t.Errorf("%s: sides retained (%d/%d lines)", key, len(got.resolveYours), len(got.resolveTheirs))
+		}
+		if got.resolveRows != nil {
+			t.Errorf("%s: %d diff rows retained", key, len(got.resolveRows))
+		}
+		if got.resolvePath != "" || got.resolveTmp != "" {
+			t.Errorf("%s: path=%q tmp=%q retained", key, got.resolvePath, got.resolveTmp)
+		}
+		if got.resolveIdent {
+			t.Errorf("%s: resolveIdent retained", key)
+		}
+	}
+}

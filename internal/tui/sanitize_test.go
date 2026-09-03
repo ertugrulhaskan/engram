@@ -191,3 +191,28 @@ func TestStatusBarNewlineBecomesSpace(t *testing.T) {
 		t.Errorf("status = %q, want the newline rendered as a space", got)
 	}
 }
+
+// palLine ran its sub text through clip -- and so through sanitizeLine -- only
+// when the text needed truncating, so a sub short enough to fit reached
+// lipgloss.Render raw. A Jump-to row's sub is a project name read off disk,
+// which engram does not own, so that was a real gap in one of style.go's three
+// chokepoints, exactly the width of "it fits".
+func TestPaletteSubIsSanitizedEvenWhenItFits(t *testing.T) {
+	m := ready(t)
+	m.mode = modePalette
+	m.palRows = []palItem{{glyph: "·", label: "a memory", sub: "proj" + osc}}
+	m.palCursor = 0
+	out := m.View()
+	if strings.Contains(out, "\x1b]0;") {
+		t.Error("a short palette sub reached the renderer with its escape sequence intact")
+	}
+	// The legitimate text survives; only the control bytes go.
+	if !strings.Contains(out, "proj") {
+		t.Error("sanitizing removed the text too")
+	}
+	// And the long form, which clip already covered, still does.
+	m.palRows = []palItem{{glyph: "·", label: "a memory", sub: strings.Repeat("x", 200) + osc}}
+	if strings.Contains(m.View(), "\x1b]0;") {
+		t.Error("a clipped palette sub leaked its escape sequence")
+	}
+}

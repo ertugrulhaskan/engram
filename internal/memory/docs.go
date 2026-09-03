@@ -40,7 +40,8 @@ const (
 // zero value. Instruction files are maintained by their own assistant (or by
 // hand outside engram), and engram cannot promise an edit stays compatible
 // with the tool that owns the file, so they are browsable only and repairs
-// route through @Claude (ENGR-12).
+// route through the @ assistant handoff — any of the four providers, not
+// Claude Code alone (ENGR-12).
 var DocsCaps source.Caps
 
 // DocFile is an instruction file shown read-only in engram's files source: a
@@ -255,7 +256,7 @@ func claudeLayout(root string) (home, claudeHome, projectsRoot string, err error
 // A global doc belongs to no project, so it carries empty ProjectName,
 // ProjectDir and MemoryDir — the same shape ~/.claude/CLAUDE.md has always had.
 // The TUI already reads that as "no project to open" (assistantContext returns
-// claudeHome() when both dirs are empty), so @Claude launches in ~/.claude
+// claudeHome() when both dirs are empty), so an @ handoff launches in ~/.claude
 // rather than pointing at someone else's repo.
 func DiscoverDocs(root string, scanRoots []string) ([]DocFile, error) {
 	home, claudeHome, projectsRoot, err := claudeLayout(root)

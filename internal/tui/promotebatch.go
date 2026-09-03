@@ -49,8 +49,12 @@ func (m Model) actionPromoteBatch() (tea.Model, tea.Cmd) {
 	m.batchItems = items
 	// The scope picker serves both modes and tells them apart by whether a batch
 	// is set, so the two must never both be live: entering the batch clears the
-	// single-memory state, exactly as the single path clears the batch.
+	// single-memory state, exactly as the single path clears the batch. All of
+	// it, promoteState included — the batch branches shadow it today, but a
+	// leftover state is a stale answer about a project this promote isn't
+	// about, waiting for the first caller that reads it.
 	m.promotePath, m.promoteTitle, m.promoteKey = "", "", ""
+	m.promoteState = team.RemoteUnknown
 	m.promoteCursor = 0
 	if !anyKeyed(items) {
 		m.promoteCursor = 1 // only "global" is available

@@ -17,13 +17,13 @@ func TestUpdate(t *testing.T) {
 	if err := Update(func(c *Config) error { c.Theme = "crt"; return nil }); err != nil {
 		t.Fatalf("Update on an absent file: %v", err)
 	}
-	if got := Load(); got.Theme != "crt" {
+	if got := load(); got.Theme != "crt" {
 		t.Errorf("after first Update: theme = %q, want crt", got.Theme)
 	}
 	if err := Update(func(c *Config) error { c.ScanRoots = []string{"/w"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if got := Load(); got.Theme != "crt" || len(got.ScanRoots) != 1 {
+	if got := load(); got.Theme != "crt" || len(got.ScanRoots) != 1 {
 		t.Errorf("round trip lost a setting: %+v", got)
 	}
 

@@ -117,9 +117,15 @@ func TestGitMissingIsReported(t *testing.T) {
 }
 
 // remoteless points the selected row at a plain directory (no git, so no
-// remote) with a memory dir that exists on disk — an alias holder whose memory
-// dir is gone is reclaimed, so the dir must be real — and returns that memory
-// dir, the alias key.
+// remote), with a real memory dir on disk because ClassifyRemote stats the
+// project dir before it spawns git — a missing one answers RemoteGone, not
+// RemoteNone, which is a different branch from the one these tests exercise.
+// It returns that memory dir, which is the alias key.
+//
+// Nothing here reclaims a name: team.SetAlias refuses a name another memory dir
+// holds without ever stating that dir, precisely so a holder whose directory is
+// gone keeps the store bucket its memories were shared under until the user
+// frees the name deliberately (asserted below, and in SPEC §7).
 func remoteless(t *testing.T, m *Model) string {
 	t.Helper()
 	if _, ok := m.selected(); !ok {
@@ -154,7 +160,7 @@ func TestAliasCommand(t *testing.T) {
 	if got.aliases[memDir] != "acme-app" {
 		t.Errorf("aliases[%q] = %q, want acme-app (normalized, keyed by memory dir)", memDir, got.aliases[memDir])
 	}
-	if saved := config.Load().ProjectAliases[memDir]; saved != "acme-app" {
+	if saved := loadCfg().ProjectAliases[memDir]; saved != "acme-app" {
 		t.Errorf("persisted alias = %q, want acme-app", saved)
 	}
 	if !strings.Contains(got.status, "keyed by alias/acme-app") {
@@ -171,8 +177,8 @@ func TestAliasCommand(t *testing.T) {
 	// `>alias -` clears it, on disk and in the session.
 	tm, _ = got.actionAlias("-")
 	cleared := tm.(Model)
-	if _, still := cleared.aliases[memDir]; still || config.Load().ProjectAliases[memDir] != "" {
-		t.Errorf("after >alias -: aliases=%v persisted=%q, want none", cleared.aliases, config.Load().ProjectAliases[memDir])
+	if _, still := cleared.aliases[memDir]; still || loadCfg().ProjectAliases[memDir] != "" {
+		t.Errorf("after >alias -: aliases=%v persisted=%q, want none", cleared.aliases, loadCfg().ProjectAliases[memDir])
 	}
 	if !strings.Contains(cleared.status, "alias cleared") {
 		t.Errorf("clear status = %q", cleared.status)
@@ -220,7 +226,7 @@ func TestAliasRefusedWhenRemoteExists(t *testing.T) {
 	if !strings.Contains(got.status, "keyed by github.com/acme/app") {
 		t.Errorf("status = %q, want the refusal naming the remote key", got.status)
 	}
-	if len(got.aliases) != 0 || len(config.Load().ProjectAliases) != 0 {
+	if len(got.aliases) != 0 || len(loadCfg().ProjectAliases) != 0 {
 		t.Errorf("an alias was stored for a project with a remote: %v", got.aliases)
 	}
 
@@ -279,7 +285,7 @@ func TestAliasRefusedWhenTaken(t *testing.T) {
 	// memories were shared under, so the name is not reclaimed silently — the
 	// refusal says how to free it.
 	stale := filepath.Join(t.TempDir(), "gone", "memory")
-	cfg := config.Load()
+	cfg := loadCfg()
 	cfg.ProjectAliases = map[string]string{stale: "acme-app"}
 	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -367,7 +373,7 @@ func TestAliasClearWorksOnARefusedProject(t *testing.T) {
 	if err := config.Save(config.Config{ProjectAliases: map[string]string{memDir: "personal"}}); err != nil {
 		t.Fatal(err)
 	}
-	m.aliases = cleanAliases(config.Load().ProjectAliases)
+	m.aliases = cleanAliases(loadCfg().ProjectAliases)
 
 	tm, _ := m.actionAlias("-")
 	got := tm.(Model)
@@ -377,7 +383,7 @@ func TestAliasClearWorksOnARefusedProject(t *testing.T) {
 	if !strings.Contains(got.status, "cleared") {
 		t.Errorf("status = %q, want the cleared line", got.status)
 	}
-	if left := config.Load().ProjectAliases[memDir]; left != "" {
+	if left := loadCfg().ProjectAliases[memDir]; left != "" {
 		t.Errorf("config still holds %q for the home project", left)
 	}
 }
@@ -388,10 +394,10 @@ func TestAliasClearWorksOnARefusedProject(t *testing.T) {
 // dropped every scanRoots-discovered file out of /files -- the degradation the
 // fallback exists to prevent, in a narrower window.
 func TestScanRootsFallbackIsSeededAtStartup(t *testing.T) {
-	lastGoodRoots.Lock()
-	saved := lastGoodRoots.roots
-	lastGoodRoots.Unlock()
-	defer seedScanRoots(saved)
+	lastGood.Lock()
+	saved := lastGood.cfg
+	lastGood.Unlock()
+	defer seedConfig(saved)
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	roots := []string{"/tmp/acme", "/tmp/widgets"}
@@ -438,24 +444,188 @@ func TestAliasReservedHostIsNotBlamedOnGit(t *testing.T) {
 	}
 }
 
-// The scope dialog may only offer >alias where >alias will actually run. The
-// home-folder project resolves as RemoteNone exactly like any remoteless
-// project, but actionAlias refuses it -- so the state alone can't decide, and
-// without the extra fact the dialog sends the user to a command that answers
-// "can't". Same rule the controls row and the status bar's offer follow.
+// The scope dialog may only offer >alias where >alias will actually run.
+// RemoteNone is the one state it runs in; the home-folder project reaches
+// ProjectKey identically to any remoteless project, so team.ClassifyRemote
+// gives it RemoteHome to keep the two apart -- otherwise the dialog sends the
+// user to a command that answers "can't". Same rule the controls row and the
+// status bar's offer follow.
+//
+// The zero value is checked here too, because it is what an unset promoteState
+// would be: exactly one state may carry the offer, so a state nobody set can
+// never carry it.
 func TestNoKeyLineOffersAliasOnlyWhereItRuns(t *testing.T) {
 	const lead = "this project has no key to promote under"
-	if got := noKeyLine(lead, team.RemoteNone, true); !strings.Contains(got, ">alias") {
+	if got := noKeyLine(lead, team.RemoteNone); !strings.Contains(got, ">alias") {
 		t.Errorf("a remoteless project should be offered >alias: %q", got)
 	}
-	if got := noKeyLine(lead, team.RemoteNone, false); strings.Contains(got, ">alias") {
+	if got := noKeyLine(lead, team.RemoteHome); strings.Contains(got, ">alias") {
 		t.Errorf("the home-folder project must not be offered >alias, which refuses it: %q", got)
 	}
 	// The states that were already right, pinned so they stay that way.
-	if got := noKeyLine(lead, team.RemoteReserved, true); strings.Contains(got, ">alias") || !strings.Contains(got, "reserved") {
+	if got := noKeyLine(lead, team.RemoteReserved); strings.Contains(got, ">alias") || !strings.Contains(got, "reserved") {
 		t.Errorf("a reserved host names itself and offers no alias: %q", got)
 	}
-	if got := noKeyLine(lead, team.RemoteUnknown, true); strings.Contains(got, ">alias") {
+	if got := noKeyLine(lead, team.RemoteUnknown); strings.Contains(got, ">alias") {
 		t.Errorf("git couldn't say, so no alias would be consulted: %q", got)
+	}
+	var unset team.RemoteState
+	if got := noKeyLine(lead, unset); strings.Contains(got, ">alias") {
+		t.Errorf("an unset state must not carry the offer: %q", got)
+	}
+	// Every state names a reason; a state added without a case still lands on
+	// the one that promises nothing.
+	for _, st := range []team.RemoteState{team.RemoteNone, team.RemoteGone, team.RemoteReserved, team.RemoteHome, team.RemoteUnknown, team.RemoteState(99)} {
+		if got := noKeyLine(lead, st); !strings.HasPrefix(got, lead+" — ") || !strings.Contains(got, "globally") {
+			t.Errorf("noKeyLine(%v) = %q, want the lead and where it promotes", st, got)
+		}
+	}
+}
+
+// projectAliases is the one setting that decides *placement*, and it used to
+// refresh only on the way back from /settings. An alias set by a second engram,
+// or hand-edited into the config, therefore left this session keying the
+// project as if it had none -- >promote and >pull would place its memories in
+// global/ while the scope dialog said "this project has no key to promote
+// under". The poll already re-read scanRoots every tick; that it did not
+// re-read the aliases was the asymmetry.
+func TestPollRefreshesAliases(t *testing.T) {
+	lastGood.Lock()
+	saved := lastGood.cfg
+	lastGood.Unlock()
+	defer seedConfig(saved)
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	m := ready(t)
+	if len(m.aliases) != 0 {
+		t.Fatalf("setup: session already holds aliases %v", m.aliases)
+	}
+	// A tick that read the config adopts its map, even with the signature
+	// unchanged — this is a settings change, not a filesystem one.
+	next, _ := m.Update(pollResultMsg{sig: m.fsSig, parsed: true, aliases: map[string]string{"/a/memory": "acme-app"}})
+	got := next.(Model)
+	if got.aliases["/a/memory"] != "acme-app" {
+		t.Errorf("aliases = %v, want the tick's map", got.aliases)
+	}
+	// A tick that could NOT read the config keeps what the session has, rather
+	// than emptying the map and silently promoting to global/.
+	next, _ = got.Update(pollResultMsg{sig: got.fsSig, parsed: false, aliases: nil})
+	if kept := next.(Model).aliases["/a/memory"]; kept != "acme-app" {
+		t.Errorf("an unreadable config emptied the alias map: %v", next.(Model).aliases)
+	}
+	// And a tick that read a config with the key *absent* clears it. This is the
+	// state `>alias -` leaves behind — projectAliases is omitempty, so removing
+	// the last alias removes the key — and reading it as "couldn't parse" would
+	// pin a deleted alias for the life of every other session.
+	next, _ = got.Update(pollResultMsg{sig: got.fsSig, parsed: true, aliases: map[string]string{}})
+	if left := next.(Model).aliases["/a/memory"]; left != "" {
+		t.Errorf("a cleared alias survived the poll: %v", next.(Model).aliases)
+	}
+}
+
+// The end-to-end version of the case above, through the real read: `>alias -`
+// clears the last alias, the config it writes has no projectAliases key, and
+// the next tick must report that as an authoritative empty rather than as a
+// failed read.
+func TestPollSeesAClearedLastAlias(t *testing.T) {
+	lastGood.Lock()
+	saved := lastGood.cfg
+	lastGood.Unlock()
+	defer seedConfig(saved)
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := config.Update(func(c *config.Config) error {
+		c.ProjectAliases = map[string]string{"/a/memory": "acme-app"}
+		return nil
+	}); err != nil {
+		t.Fatalf("seed alias: %v", err)
+	}
+	cfg, parsed := currentConfig()
+	if !parsed || cfg.ProjectAliases["/a/memory"] != "acme-app" {
+		t.Fatalf("setup: parsed=%v aliases=%v", parsed, cfg.ProjectAliases)
+	}
+	// Clear it the way clearAlias does: delete the entry and save.
+	if err := config.Update(func(c *config.Config) error {
+		delete(c.ProjectAliases, "/a/memory")
+		return nil
+	}); err != nil {
+		t.Fatalf("clear alias: %v", err)
+	}
+	cfg, parsed = currentConfig()
+	if !parsed {
+		t.Fatal("a config with no projectAliases key must still read as parsed")
+	}
+	if len(cfg.ProjectAliases) != 0 {
+		t.Errorf("ProjectAliases = %v, want none", cfg.ProjectAliases)
+	}
+}
+
+// A poll tick reads the config first and delivers after a full filesystem scan.
+// A >alias handled inside that window would otherwise be undone by the tick's
+// pre-write snapshot -- the status line reporting "keyed by alias/acme" while
+// the map no longer holds it, and the very next promote placing into global/.
+// The generation counter is what discards a tick that straddles a write.
+func TestStalePollTickDoesNotUndoAnAliasWrite(t *testing.T) {
+	m := ready(t)
+	launched := m.settingsGen // the value a tick in flight would carry
+
+	// The session writes an alias while that tick is out.
+	m.aliases = map[string]string{"/a/memory": "acme-app"}
+	m.settingsGen++
+
+	next, _ := m.Update(pollResultMsg{sig: m.fsSig, parsed: true, gen: launched, aliases: map[string]string{}})
+	if got := next.(Model).aliases["/a/memory"]; got != "acme-app" {
+		t.Errorf("a stale tick undid the alias write: aliases = %v", next.(Model).aliases)
+	}
+	// A tick launched after the write is current, and does apply.
+	next, _ = m.Update(pollResultMsg{sig: m.fsSig, parsed: true, gen: m.settingsGen, aliases: map[string]string{}})
+	if got := next.(Model).aliases["/a/memory"]; got != "" {
+		t.Errorf("a current tick was ignored: aliases = %v", next.(Model).aliases)
+	}
+}
+
+// The scan policy decides whether credentials are caught before a push, and it
+// used to be read only at startup and on the way back from /settings -- so a
+// second window kept promoting under the policy its session began with. It
+// comes off the same poll read as the roots and the aliases now.
+func TestPollRefreshesTheScanPolicy(t *testing.T) {
+	m := ready(t)
+	m.scanAction, m.scanPII = "off", false
+	next, _ := m.Update(pollResultMsg{
+		sig:    m.fsSig,
+		parsed: true,
+		gen:    m.settingsGen,
+		cfg:    config.Config{SecretScanAction: "block-strict", SecretScanScope: "secrets+pii", Editor: " code --wait "},
+	})
+	got := next.(Model)
+	if got.scanAction != "block-strict" || !got.scanPII {
+		t.Errorf("scan policy = %q/%v, want block-strict/true", got.scanAction, got.scanPII)
+	}
+	if got.editorOverride != "code --wait" {
+		t.Errorf("editorOverride = %q, want the trimmed config value", got.editorOverride)
+	}
+	// The theme is deliberately NOT adopted from a tick: colours changing under
+	// the user mid-session is a surprise, and 1-3 and /settings are explicit.
+	before := m.themeIdx
+	next, _ = m.Update(pollResultMsg{sig: m.fsSig, parsed: true, gen: m.settingsGen, cfg: config.Config{Theme: "crt"}})
+	if next.(Model).themeIdx != before {
+		t.Error("a poll tick switched the theme")
+	}
+}
+
+// An alias the config names but CleanAliases threw out must not be reported as
+// "this project has no key" -- that is actively false, and the /settings
+// warning is a one-shot the user may have missed.
+func TestBareAliasNamesADroppedEntry(t *testing.T) {
+	m := ready(t)
+	_ = remoteless(t, &m)
+	m.aliasDropped = []string{"shared is claimed by /c/memory and /d/memory"}
+	tm, _ := m.actionAlias("")
+	got := tm.(Model).status
+	if !strings.Contains(got, "ignored") || !strings.Contains(got, "shared is claimed by") {
+		t.Errorf("status = %q, want the dropped-entry explanation", got)
+	}
+	if strings.Contains(got, "until it has a key") {
+		t.Errorf("status still claims the project was never aliased: %q", got)
 	}
 }

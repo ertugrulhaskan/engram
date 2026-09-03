@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -108,8 +109,7 @@ func TestResolveModalFitsFrame(t *testing.T) {
 		m := tm.(Model)
 		m.mode = modeResolveConfirm
 		m.resolveTmp = "/tmp/merge.md"
-		m.resolveYours, m.resolveTheirs = yours, theirs
-		m.setResolveDiff()
+		m.setResolveSides(yours, theirs, false)
 		return m
 	}
 	fits := func(t *testing.T, m Model, what string) {
@@ -142,8 +142,7 @@ func TestResolveModalFitsFrame(t *testing.T) {
 		for _, w := range []int{30, 42, 60, 76, 80, 100, 140} {
 			for _, h := range []int{14, 16, 18, 20, 22, 24, 30, 50} {
 				m := open(t, w, h)
-				m.resolveYours, m.resolveTheirs, m.resolveIdent = br.yours, br.them, br.ident
-				m.setResolveDiff()
+				m.setResolveSides(br.yours, br.them, br.ident)
 				fits(t, m, fmt.Sprintf("%s w=%d h=%d", br.name, w, h))
 			}
 		}
@@ -168,8 +167,7 @@ func TestResolveModalTooShortSaysSo(t *testing.T) {
 	m := tm.(Model)
 	m.mode = modeResolveConfirm
 	m.resolveTmp = "/tmp/merge.md"
-	m.resolveYours, m.resolveTheirs = []string{"mine", "a", "b"}, []string{"theirs", "a", "c"}
-	m.setResolveDiff()
+	m.setResolveSides([]string{"mine", "a", "b"}, []string{"theirs", "a", "c"}, false)
 
 	if m.resolveDiffRows() != 0 {
 		t.Fatalf("resolveDiffRows() = %d at 42x14, want 0 (no room)", m.resolveDiffRows())
@@ -188,5 +186,42 @@ func TestResolveModalTooShortSaysSo(t *testing.T) {
 	}
 	if !strings.Contains(plain, "open $EDITOR") {
 		t.Errorf("modal dropped its footer:\n%s", plain)
+	}
+}
+
+// A resize re-caps the diff to the new frame without re-aligning it: only the
+// row budget depends on the frame, and a drag-resize is a stream of these.
+func TestResizeRecapsTheDiffWithoutRealigning(t *testing.T) {
+	m := ready(t)
+	m.mode = modeResolveConfirm
+	var yours, theirs []string
+	for i := 0; i < 40; i++ {
+		yours = append(yours, "mine "+strconv.Itoa(i))
+		theirs = append(theirs, "theirs "+strconv.Itoa(i))
+	}
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+	m = next.(Model)
+	m.mode = modeResolveConfirm
+	m.setResolveSides(yours, theirs, false)
+	aligned, tall := len(m.resolveAligned), len(m.resolveRows)
+	if tall == 0 || aligned == 0 {
+		t.Fatalf("setup: aligned=%d rows=%d", aligned, tall)
+	}
+
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
+	small := next.(Model)
+	if len(small.resolveAligned) != aligned {
+		t.Errorf("the alignment was recomputed on resize: %d rows, was %d", len(small.resolveAligned), aligned)
+	}
+	if len(small.resolveRows) >= tall {
+		t.Errorf("a shorter frame kept %d rows (was %d) — the cap did not follow the frame", len(small.resolveRows), tall)
+	}
+	if got, want := len(small.resolveRows), small.resolveDiffRows(); want > 0 && got > want {
+		t.Errorf("rows=%d exceeds the frame's budget of %d", got, want)
+	}
+	// And growing back restores the taller view from the same alignment.
+	next, _ = small.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+	if back := next.(Model); len(back.resolveRows) != tall {
+		t.Errorf("rows=%d after growing back, want the original %d", len(back.resolveRows), tall)
 	}
 }

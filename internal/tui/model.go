@@ -51,6 +51,18 @@ type Model struct {
 	themeIdx       int
 	editorOverride string            // optional editor command from config; "" = use env/host
 	aliases        map[string]string // config projectAliases: memory dir → alias, for projects with no git remote
+	// aliasDropped is what team.CleanAliases had to ignore in that map — a
+	// malformed name, or one two memory dirs both claim. Kept so >alias can say
+	// *why* a project the config names has no key, instead of reporting it as a
+	// project nobody ever aliased.
+	aliasDropped []string
+	// settingsGen counts in-session writes to the config. A poll tick carries
+	// the value it was launched with, and the handler drops a tick whose value
+	// is stale — the tick reads the file first and delivers after a full
+	// filesystem scan, so without this a >alias handled in between would be
+	// overwritten by the pre-write snapshot, and the next promote would place
+	// against the map the user had just changed.
+	settingsGen uint64
 	// installedAsst is the assistant registry filtered to the CLIs on $PATH,
 	// resolved once at startup. Resolving it per call put four exec.LookPath
 	// sweeps of $PATH on the event loop for every keystroke in the palette,
@@ -82,9 +94,14 @@ type Model struct {
 	// the confirm is open has to re-diff them (setResolveDiff).
 	resolveYours  []string
 	resolveTheirs []string
-	resolveIdent  bool            // the sides' shared content is byte-identical (only the anchor differs)
-	resolveRows   []diffRow       // inline diff of the two sides, shown before $EDITOR opens
-	resolveSame   resolveSameness // when the diff shows nothing, why
+	resolveIdent  bool // the sides' shared content is byte-identical (only the anchor differs)
+	// resolveAligned is the frame-independent half of the diff — the LCS
+	// alignment with context collapsed — computed once per conflict, so a
+	// resize re-caps it instead of re-running an O(n*m) table on the event loop.
+	resolveAligned []diffRow
+	resolveChanged bool            // the two sides differ at all (alignDiff's verdict)
+	resolveRows    []diffRow       // the capped view of resolveAligned, drawn in the confirm
+	resolveSame    resolveSameness // when the diff shows nothing, why
 
 	width, height           int
 	listW, previewW, panesH int // layout, recomputed in resize (sole writer)
@@ -107,15 +124,15 @@ type Model struct {
 	scanOverrode int             // flagged memories the user included anyway
 
 	// promote scope picker (modePromoteScope)
-	promotePath  string           // memory file being promoted
-	promoteTitle string           // its title, for the modal header
-	promoteKey   string           // resolved project key, or "" when the project has no key
-	promoteState team.RemoteState // why, when it has none: no remote (>alias would help), gone, or git couldn't say
-	// promoteAliasable is false where >alias would itself refuse — the home
-	// folder — which reads as RemoteNone like any remoteless project, so the
-	// state alone can't tell the dialog whether to offer the hint.
-	promoteAliasable bool
-	promoteCursor    int // 0 = this project, 1 = global
+	promotePath  string // memory file being promoted
+	promoteTitle string // its title, for the modal header
+	promoteKey   string // resolved project key, or "" when the project has no key
+	// promoteState is why it has none: no remote (>alias would help), the home
+	// folder (nothing would help), gone, reserved, or git couldn't say. It is
+	// the dialog's whole answer — team.ClassifyRemote separates the home folder
+	// from an ordinary remoteless project, so no flag rides alongside it.
+	promoteState  team.RemoteState
+	promoteCursor int // 0 = this project, 1 = global
 
 	// withdraw confirm (modeWithdrawConfirm)
 	withdrawPath  string           // memory being withdrawn
@@ -147,8 +164,8 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 	themeIdx := resolveThemeIdx(cfg.Theme)
 	t := themes[themeIdx]
 	// The poll's scanRoots fallback starts from the config already read here,
-	// rather than from nil until the first tick lands (see seedScanRoots).
-	seedScanRoots(cfg.ScanRoots)
+	// rather than from a zero Config until the first tick lands (see seedConfig).
+	seedConfig(cfg)
 
 	se := textinput.New()
 	se.Prompt = "/ "
@@ -251,4 +268,4 @@ func (m *Model) setTheme(idx int) tea.Cmd {
 	return nil
 }
 
-func (m Model) Init() tea.Cmd { return pollCmd() }
+func (m Model) Init() tea.Cmd { return pollCmd(m.settingsGen) }

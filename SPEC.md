@@ -217,11 +217,22 @@ encloses it or the repository has no `origin` — and for a directory that has s
 vanished, whose alias was granted while it was there and had no remote. Never for any
 other `ProjectKey` failure (an origin whose URL has no host/path, a repository git
 won't read), which would otherwise let a stale alias override a real remote on a
-hiccup. The rule lives once, in `team.ResolveKey`, which promote and pull both call;
-`team.ClassifyRemote` names the answer git reached (found / none / gone / unknown), and
-`ResolveKey` returns it beside the key, so `>alias` refuses by state and the promote
-dialog explains a key-less project truthfully — suggesting `>alias` only when there is
-no remote, not when git couldn't say. `ProjectKey` classifies
+hiccup. The session does not go stale on any of this: the 2s poll re-reads the whole config —
+`projectAliases` and `secretScanAction` included, not just `scanRoots` — and a tick
+carries the settings generation it was launched with, so a tick that read the file
+*before* an in-session `>alias` is discarded rather than undoing it. (The theme is
+deliberately excluded: colours changing under a poll tick is a surprise, and `1`–`3` and
+`/settings` are both explicit.) The rule lives once, in `team.ResolveKey`, which promote
+and pull both call;
+`team.ClassifyRemote` names the answer git reached (found / none / gone / home /
+reserved / unknown), and `ResolveKey` returns it beside the key, so `>alias` refuses by
+state and the promote dialog explains a key-less project truthfully — suggesting
+`>alias` for `RemoteNone` alone, not when git couldn't say and not on the home folder,
+which refuses it. `RemoteUnknown` is deliberately the **zero value** of `RemoteState`,
+for the reason `source.Caps`'s zero value grants nothing: a state nobody set is a state
+nobody asked git about, and it must claim least — as `RemoteFound` (which asserts a key
+exists) or `RemoteNone` (which invites `>alias`) it would let an unset field decide what
+a dialog offers. `ProjectKey` classifies
 a failure by git's exit status, not its message (2: no such remote; 128: not a
 repository — or one git can't read, so git itself is asked which with `rev-parse
 --git-dir`, under its own discovery rules rather than a hand-rolled `.git` walk). So
@@ -244,7 +255,41 @@ reclaimed), and on a config file that doesn't parse. That last rule is enforced 
 place, `config.Update`: it reads through `config.Read`, which tells absent from
 unparseable (`ErrUnparseable`), so every writer — `>alias`, the theme keys, the seeded
 settings file — refuses rather than replacing the user's settings with defaults, and
-says so; the `/settings` reload applies the file it just read without saving it back,
+says so. Its counterpart is that engram must not be able to *create* such a file:
+`config.Save` writes a temp file beside the target and renames it over, because
+`os.WriteFile` truncates before it writes and this file is written on every `1`/`2`/`3`
+keypress and every `>alias` — interrupted between the two, it would leave a half-object
+that `Read` reports as `ErrUnparseable` and startup treats as fatal, and the repair that
+message advertises (`/settings`) is inside the TUI that would no longer open. It does not
+`fsync`: the failure being closed is a *process* death mid-write, against which the
+rename is complete on its own, and buying the power-loss case as well would mean blocking
+the event loop on every theme keypress, since `config.Update` is called inline from the
+key handler. Three details the rename has to carry by hand, because `os.WriteFile` got them
+free. The temp file is opened through `os.OpenFile` at the mode the config will *end up*
+with, not through `os.CreateTemp` (which hardcodes `0600`): the umask then narrows a
+**new** config exactly as it always did — a user on `umask 077` keeps a private file —
+and the temp is never wider than its destination, not even for the moment before a
+corrective chmod. An **existing** config's own mode is then restored onto the temp
+before the rename, because `os.WriteFile` applied its perm only at creation, so a mode
+the user set survived every later write; without that, a `chmod 600` would be undone by
+the next theme keypress, widening a file that holds the editor command, scan roots and
+project aliases. (`Perm()` masks to the `0777` bits, so setuid/setgid/sticky are never
+copied.) And a **symlinked** config is resolved first, so a `config.json` that stow or
+chezmoi links into a dotfiles repo keeps receiving writes — `os.WriteFile` wrote
+*through* the link, while a bare rename would replace it with a regular file and
+silently strand the repo copy. `O_EXCL` is what makes the temp's predictable name safe:
+a file or symlink pre-planted at that name fails the open and the loop moves on, so the
+write can never be redirected through one. A *dangling* link is followed too, by hand —
+`EvalSymlinks` fails outright when the target is missing, and falling back to the link's
+own path would have the rename eat the link. That is the normal dotfiles bootstrap order,
+the link made before the repo copy exists, and `os.WriteFile` handled it by opening
+through the link and creating the target. The rename does need write permission on the *directory*, which
+`os.WriteFile` did not once the file existed; a read-only config dir holding a writable
+`config.json` now fails to save rather than saving non-atomically, which is the rarer
+situation and the better failure. There is no read-only convenience wrapper: a
+`config.Load` that answered an unreadable file with defaults was deleted once the last
+writer moved off it, because that policy is the one every rule here argues against and
+the short name kept inviting it back; the `/settings` reload applies the file it just read without saving it back,
 and names any `projectAliases` entry `CleanAliases` had to ignore. The `alias/`
 namespace is reserved at the key level: `NormalizeRemote` refuses a remote whose host
 is literally `alias` (`ErrReservedHost`), because for a single-segment path the
@@ -258,7 +303,16 @@ was reached by checking only those. **A namespace claim has to be checked at its
 shortest form, where the prefix is the whole key.** The refusal carries its own error
 and its own `RemoteState` (`RemoteReserved`) so the dialogs say what happened: git
 answered correctly, engram declined the answer, and the fix is renaming the ssh alias
-— not the `RemoteUnknown` line, which would blame git. Two witnesses decide "no repository":
+— not the `RemoteUnknown` line, which would blame git. The *other* half of the key
+gets the same treatment for the same reason: a trailing dot or space is trimmed from
+the host **and from every path segment**, because the key becomes a directory path in
+the store and NTFS strips both — so `github.com/acme/app.` and `github.com/acme/app`
+would be two buckets on the author's machine and one on a teammate's Windows checkout,
+reaching the identical cross-placement failure through the path instead of the host. A
+path segment that is a Windows *device* name (`con`, `nul`, `lpt1`) is knowingly **not**
+refused, unlike in `NormalizeAlias`: an alias is a name the user invents and can change
+on request, a remote is not, so refusing one would strand a real repository over a
+checkout platform its owner may never use. Trimming loses nothing; refusing would. Two witnesses decide "no repository":
 `rev-parse --git-dir` exiting 128 *and* no `.git` entry up the tree — either seeing a
 repository means git could not say, since a repository git refuses to read (dubious
 ownership) exits 128 from both commands. What the alias does not solve is
@@ -266,15 +320,24 @@ coordination: two teammates must independently choose the same name to meet (§1
 
 **An alias never keys the home folder; a real remote does.** An alias is a name invented
 for a project that has no identity of its own, and Claude's home-folder project — the
-memories of sessions run outside any repository — is not a project in that sense, so
-`team.IsHomeDir` guards the alias branch of `ResolveKey` and `>alias` refuses there,
-naming which case the user is in. A home directory that is itself a dotfiles repo keeps
-its remote key and promotes under it, exactly as any other repository. A middle version
-of this refused the remote too, on the reasoning that it would publish personal notes
-into a team bucket; that was wrong twice over — the bucket is not a privacy boundary
-(a promote copies the memory into the shared store whichever bucket it lands in, behind
-an explicit scope dialog that names the key), and refusing it would strand memories
-already shared under that key.
+memories of sessions run outside any repository — is not a project in that sense. It is
+**a state, not a flag beside one**: the home folder reaches `ProjectKey` exactly like any
+remoteless project and comes back `ErrNoRemote`, so `ClassifyRemote` asks `team.IsHomeDir`
+and answers `RemoteHome`, which falls past the alias branch of `ResolveKey` and which
+`>alias` and the promote dialog each refuse by name. The earlier shape carried the fact
+alongside the state — a `promoteAliasable` bool on the Model — and it was wrong in the way
+a parallel field always is: three callers each paid their own `IsHomeDir` (a
+`UserHomeDir` plus two `EvalSymlinks`, on the event loop, on top of the git spawn
+`ResolveKey` already pays for), and a caller that set the state but forgot the bool got
+the *most permissive* wording by default. One value now carries the whole answer.
+A home directory that is itself a dotfiles repo keeps its remote key and promotes under
+it, exactly as any other repository — it never reaches `RemoteHome`, because
+`ClassifyRemote` answered `RemoteFound` first. A middle version of this refused the
+remote too, on the reasoning that it would publish personal notes into a team bucket;
+that was wrong twice over — the bucket is not a privacy boundary (a promote copies the
+memory into the shared store whichever bucket it lands in, behind an explicit scope
+dialog that names the key), and refusing it would strand memories already shared under
+that key.
 
 ### Shared repo layout
 
@@ -561,7 +624,7 @@ engram/
             edit.go          # create / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
-        config/              # load/save settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse); Dir() base-path helper
+        config/              # settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse), Save is atomic (temp file + rename); Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
             team.go          # package doc + Dir() (managed clone path) + IsInitialized()
             remote.go        # NormalizeRemote: git remote URL → canonical host/path key
@@ -594,14 +657,14 @@ engram/
             confirms.go      # pre-action confirms: pull accounting, resolve inline diff, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
-            alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Read) + projectKey adapter over team.ResolveKey
+            alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Update, the one write path) + projectKey adapter over team.ResolveKey
             promote.go       # >promote: team scope picker modal + background promote command
             promotebatch.go  # >promote over a marked set: each memory's own project key, one commit
             marks.go         # the marked set: `a` toggles every memory in the list (the type filter is the selection)
             pull.go          # >pull: resolve project keys, plan (PullPlan) + apply (PullApply) off-thread
             withdraw.go      # >withdraw: owner-only confirm modal + background withdraw command
             resolve.go       # >resolve: build the git-marker temp file, open $EDITOR, finish on save
-            diff.go          # the resolve confirm's line diff: LCS alignment, context collapse, row cap (§8.4)
+            diff.go          # the resolve confirm's line diff: alignDiff (LCS + context collapse, frame-independent, cached) then capDiff per frame (§8.4)
             secret.go        # secret-scan modal: scan before promote, show redacted findings + override
             style.go         # color/pad/clip text helpers, type labels, humanize
             paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
@@ -787,7 +850,7 @@ keys it owns), `plan.Caps` grants delete only (plans are plan-mode output engram
 business editing; deleting a stale one is housekeeping), and `memory.DocsCaps` is the
 zero value (instruction files belong to the assistant that reads them, so engram cannot
 promise an edit stays compatible with that tool — they are browsable only, with repairs
-routed through `@Claude`, §8.1).
+routed through the `@` handoff to whichever assistant owns the file, §8.1).
 
 The TUI wires those into one table, `srcCaps`, indexed by `srcKind`, and every
 capability decision goes through one gate, `caps()`: `e`/`n`/`d` check `Edit`/`Create`/
@@ -844,15 +907,23 @@ The alignment is a longest-common-subsequence diff with the common prefix and su
 first, which for a typical edit leaves a handful of lines to align. `maxDiffCells` bounds the
 table: a pathological pair falls back to showing each side whole — true, since every line
 differs somewhere, if less precise — rather than stalling the UI thread. Unchanged runs longer
-than two lines of context collapse to one row naming how many lines they stand for, and the
-whole view is capped at twelve rows so a long conflict can't outgrow the frame — fewer when
+than two lines of context collapse to one row naming how many lines they stand for — *longer*,
+because a run of exactly one is kept as the line itself: the elision would occupy the same
+screen row and show strictly less, so it buys nothing and hides content. (With two lines of
+context, two changes five lines apart leave exactly one line outside both windows, so the case
+is ordinary, not contrived.) The whole view is capped at twelve rows so a long conflict can't
+outgrow the frame — fewer when
 the frame is short, because the budget is the rows `View` actually paints (`headerRows +
 panesH + footerRows`, one short of the terminal, since `reservedRows` leaves the last row
 unwritten) minus the modal's own chrome. That chrome is **measured**, by wrapping the
 dialog's two text blocks through the same helper the renderer uses, not counted by hand: the
 mechanics line is 61 cells against a text column of `boxWidth()-4`, so under 80 columns it
-takes a second row. Sized against the terminal's height with a hand-counted chrome instead,
-the modal came out a row too tall and lost its footer off the bottom — the only place the
+takes a second row. Only the cap depends on the frame, so the alignment is computed once per conflict and a
+resize re-caps it: a drag-resize is a stream of `WindowSizeMsg`, and re-running the LCS
+table per event — 250k cells for two 500-line memories, on the event loop — to change one
+integer is what made the dialog stutter. Sized against the terminal's height with a
+hand-counted chrome instead, the modal came out a row too tall and lost its footer off
+the bottom — the only place the
 confirm states what enter does, which is what deriving the budget was meant to protect. The capped
 tail is its own kind of row, not an "unchanged" elision: what it hides is the rest of the
 diff, changes included — possibly an entire side — and a confirm dialog that called that

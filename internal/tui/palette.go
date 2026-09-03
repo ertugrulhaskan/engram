@@ -7,6 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
+
+	"github.com/ertugrulhaskan/engram/internal/team"
 )
 
 // palAction is what selecting a command-palette candidate does.
@@ -187,7 +189,18 @@ func (m Model) teamVerbs() []teamVerb {
 				if strings.TrimSpace(arg) == "-" {
 					return "clear the selected memory's project alias"
 				}
-				return "key the selected memory's project as " + arg
+				// Show the name that would actually be stored, not the raw
+				// text. The row is an offer, and the offer has to be true:
+				// ">alias Acme" files the project under acme, and ">alias My
+				// App" is refused outright, so echoing either verbatim promises
+				// a key the store never uses or an action that answers "can't"
+				// — the rule the controls row and the status bar's offer both
+				// follow.
+				name, err := team.NormalizeAlias(arg)
+				if err != nil {
+					return "can't key a project as " + arg + " — one word: letters, digits, '.', '_' or '-'"
+				}
+				return "key the selected memory's project as " + name
 			}},
 	}
 }
@@ -377,7 +390,12 @@ func (m Model) palLine(c palItem, cw int, panelBg, selBg string) string {
 	sw := runewidth.StringWidth(c.glyph)
 	label := clip(c.label, cw-sw-4)
 	lw := runewidth.StringWidth(label)
-	desc := c.sub
+	// Sanitized unconditionally, not only on the branch that clips. clip is
+	// where sanitizeLine lives, so a sub short enough to fit reached
+	// lipgloss.Render raw — and a Jump-to row's sub is a project name read off
+	// disk, which engram does not own. One of style.go's three chokepoints had
+	// a bypass exactly the width of "it fits".
+	desc := sanitizeLine(c.sub)
 	if maxD := cw - sw - lw - 5; runewidth.StringWidth(desc) > maxD {
 		if maxD < 4 {
 			desc = ""

@@ -144,14 +144,33 @@ func (m Model) updateResolveConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "y", "Y", "enter":
 		m.mode = modeNormal
-		return m, m.resolveCmd(m.resolvePath, m.resolveTmp)
+		path, tmp := m.resolvePath, m.resolveTmp
+		m.clearResolve()
+		return m, m.resolveCmd(path, tmp)
 	case "esc", "n", "ctrl+c":
 		m.mode = modeNormal
 		team.AbortConflictResolve(m.resolveTmp) // the merge file is unused — remove it
-		m.resolveTmp = ""
+		m.clearResolve()
 		return m, m.setCancel("resolve cancelled — memory untouched")
 	}
 	return m, nil
+}
+
+// clearResolve drops everything the resolve confirm was holding, on both ways
+// out of it. Two reasons it takes all of it and not just the merge file. The
+// sides are whole memory bodies, kept on the Model only so a resize can re-diff
+// them, and a session that resolved one 4,000-line memory held both copies
+// until it exited. And they are stale state waiting for a caller: actionResolve
+// returns early when team.BeginConflictResolve fails, so anything that rendered
+// resolveModal without going through it would draw the *previous* memory's
+// diff under the current memory's name.
+func (m *Model) clearResolve() {
+	m.resolvePath, m.resolveTmp = "", ""
+	m.resolveYours, m.resolveTheirs = nil, nil
+	m.resolveAligned, m.resolveChanged = nil, false
+	m.resolveRows = nil
+	m.resolveIdent = false
+	m.resolveSame = resolveDiffers // the zero value; with no rows it draws nothing
 }
 
 // Shape of the inline diff in the resolve confirm: two lines of context around
@@ -224,7 +243,17 @@ func (m Model) resolveDiffRows() int {
 // derived from the frame, so rows sized for the old one are precisely the
 // too-tall dialog that budget exists to prevent.
 func (m *Model) setResolveDiff() {
-	rows, changed := resolveDiff(m.resolveYours, m.resolveTheirs, resolveDiffContext, m.resolveDiffRows())
+	// The alignment is cached because only the row budget depends on the frame:
+	// a drag-resize is a stream of WindowSizeMsg, and re-running the O(n*m) LCS
+	// per event — 250k cells for two 500-line memories, on the event loop — to
+	// change one integer is what made the dialog stutter. alignResolve is
+	// recomputed only when the sides change (actionResolve calls setResolveSides).
+	rows, changed := m.resolveAligned, m.resolveChanged
+	if n := m.resolveDiffRows(); !changed || n < 1 {
+		rows = nil
+	} else {
+		rows = capDiff(rows, n)
+	}
 	m.resolveRows = rows
 	switch {
 	case changed && len(rows) > 0:
@@ -240,6 +269,15 @@ func (m *Model) setResolveDiff() {
 		// Saying "identical" here would be wrong.
 		m.resolveSame = resolveInvisible
 	}
+}
+
+// setResolveSides takes the two versions of a conflicting memory and runs the
+// frame-independent half of the diff once. setResolveDiff then re-caps it for
+// whatever frame is current, including after a resize, without re-aligning.
+func (m *Model) setResolveSides(yours, theirs []string, identical bool) {
+	m.resolveYours, m.resolveTheirs, m.resolveIdent = yours, theirs, identical
+	m.resolveAligned, m.resolveChanged = alignDiff(yours, theirs, resolveDiffContext)
+	m.setResolveDiff()
 }
 
 // resolveModal shows an inline diff of the two sides — yours in the same color

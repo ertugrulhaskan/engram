@@ -121,7 +121,7 @@ func (m Model) buildSeedPrompt(a assistant, projDir, memDir string, unresolved b
 	// saying so keeps it from mistaking one vendor's file for its own.
 	b.WriteString("Scope: work only on Claude Code memory files and plan-mode plans. Ask before editing any file, and don't touch unrelated project source code.\n\n")
 	if a.rules != "" && a.rules != "CLAUDE.md" {
-		fmt.Fprintf(&b, "Note: these are Claude Code's files, not %s's own %s — read them as data to maintain.\n\n", a.label[1:], a.rules)
+		fmt.Fprintf(&b, "Note: these are Claude Code's files, not %s's own %s — read them as data to maintain.\n\n", strings.TrimPrefix(a.label, "@"), a.rules)
 	}
 
 	if memDir != "" {

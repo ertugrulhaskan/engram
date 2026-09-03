@@ -163,7 +163,7 @@ memories as each product allows.
       since none of them exposes a memory API today (until/unless that changes)
 - [x] Read-only at first; editing/sharing per source as feasible *(decided and enforced
       2026-08-29)* — memories: everything; plans: view + delete; files: read-only
-      (repairs via `@Claude`). Capability is a `source.Caps` each data package declares
+      (repairs via the `@` assistant handoff). Capability is a `source.Caps` each data package declares
       (`memory.Caps`, `plan.Caps`, `memory.DocsCaps`), wired once in the TUI and asked
       through one gate; the zero value grants nothing, so a new source is read-only until
       granted, and the controls row is derived from the same struct so it can only
