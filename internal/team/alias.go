@@ -11,10 +11,23 @@ import (
 // host/path keys. The prefix makes the key's origin legible in the store tree
 // and keeps a later shared alias map (SPEC §10) a plain name → key lookup.
 // A remote whose host is literally "alias" (an ssh_config Host of that name)
-// would normalize into this same namespace, so NormalizeRemote refuses that
-// host outright rather than letting the two kinds of key share a bucket. That
-// keeps IsAliasKey exact — it answers from the prefix alone, with no remote
-// able to spell its way in.
+// normalizes into this same namespace, so NormalizeRemote refuses it
+// (ErrReservedHost). The refusal is about data, not tidiness: for a
+// single-segment path the collision is *exact* — "alias:acme" normalizes to
+// "alias/acme", which is AliasKey("acme") byte for byte — so two unrelated
+// projects would share one bucket and applyPull's byKey would cross-place their
+// memories into each other.
+//
+// Accepting it was tried and reverted, on the argument that IsAliasKey only
+// decides the promote dialog's "(your alias)" caption. That argument holds for
+// multi-segment paths, where the remote lands in a subdirectory the alias
+// bucket never reads — and it was reached by checking only those. Worth keeping
+// as the lesson: a namespace claim has to be checked at its shortest form,
+// where the prefix *is* the whole key, not just at a convenient one.
+//
+// What the refusal must not do is look like a git failure, which is why it has
+// its own error and its own RemoteState (RemoteReserved): git answered fine,
+// engram declined the answer, and the fix is renaming the ssh alias.
 const aliasPrefix = "alias/"
 
 // maxAliasLen bounds an alias the way a path segment should be bounded; a

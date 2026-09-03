@@ -1,6 +1,7 @@
 package team
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -95,11 +96,36 @@ func TestSetAlias(t *testing.T) {
 
 // The alias namespace is reserved at the key level: a remote whose host is
 // literally "alias" would share projects/alias/ with alias-keyed projects.
+//
+// The single-segment case is the one that matters and the one a first pass
+// missed: "alias:acme" normalizes to "alias/acme", which is AliasKey("acme")
+// byte for byte, so two unrelated projects land in one bucket and applyPull's
+// byKey cross-places their memories. Accepting the overlap was tried and
+// reverted — the argument for it ("IsAliasKey only decides a caption") was
+// reached by checking multi-segment paths only, where the remote does land in a
+// subdirectory the alias bucket never reads. A namespace claim has to be checked
+// at its shortest form, where the prefix *is* the whole key.
 func TestAliasNamespaceReserved(t *testing.T) {
-	for _, raw := range []string{"alias:acme/app", "git@alias:acme/app.git", "ssh://alias/acme/app"} {
-		if key, err := NormalizeRemote(raw); err == nil {
+	// The trailing-dot and trailing-space spellings are included because NTFS
+	// strips both: distinct directories here, one directory once a teammate
+	// checks the store out on Windows.
+	for _, raw := range []string{
+		"alias:acme/app", "git@alias:acme/app.git", "ssh://alias/acme/app",
+		"alias:acme", "ssh://alias/acme", "ALIAS:acme", "alias.:acme", "ssh://alias./acme",
+	} {
+		key, err := NormalizeRemote(raw)
+		if err == nil {
 			t.Errorf("NormalizeRemote(%q) = %q, want a refusal", raw, key)
+			continue
 		}
+		// Its own error, so the UI can say git answered fine and engram declined.
+		if !errors.Is(err, ErrReservedHost) {
+			t.Errorf("NormalizeRemote(%q) err = %v, want ErrReservedHost", raw, err)
+		}
+	}
+	// The exact collision this guards, stated so the reason survives a refactor.
+	if AliasKey("acme") != "alias/acme" {
+		t.Fatalf("AliasKey(\"acme\") = %q — the collision this test guards has moved", AliasKey("acme"))
 	}
 	if key, err := NormalizeRemote("git@github.com:acme/alias.git"); err != nil || key != "github.com/acme/alias" {
 		t.Errorf("a path named alias is fine: key=%q err=%v", key, err)

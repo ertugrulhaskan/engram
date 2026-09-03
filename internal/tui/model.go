@@ -107,11 +107,15 @@ type Model struct {
 	scanOverrode int             // flagged memories the user included anyway
 
 	// promote scope picker (modePromoteScope)
-	promotePath   string           // memory file being promoted
-	promoteTitle  string           // its title, for the modal header
-	promoteKey    string           // resolved project key, or "" when the project has no key
-	promoteState  team.RemoteState // why, when it has none: no remote (>alias would help), gone, or git couldn't say
-	promoteCursor int              // 0 = this project, 1 = global
+	promotePath  string           // memory file being promoted
+	promoteTitle string           // its title, for the modal header
+	promoteKey   string           // resolved project key, or "" when the project has no key
+	promoteState team.RemoteState // why, when it has none: no remote (>alias would help), gone, or git couldn't say
+	// promoteAliasable is false where >alias would itself refuse — the home
+	// folder — which reads as RemoteNone like any remoteless project, so the
+	// state alone can't tell the dialog whether to offer the hint.
+	promoteAliasable bool
+	promoteCursor    int // 0 = this project, 1 = global
 
 	// withdraw confirm (modeWithdrawConfirm)
 	withdrawPath  string           // memory being withdrawn
@@ -142,6 +146,9 @@ func (m Model) WithVersion(v string) Model {
 func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg config.Config) Model {
 	themeIdx := resolveThemeIdx(cfg.Theme)
 	t := themes[themeIdx]
+	// The poll's scanRoots fallback starts from the config already read here,
+	// rather than from nil until the first tick lands (see seedScanRoots).
+	seedScanRoots(cfg.ScanRoots)
 
 	se := textinput.New()
 	se.Prompt = "/ "

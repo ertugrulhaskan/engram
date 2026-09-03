@@ -23,10 +23,11 @@ var ErrNoRemote = errors.New("no git origin remote")
 type RemoteState int
 
 const (
-	RemoteFound   RemoteState = iota // git reports an origin; the key is its normalized URL
-	RemoteNone                       // the directory exists with no repository or no origin — an alias may stand in
-	RemoteGone                       // the project directory no longer exists — an alias already granted keeps standing in
-	RemoteUnknown                    // git could not say: an unkeyable origin, a repository git won't read, no git at all
+	RemoteFound    RemoteState = iota // git reports an origin; the key is its normalized URL
+	RemoteNone                        // the directory exists with no repository or no origin — an alias may stand in
+	RemoteGone                        // the project directory no longer exists — an alias already granted keeps standing in
+	RemoteUnknown                     // git could not say: an unkeyable origin, a repository git won't read, no git at all
+	RemoteReserved                    // git answered fine, but the origin's host is engram's own "alias" namespace
 )
 
 // ProjectKey resolves a project directory's canonical team key: it reads the
@@ -112,6 +113,11 @@ func ClassifyRemote(dir string) (key string, state RemoteState, err error) {
 		return "", RemoteNone, err
 	case errors.Is(err, fs.ErrNotExist):
 		return "", RemoteGone, err
+	case errors.Is(err, ErrReservedHost):
+		// Kept apart from RemoteUnknown: git answered, and correctly. Only
+		// engram refuses the answer, so the dialogs must not blame git for it —
+		// and unlike the other failures this one has a fix the user can act on.
+		return "", RemoteReserved, err
 	}
 	return "", RemoteUnknown, err
 }

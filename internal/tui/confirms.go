@@ -174,7 +174,7 @@ const (
 	// purpose: contentLines normalizes CRLF and one trailing empty line, so a
 	// trailing *space* survives it and shows up as an ordinary changed row.
 	resolveMsgIdentical = "Identical — only the sync anchor differs."
-	resolveMsgInvisible = "They differ only in line endings."
+	resolveMsgInvisible = "Line endings or a final newline differ."
 	resolveMsgNoRoom    = "The frame is too short to preview the diff."
 )
 
@@ -200,6 +200,14 @@ func (m Model) resolveChromeRows() int {
 // pushing the footer off the bottom is the wrong trade — it costs the sentence
 // that says what enter does to show a diff the user can't act on, and $EDITOR
 // is about to show the whole thing anyway.
+//
+// What this budget cannot do is make the modal fit a frame too small for the
+// dialog anatomy itself. With no diff rows at all the box is still 9 rows —
+// header (2), the message, a blank, the mechanics line, a blank, the footer,
+// two borders — so below roughly 11 terminal rows (or 14 under 42 columns,
+// where the mechanics line takes three) it is clipped like every other dialog
+// at that size; helpModal is 28 rows against a 12-row frame there. That floor
+// belongs to the shared anatomy, not to this function.
 func (m Model) resolveDiffRows() int {
 	n := m.dialogRows() - m.resolveChromeRows()
 	if n > resolveDiffMaxRows {

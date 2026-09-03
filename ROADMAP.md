@@ -111,14 +111,22 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 Goal: one place for AI context beyond Claude Code — local files first, server-side
 memories as each product allows.
 
-- [ ] Pluggable "source" abstraction (Claude Code is the first source) — *deliberately
-      deferred until a third concrete source exists; designing the interface against one
-      real and several hypothetical implementations would encode guesses*. **Its
-      capability half landed first** (2026-08-29, the last item below): `source.Caps`,
-      declared by each data package and consumed through one TUI gate. The load-path
-      interface stays deferred on the same reasoning — the vendors added so far are
-      providers *within* the files source (rows in `memory/docs.go`'s tables, where a new
-      one already costs no `internal/tui` change), not new collections
+- [x] Pluggable "source" abstraction (Claude Code is the first source) — *satisfied
+      2026-09-02, by the shape that grew rather than the Go `interface` this item
+      imagined*. Two halves: **capability**, as `source.Caps` declared by each data
+      package and consumed through one TUI gate (`20e731a`), whose zero value grants
+      nothing; and **discovery**, as data-driven tables plus a `Provider` dimension.
+      The testable bar was "adding a new local-file source needs no `internal/tui`
+      change", and it was measured rather than argued: a fake `windsurf` provider cost
+      1 constant + 1 table row + 1 canary line, with zero TUI edits.
+
+      **What stays unwritten, deliberately:** the load-path interface. The tables
+      generalise "a file, or a directory of files, at a known path under a project or
+      the home dir" and nothing else, and every vendor added so far is a provider
+      *within* the files source, not a new collection alongside memories/plans/files.
+      Writing the interface now would still be designing against one real and several
+      hypothetical implementations. Tier 2 below is the first thing that wouldn't fit,
+      and it reopens the question if and when a vendor ships a memory API
 - [x] **`AGENTS.md`** (Codex / cross-tool standard) — read-only in `/files`, with an
       `agents` badge. Found for projects engram already knows about (those with a
       `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear

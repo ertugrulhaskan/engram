@@ -1,9 +1,16 @@
 package team
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
+
+// ErrReservedHost reports a remote engram refuses to key because its host is
+// "alias", which would collide with the projects/alias/<name>/ namespace
+// AliasKey owns. It is its own error so the UI can name the real cause — git
+// answered correctly here — instead of reporting it as "git could not say".
+var ErrReservedHost = errors.New("remote host is reserved")
 
 // NormalizeRemote canonicalizes a git remote URL into a stable "host/path" key
 // used to match the same project across machines regardless of clone path or URL
@@ -54,7 +61,13 @@ func NormalizeRemote(raw string) (string, error) {
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.Trim(path, "/")
 
-	host = strings.ToLower(host)
+	// A trailing dot is the root label of an FQDN and means the same host; a
+	// trailing space is never meaningful. Both are trimmed for the reason
+	// NormalizeAlias refuses them in a name: NTFS strips them, so "alias." and
+	// "alias " would be distinct directories here and one directory once a
+	// teammate checks the store out on Windows — collapsing into the very
+	// namespace the reserved-host check below exists to keep separate.
+	host = strings.TrimRight(strings.ToLower(host), ". ")
 	path = strings.ToLower(path)
 
 	if host == "" {
@@ -65,10 +78,22 @@ func NormalizeRemote(raw string) (string, error) {
 	}
 	if host == "alias" {
 		// projects/alias/<name>/ is engram's namespace for alias-derived keys
-		// (see AliasKey); a remote whose host is literally "alias" — an ssh
-		// alias of that name — would key into it and share a bucket with a
-		// project keyed by alias. Refused so IsAliasKey is exact, not a guess.
-		return "", fmt.Errorf("remote host %q is reserved for engram's alias keys — rename the ssh alias", host)
+		// (AliasKey), and a remote whose host is literally "alias" — an
+		// ssh_config Host of that name — normalizes straight into it. For a
+		// single-segment path the collision is exact, not adjacent:
+		// "alias:acme" gives "alias/acme", which *is* AliasKey("acme"). Two
+		// unrelated projects would then share one store bucket, and applyPull's
+		// byKey would list both memory dirs under that key and cross-place each
+		// project's memories into the other.
+		//
+		// So this is refused, and refused with its own error rather than a
+		// generic one: ClassifyRemote turns it into RemoteReserved so the
+		// dialogs can say what actually happened and how to fix it. An earlier
+		// pass let it through on the argument that IsAliasKey only decides a
+		// caption — true for multi-segment paths, where the remote lands in a
+		// subdirectory the alias bucket never reads, and false for exactly the
+		// case above.
+		return "", fmt.Errorf("%w: %q is engram's alias-key namespace — rename the ssh alias", ErrReservedHost, host)
 	}
 	return host + "/" + path, nil
 }

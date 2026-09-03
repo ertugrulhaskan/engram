@@ -33,6 +33,17 @@ var lastGoodRoots struct {
 	roots []string
 }
 
+// seedScanRoots primes the fallback with the config the caller has already read,
+// so it is never empty. Without it the cache is nil until the first poll tick
+// lands, and a config broken inside that window would drop every
+// scanRoots-discovered file out of /files — the exact degradation the fallback
+// exists to prevent, just in a narrower window.
+func seedScanRoots(roots []string) {
+	lastGoodRoots.Lock()
+	defer lastGoodRoots.Unlock()
+	lastGoodRoots.roots = roots
+}
+
 // currentScanRoots re-reads the configured scan roots, falling back to the last
 // ones that parsed. The per-tick read is deliberate — a tiny file beside a ~1ms
 // scan — and it is what makes a scanRoot added in /settings take effect live

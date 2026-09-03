@@ -247,8 +247,18 @@ settings file — refuses rather than replacing the user's settings with default
 says so; the `/settings` reload applies the file it just read without saving it back,
 and names any `projectAliases` entry `CleanAliases` had to ignore. The `alias/`
 namespace is reserved at the key level: `NormalizeRemote` refuses a remote whose host
-is literally `alias`, so `IsAliasKey` is exact and an ssh alias of that name can never
-share a bucket with an alias-keyed project. Two witnesses decide "no repository":
+is literally `alias` (`ErrReservedHost`), because for a single-segment path the
+collision is *exact* — `alias:acme` normalizes to `alias/acme`, which is
+`AliasKey("acme")` byte for byte — so two unrelated projects would share one store
+bucket and `applyPull`'s `byKey` would cross-place their memories into each other.
+Accepting the overlap was tried and reverted: the argument for it, that `IsAliasKey`
+only decides the promote dialog's "(your alias)" caption, holds for *multi-segment*
+paths, where the remote lands in a subdirectory the alias bucket never reads — and it
+was reached by checking only those. **A namespace claim has to be checked at its
+shortest form, where the prefix is the whole key.** The refusal carries its own error
+and its own `RemoteState` (`RemoteReserved`) so the dialogs say what happened: git
+answered correctly, engram declined the answer, and the fix is renaming the ssh alias
+— not the `RemoteUnknown` line, which would blame git. Two witnesses decide "no repository":
 `rev-parse --git-dir` exiting 128 *and* no `.git` entry up the tree — either seeing a
 repository means git could not say, since a repository git refuses to read (dubious
 ownership) exits 128 from both commands. What the alias does not solve is

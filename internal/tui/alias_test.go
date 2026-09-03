@@ -342,3 +342,120 @@ func TestPaletteAliasArg(t *testing.T) {
 		t.Errorf("status = %q, want keyed by alias/nimbus", got.status)
 	}
 }
+
+// The home-folder refusal guards *setting* an alias; it must not trap one that
+// is already in the config. `>alias -` clears it there like anywhere else --
+// otherwise a hand-edited entry for that project could only be removed by
+// editing config.json, since every path into it inside engram is refused.
+func TestAliasClearWorksOnARefusedProject(t *testing.T) {
+	gitIsolated(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	m := ready(t)
+	if _, ok := m.selected(); !ok {
+		t.Fatal("setup: nothing selected")
+	}
+	memDir := m.rows[m.cursor].item.MemDir
+	if memDir == "" {
+		t.Fatal("setup: the selected row has no memory dir")
+	}
+	m.rows[m.cursor].item.ProjectDir = home
+	// Seeded the way a hand edit would, bypassing actionAlias's own guards.
+	if err := config.Save(config.Config{ProjectAliases: map[string]string{memDir: "personal"}}); err != nil {
+		t.Fatal(err)
+	}
+	m.aliases = cleanAliases(config.Load().ProjectAliases)
+
+	tm, _ := m.actionAlias("-")
+	got := tm.(Model)
+	if len(got.aliases) != 0 {
+		t.Errorf("aliases = %v, want the entry cleared", got.aliases)
+	}
+	if !strings.Contains(got.status, "cleared") {
+		t.Errorf("status = %q, want the cleared line", got.status)
+	}
+	if left := config.Load().ProjectAliases[memDir]; left != "" {
+		t.Errorf("config still holds %q for the home project", left)
+	}
+}
+
+// The poll's scanRoots fallback is primed from the config New already read, so
+// a config broken before the first 2s tick keeps the roots the session started
+// with. Unseeded it was nil until that tick, and a break inside the window
+// dropped every scanRoots-discovered file out of /files -- the degradation the
+// fallback exists to prevent, in a narrower window.
+func TestScanRootsFallbackIsSeededAtStartup(t *testing.T) {
+	lastGoodRoots.Lock()
+	saved := lastGoodRoots.roots
+	lastGoodRoots.Unlock()
+	defer seedScanRoots(saved)
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	roots := []string{"/tmp/acme", "/tmp/widgets"}
+	_ = New(sampleMemories(), nil, nil, config.Config{ScanRoots: roots})
+
+	// Break the file so currentScanRoots' own read fails and only the seed answers.
+	p, err := config.Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := currentScanRoots(); !reflect.DeepEqual(got, roots) {
+		t.Errorf("currentScanRoots() = %v, want the seeded %v", got, roots)
+	}
+}
+
+// A remote whose host is engram's own "alias" namespace is refused — but as
+// itself, not as a git failure. git answered correctly here; only engram
+// declined the answer, so the message has to name the real cause and the fix
+// (rename the ssh alias) rather than sending the user to debug git.
+func TestAliasReservedHostIsNotBlamedOnGit(t *testing.T) {
+	gitIsolated(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	m := ready(t)
+	if _, ok := m.selected(); !ok {
+		t.Fatal("setup: nothing selected")
+	}
+	m.rows[m.cursor].item.ProjectDir = gitRepo(t, "alias:acme")
+
+	for _, arg := range []string{"whatever", ""} {
+		tm, _ := m.actionAlias(arg)
+		got := tm.(Model).status
+		if strings.Contains(got, "can't tell whether") {
+			t.Errorf("actionAlias(%q): status blames git for an answer git gave: %q", arg, got)
+		}
+		if !strings.Contains(got, "reserved") {
+			t.Errorf("actionAlias(%q): status = %q, want the reserved-namespace refusal", arg, got)
+		}
+	}
+}
+
+// The scope dialog may only offer >alias where >alias will actually run. The
+// home-folder project resolves as RemoteNone exactly like any remoteless
+// project, but actionAlias refuses it -- so the state alone can't decide, and
+// without the extra fact the dialog sends the user to a command that answers
+// "can't". Same rule the controls row and the status bar's offer follow.
+func TestNoKeyLineOffersAliasOnlyWhereItRuns(t *testing.T) {
+	const lead = "this project has no key to promote under"
+	if got := noKeyLine(lead, team.RemoteNone, true); !strings.Contains(got, ">alias") {
+		t.Errorf("a remoteless project should be offered >alias: %q", got)
+	}
+	if got := noKeyLine(lead, team.RemoteNone, false); strings.Contains(got, ">alias") {
+		t.Errorf("the home-folder project must not be offered >alias, which refuses it: %q", got)
+	}
+	// The states that were already right, pinned so they stay that way.
+	if got := noKeyLine(lead, team.RemoteReserved, true); strings.Contains(got, ">alias") || !strings.Contains(got, "reserved") {
+		t.Errorf("a reserved host names itself and offers no alias: %q", got)
+	}
+	if got := noKeyLine(lead, team.RemoteUnknown, true); strings.Contains(got, ">alias") {
+		t.Errorf("git couldn't say, so no alias would be consulted: %q", got)
+	}
+}

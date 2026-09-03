@@ -53,12 +53,24 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 	if !m.caps().Share {
 		return m.denyShare("alias")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
-		return m, cmd // without git, "no remote" can't be told from "no git"
-	}
 	it, ok := m.selected()
 	if !ok || it.ProjectDir == "" || it.MemDir == "" {
 		return m, m.setStatus("select a memory in a project first")
+	}
+	name = strings.TrimSpace(name)
+	// Clearing comes before every refusal below, git included. An alias
+	// hand-edited into the config for a project those refusals cover — the home
+	// folder, one whose remote engram can't read, or any project at all on a
+	// machine without git — could otherwise never be removed from inside engram,
+	// only by editing config.json. A guard on *setting* a value is not a reason
+	// to trap the value already there, and removing a config entry needs neither
+	// git nor a remote. (The source gate above stays first: it says where you
+	// are, and switching source is a keystroke.)
+	if name == "-" {
+		return m.clearAlias(it.MemDir)
+	}
+	if cmd := m.gitMissing(); cmd != nil {
+		return m, cmd // without git, "no remote" can't be told from "no git"
 	}
 	if team.IsHomeDir(it.ProjectDir) {
 		// An alias is a name invented for a project with no identity of its own;
@@ -69,10 +81,6 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 			return m, m.setStatus("your home folder is a git repository — already keyed by " + key + "; an alias would never be used")
 		}
 		return m, m.setStatus("your home folder's memory project can't take an alias — those memories promote globally")
-	}
-	name = strings.TrimSpace(name)
-	if name == "-" {
-		return m.clearAlias(it.MemDir)
 	}
 	key, state, err := team.ClassifyRemote(it.ProjectDir)
 	alias := m.aliases[it.MemDir]
@@ -91,6 +99,9 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 			}
 			return m, m.setStatus("this project's directory is gone and it has no alias — it promotes globally")
 		}
+		if state == team.RemoteReserved {
+			return m, m.setDanger("this project's remote host is engram's reserved \"alias\" namespace — rename the ssh alias to key it")
+		}
 		return m, m.setDanger("can't tell whether this project has a remote — " + err.Error())
 	}
 	switch state {
@@ -104,6 +115,12 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 		// An origin whose URL can't be keyed, a repository git won't read: an
 		// alias would be a guess about a project we can't see.
 		return m, m.setDanger("can't tell whether this project has a remote — " + err.Error())
+	case team.RemoteReserved:
+		// git answered; engram refused the answer, because this origin would key
+		// straight into the alias namespace. An alias here would land in the very
+		// bucket the refusal exists to keep unambiguous, so it is refused too —
+		// and the message names the real fix rather than blaming git.
+		return m, m.setDanger("this project's remote host is engram's reserved \"alias\" namespace — rename the ssh alias rather than aliasing it here")
 	}
 	var clean string
 	var saved map[string]string

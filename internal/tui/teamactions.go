@@ -59,6 +59,7 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	m.promoteTitle = it.Title
 	m.promoteKey = key
 	m.promoteState = state
+	m.promoteAliasable = !team.IsHomeDir(it.ProjectDir)
 	m.promoteCursor = 0
 	if key == "" {
 		m.promoteCursor = 1 // only "global" is available

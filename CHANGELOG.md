@@ -69,6 +69,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `/settings` edits now refuse the same way, and say so, instead of silently
   resetting the file). Two teammates still have to pick the *same* alias to
   meet — coordinating that is the open follow-up.
+
+  One narrow refusal is worth knowing about: a project whose git remote host is
+  literally `alias` — an `ssh_config` `Host alias` — can't be keyed, because
+  `alias:acme` normalizes to exactly the key an alias named `acme` would claim,
+  and two unrelated projects sharing one bucket would pull into each other. Such
+  a project promotes globally, and the message says so and names the fix (rename
+  the ssh alias) rather than reporting it as a git problem — git answered fine.
+
+  Clearing works even where setting is refused: `>alias -` removes an entry for
+  *any* project, including your home folder or a machine with no git installed.
+  A guard on setting a value shouldn't trap the value already there.
 - **"git not found" is now actually shown.** Every team verb checked for git
   first, but the message landed on a discarded copy of the model, so a machine
   without git saw the palette close silently.
