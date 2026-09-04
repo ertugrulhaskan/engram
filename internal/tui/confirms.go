@@ -17,10 +17,13 @@ import (
 
 // --- pull confirm (modePullConfirm) ---
 
-// pullPlanMsg carries the accounting team.PullPlan computed in the background.
+// pullPlanMsg carries the accounting team.PullPlan computed in the background,
+// and the targets that walk resolved: y applies exactly these, so the confirmed
+// accounting is the applied accounting even if the alias map moves meanwhile.
 type pullPlanMsg struct {
-	res team.PullResult
-	err error
+	res     team.PullResult
+	targets []team.ProjectTarget
+	err     error
 }
 
 // applyPullPlan routes a finished plan: errors and zero-work plans go straight
@@ -56,6 +59,7 @@ func (m Model) applyPullPlan(msg pullPlanMsg) (tea.Model, tea.Cmd) {
 		return m, m.setStatus(s)
 	}
 	m.pullPlan = r
+	m.pullTargets = msg.targets
 	m.mode = modePullConfirm
 	return m, nil
 }
@@ -67,6 +71,7 @@ func (m Model) updatePullConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.setStatus("pulling…"), m.applyPullCmd())
 	case "esc", "n", "ctrl+c":
 		m.mode = modeNormal
+		m.pullTargets = nil // a cancelled plan is never applied later
 		return m, m.setCancel("pull cancelled — nothing moved")
 	}
 	return m, nil

@@ -27,9 +27,10 @@ func (m Model) projectKey(dir, memDir string) string {
 	return key
 }
 
-// cleanAliases is what the model holds: the config's projectAliases through
-// team.CleanAliases, dropped entries discarded (the /settings reload is where
-// they are reported).
+// cleanAliases is what New seeds the model with: the config's projectAliases
+// through team.CleanAliases, dropped entries discarded. The first poll tick,
+// the /settings reload and the >alias write paths all adopt the dropped list
+// as well, so a bare >alias never reports an entry that is no longer ignored.
 func cleanAliases(raw map[string]string) map[string]string {
 	clean, _ := team.CleanAliases(raw)
 	return clean
@@ -160,7 +161,7 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m, m.setDanger("alias not saved — " + configErr(err))
 	}
-	m.aliases = cleanAliases(saved)
+	m.aliases, m.aliasDropped = team.CleanAliases(saved)
 	// A poll tick already in flight read the file before this write landed;
 	// bumping the generation makes the handler discard it rather than let the
 	// pre-write snapshot undo what the status line is about to report.
@@ -188,7 +189,7 @@ func (m Model) clearAlias(memDir string) (tea.Model, tea.Cmd) {
 	case err != nil:
 		return m, m.setDanger("alias not cleared — " + configErr(err))
 	}
-	m.aliases = cleanAliases(saved)
+	m.aliases, m.aliasDropped = team.CleanAliases(saved)
 	// A poll tick already in flight read the file before this write landed;
 	// bumping the generation makes the handler discard it rather than let the
 	// pre-write snapshot undo what the status line is about to report.

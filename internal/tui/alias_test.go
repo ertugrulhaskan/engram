@@ -629,3 +629,47 @@ func TestBareAliasNamesADroppedEntry(t *testing.T) {
 		t.Errorf("status still claims the project was never aliased: %q", got)
 	}
 }
+
+// A >alias write adopts the dropped list along with the map. Before, the two
+// write paths refreshed m.aliases from the map they had just written and left
+// m.aliasDropped as the last poll tick set it — while bumping the generation
+// that makes the in-flight tick discard itself — so for up to two ticks a bare
+// >alias could report "entries were ignored" about an entry that was just
+// removed or replaced.
+func TestAliasWriteAdoptsTheDroppedList(t *testing.T) {
+	m := ready(t)
+	memDir := remoteless(t, &m)
+	// Seeded the way a hand edit would: a space is not a valid alias, so
+	// CleanAliases drops the entry and the poll would report it.
+	if err := config.Save(config.Config{ProjectAliases: map[string]string{memDir: "My App"}}); err != nil {
+		t.Fatal(err)
+	}
+	m.aliases, m.aliasDropped = team.CleanAliases(loadCfg().ProjectAliases)
+	if len(m.aliasDropped) == 0 {
+		t.Fatal("setup: the malformed entry was not dropped")
+	}
+
+	tm, _ := m.actionAlias("-")
+	got := tm.(Model)
+	if len(got.aliasDropped) != 0 {
+		t.Errorf("after clearing the only entry, aliasDropped = %v, want none", got.aliasDropped)
+	}
+	tm, _ = got.actionAlias("")
+	if s := tm.(Model).status; strings.Contains(s, "ignored") {
+		t.Errorf("bare >alias still reports a removed entry: %q", s)
+	}
+
+	// The set path, replacing a malformed entry with a valid one.
+	if err := config.Save(config.Config{ProjectAliases: map[string]string{memDir: "My App"}}); err != nil {
+		t.Fatal(err)
+	}
+	m.aliases, m.aliasDropped = team.CleanAliases(loadCfg().ProjectAliases)
+	tm, _ = m.actionAlias("acme-app")
+	got = tm.(Model)
+	if len(got.aliasDropped) != 0 {
+		t.Errorf("after replacing the entry, aliasDropped = %v, want none", got.aliasDropped)
+	}
+	if got.aliases[memDir] != "acme-app" {
+		t.Errorf("aliases[memDir] = %q, want acme-app", got.aliases[memDir])
+	}
+}

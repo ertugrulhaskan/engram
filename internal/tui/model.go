@@ -84,7 +84,8 @@ type Model struct {
 	driftErr       error           // the drift check itself failed — "couldn't check" is not "in sync", and R must not claim it is
 
 	// pull confirm (modePullConfirm)
-	pullPlan team.PullResult // the accounting shown pre-confirm; y applies this same walk
+	pullPlan    team.PullResult      // the accounting shown pre-confirm; y applies this same walk
+	pullTargets []team.ProjectTarget // the targets that walk resolved; y applies these, never a fresh snapshot, so a poll tick adopting a new alias mid-dialog cannot change what y does
 
 	// resolve confirm (modeResolveConfirm)
 	resolvePath string // the conflicted memory

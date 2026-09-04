@@ -173,6 +173,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case pullFinishedMsg:
 		m.driftDir = ""
+		m.pullTargets = nil // the plan is spent, whatever the outcome
 		if msg.err != nil {
 			return m, tea.Batch(m.setDanger("pull failed: "+msg.err.Error()), reloadCmd())
 		}

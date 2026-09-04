@@ -69,18 +69,20 @@ func (m Model) planPullCmd() tea.Cmd {
 			return pullPlanMsg{err: fmt.Errorf("no local projects to pull into")}
 		}
 		res, err := team.PullPlan(targets)
-		return pullPlanMsg{res: res, err: err}
+		return pullPlanMsg{res: res, targets: targets, err: err}
 	}
 }
 
-// applyPullCmd applies a confirmed plan (no second fetch, so the confirmed
-// accounting is the applied accounting), off the UI thread.
+// applyPullCmd applies a confirmed plan off the UI thread: no second fetch and
+// no second key resolution, so the confirmed accounting is the applied
+// accounting. Re-resolving here would read the alias map as it is *now*, and
+// the 2s poll adopts config changes while the dialog is open — a >alias from a
+// second window could then key a project the plan listed as skipped.
 func (m Model) applyPullCmd() tea.Cmd {
-	projs := m.snapshotProjects()
+	targets := m.pullTargets
 	return func() tea.Msg {
-		targets := resolveTargets(projs)
 		if len(targets) == 0 {
-			return pullFinishedMsg{err: fmt.Errorf("no local projects to pull into")}
+			return pullFinishedMsg{err: fmt.Errorf("no confirmed pull plan to apply")}
 		}
 		res, err := team.PullApply(targets)
 		return pullFinishedMsg{res: res, err: err}
