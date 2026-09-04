@@ -166,6 +166,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest of the session, and a later failure to open a conflict would have shown
   the previous memory's diff.
 
+### Security
+- Two indirect dependencies moved past published advisories that `govulncheck`
+  reports as reachable from the preview renderer: `github.com/yuin/goldmark`
+  v1.7.4 → v1.7.17 ([GO-2026-5320](https://pkg.go.dev/vuln/GO-2026-5320)) and
+  `golang.org/x/net` v0.27.0 → v0.38.0 ([GO-2025-3595](https://pkg.go.dev/vuln/GO-2025-3595)),
+  with `x/sync`, `x/sys`, `x/term` and `x/text` following. Both are XSS-class
+  advisories in the Markdown stack's HTML handling; engram renders to a terminal,
+  not a browser, so the practical exposure was slight. The scan now reports no
+  reachable advisory.
+
 ## [0.4.0] - 2026-08-24
 
 Phase 4 tier 1: engram stops being Claude-only. The local instruction files the
