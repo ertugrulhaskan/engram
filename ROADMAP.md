@@ -35,7 +35,7 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
       a light theme survives a dark terminal, a two-row header block, a contextual
       status bar, one shared dialog anatomy, and confirms before every team write
 
-## Phase 1.5 — Assisted memory maintenance *(complete — core in `v0.1.0`; the multi-assistant seam is unreleased)*
+## Phase 1.5 — Assisted memory maintenance *(complete — core in `v0.1.0`; the multi-assistant seam shipped in `v0.5.0`)*
 
 Goal: hand the fiddly memory/plan upkeep to an AI, instead of fixing it by hand.
 Independently shippable and strictly pre-Phase 2 (no sharing, no servers).
@@ -93,7 +93,7 @@ Goal: share the team-useful memories across people and projects, no servers.
       A global memory you hold nowhere is still never *placed*: it belongs to no
       project, so the store stays its home until you promote it into one
 
-## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.4.0` released, [engram.im](https://engram.im) live)*
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.5.0` released, [engram.im](https://engram.im) live)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 

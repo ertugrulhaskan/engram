@@ -47,6 +47,9 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
   when types, packages, or behavior change.
 - **README.md** — keep the keybinding table, install steps, and feature list matching
   the actual TUI.
+- **BRAND.md** — the voice and claims rules public copy is checked against: the site and
+  `llms.txt` today, README and TUI strings as they are touched. A naming, platform, or proof
+  rule changes there first; the copy follows.
 - **The site's derived files** (`www/robots.txt`, `www/sitemap.xml`, `www/llms.txt`, and
   the two `application/ld+json` blocks in `www/index.html`) — these restate what's on the
   landing page, so a pitch/install/platform change must update them too. The `FAQPage`
@@ -72,7 +75,7 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-Phase 3 (going public) is **done**: the repo is public, `v0.2.0` through `v0.4.0` are released
+Phase 3 (going public) is **done**: the repo is public, `v0.2.0` through `v0.5.0` are released
 (binaries + Homebrew tap live), and the site is **live at engram.im on Cloudflare Pages** (SSL).
 **For any future release, don't run the publish steps unprompted** — pushing a `v*` tag
 fires the GoReleaser workflow and cuts a public release (push the *specific* tag, never

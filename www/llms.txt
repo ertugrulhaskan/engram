@@ -16,28 +16,26 @@ auto-learned memories through your own git remote.
 - Install (Homebrew): `brew install ertugrulhaskan/tap/engram`
 - Install (Go): `go install github.com/ertugrulhaskan/engram@latest`
 - Platforms: macOS and Linux. Windows binaries ship but are untested; use WSL.
-- Assistants: Claude Code, plus each project's `AGENTS.md`, `GEMINI.md` and
-  `.github/copilot-instructions.md` read-only — the instruction files Codex, Cursor, the
-  Gemini CLI and GitHub Copilot read. They are found for projects engram already tracks
-  (those with a folder under `~/.claude/projects/`), and a `scanRoots` config setting points
-  engram at any other folder, so a repo never opened in Claude Code appears too. The global
-  `~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` are listed as well, read straight from the
-  home folder, and Cursor rules (`.cursor/rules/*.mdc`) plus Copilot's path-scoped
-  `.github/instructions/*.instructions.md` list per project. A project can also be handed to
-  an assistant from the palette: `@` opens an interactive Claude Code, Gemini CLI, Codex or
-  Copilot session in the right folder, seeded with that project's memory health, listing only
-  the CLIs that are installed — or all four when none is, and picking one says where to get
-  it. No assistant exposes a memory API, so other sources arrive as local files first,
-  export/import later.
+- Assistants: alongside Claude Code's memories, engram lists these read-only. Per project:
+  `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`, Cursor rules
+  (`.cursor/rules/*.mdc`) and Copilot's `.github/instructions/*.instructions.md`. Globally:
+  `~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md`, read from the home folder. Projects are
+  found under `~/.claude/projects/`, and a `scanRoots` config setting points engram at any
+  other folder, so a repo never opened in Claude Code appears too. A project can also be
+  handed to an assistant: `@` opens an interactive Claude Code, Gemini CLI, Codex or Copilot
+  session, listing only the CLIs you have. No assistant exposes a memory API, so other
+  sources arrive as local files first, export/import later.
 
-- Team sharing: promote a memory — or several at once, marked with `space`, as a single
-  commit and push — into a git store your team already has. A project-scoped memory is keyed
-  to the git remote — or, for a project that has none, to a name you give it with `>alias`,
-  which promote and pull then use until the project gains a remote — and lands in teammates'
+- Team sharing: promote a memory into a git store your team already has, or several at once,
+  marked with `space`, as a single commit and push. A project-scoped memory is keyed to the
+  git remote. A project that has none takes a name you give it with `>alias`, which promote
+  and pull then use until the project gains a remote. Either way it lands in teammates'
   memory folders when they pull. A global-scoped one
   is tied to no repo: it lives in the store and keeps every copy you already hold in step, in
   whichever project you keep it. Every promoted memory is scanned for secrets first, including
-  credentials broken across lines by a soft wrap or a YAML block scalar.
+  credentials broken across lines by a soft wrap or a YAML block scalar. When both sides of a
+  memory have moved, `>resolve` shows an inline line-by-line diff of your copy against the
+  store's before it opens `$EDITOR`, so the merge starts from what actually differs.
 
 ## Docs
 

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-03
+
 ### Added
 - **`@Gemini`, `@Codex` and `@Copilot` join `@Claude`.** The assistant handoff is
   a registry now, not a single provider. The palette's `@` section lists whichever
@@ -165,6 +167,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cancel path. Resolving one long memory kept both copies on the model for the
   rest of the session, and a later failure to open a conflict would have shown
   the previous memory's diff.
+- **The landing page's footer passes Lighthouse's dark-mode contrast and tap-target
+  audits.** The tagline and the licence line rendered neutral-500 on the dark
+  background (4.17:1, below the 4.5:1 floor); both now switch to neutral-400 in
+  dark mode, the same token the header links already use. The six footer links
+  were 16px-tall targets and gained 4px of vertical padding, clearing the 24px
+  minimum. The privacy page also links home as `/` instead of `index.html`, which
+  Cloudflare Pages answers with a 308 redirect.
 
 ### Security
 - Two indirect dependencies moved past published advisories that `govulncheck`
@@ -1104,7 +1113,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ertugrulhaskan/engram/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ertugrulhaskan/engram/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ertugrulhaskan/engram/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ertugrulhaskan/engram/compare/v0.2.0...v0.2.1

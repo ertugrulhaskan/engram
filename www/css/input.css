@@ -70,7 +70,18 @@ summary::-webkit-details-marker {
 
 /* Terminal-mockup palette (`.term` scope) — consumed as `text-t-*` / `bg-t-*`
    utilities via the inline theme tokens below. Both sets are product themes,
-   verbatim from internal/tui/theme.go: light = Paperback, dark = Midnight. */
+   verbatim from internal/tui/theme.go: light = Paperback, dark = Midnight.
+
+   Two of them are carried for completeness and used by nothing, on purpose.
+   `--t-faint` is the app's quietest foreground, and the TUI paints five things
+   with it — the palette's section headers and its "type anything" hint, the
+   "^K jump or run anything" and "/ search" nudges, and the [unknown] badge —
+   but it measures 2.5–3.4:1 against every surface in BOTH themes, not just
+   Paperback, so those five render as `text-t-dim` here and `text-t-faint` must
+   never be reached for. `--t-warn-bg` is the confirm dialog's warning fill, and
+   no mockup on the page draws that dialog. Keep both defined so the palette
+   stays a complete, checkable copy of theme.go rather than a subset that has to
+   be re-derived every time a mockup is added. */
 @theme inline {
   --color-t-bg: var(--t-bg);
   --color-t-bar: var(--t-bar);

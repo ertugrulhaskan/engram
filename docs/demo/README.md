@@ -11,8 +11,9 @@ cd docs/demo
 # Stamp the version you are shipping. A plain `go build` leaves it empty, and
 # the header then shows a long VCS pseudo-version (v0.2.2-0.2026…) that gets
 # clipped mid-string in the capture.
-go build -ldflags "-s -w -X main.version=v0.4.0" -o engram ../..
+go build -ldflags "-s -w -X main.version=v0.5.0" -o engram ../..
 bash setup.sh              # stage the fictional demo home
+find home -name "*.md" -exec touch -A -000400 {} +   # see the stamp note below
 vhs tui.tape               # drive the TUI, write tui.png
 cp tui.png ../tui.png      # promote the new capture
 ```
@@ -26,8 +27,11 @@ were caught only by looking at the `v0.4.0` capture rather than trusting it:
   ttyd/font painting flake, not an app bug. The fix is to eyeball the capture and
   re-run if a character is missing.
 - **Capturing straight after `setup.sh` reads "edited just now"**, which is long
-  enough to truncate to "edited just …" in the preview meta. Give the fixtures a
-  few minutes and the stamp becomes "4m ago" and fits.
+  enough to truncate to "edited just …" in the preview meta. `setup.sh` writes the
+  fixtures at the current time and nothing backdates them, so the `touch -A -000400`
+  above winds every fixture back four minutes and the stamp reads "4m ago" on the
+  first run. Waiting works too, but the stamp then depends on how long you waited;
+  backdating makes consecutive captures differ only where the app does.
 
 The tape selects the "RAG pipeline defaults" memory (`Down 4`); if `setup.sh`'s
 fixtures change, recount the rows and adjust. Generated artifacts (`engram`,
