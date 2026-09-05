@@ -202,6 +202,22 @@ To cut a release:
    ```
    Until this runs, engram.im keeps advertising the previous version next to an
    install command that now installs the new one.
+6. **Re-apply the tap's `postflight_steps` patch.** GoReleaser regenerates
+   `Casks/engram.rb` on every release and overwrites it, so this silently reverts each
+   time — until the migration described in [`.goreleaser.yaml`](.goreleaser.yaml)
+   lands. Nothing detects the revert: the release succeeds and the cask installs
+   cleanly; the only symptom is `brew` printing "Calling `postflight` is deprecated!"
+   at users. In the tap repo, swap the generated `postflight do … end` block for:
+   ```ruby
+   postflight_steps do
+     on_macos do
+       run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{staged_path}}/engram"]
+     end
+   end
+   ```
+   Then confirm with `brew reinstall engram` that `xattr -l` on the Caskroom binary
+   shows no `com.apple.quarantine`. That block is quarantine-clearing, not cosmetic —
+   without it macOS refuses to exec the binary at all.
 
 Validate config and do a full local dry-run (no publish) before tagging:
 
@@ -209,6 +225,11 @@ Validate config and do a full local dry-run (no publish) before tagging:
 goreleaser check
 goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
 ```
+
+Once GoReleaser ships the cask `install_steps` support, `goreleaser check` will start
+reporting `hooks.post.install` as deprecated. That notice is expected and is the cue to
+do the swap documented in [`.goreleaser.yaml`](.goreleaser.yaml) — after which step 6
+above is no longer needed and should be deleted.
 
 **Tap + token (already configured):** the `ertugrulhaskan/homebrew-tap` repo exists
 and the engram repo carries a `HOMEBREW_TAP_TOKEN` Actions secret with write access

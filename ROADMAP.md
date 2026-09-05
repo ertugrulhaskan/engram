@@ -25,11 +25,12 @@ Goal: a genuinely useful read/edit TUI with zero setup and no sharing.
 - [x] Browse plan-mode plans too: multi-source switcher + command palette (`ctrl+p`),
       themed multi-pane UI with live theme switching, config persisted under XDG
 - [x] Release tooling: GoReleaser (cross-platform binaries + Homebrew cask) + CI +
-      tag-triggered release workflow — *runs at the Phase 3 release*. **The cask step
-      is currently broken:** it published the cask automatically for `v0.2.0` and
-      `v0.2.1`, then began returning 403 at `v0.3.0` after the tap token was replaced,
-      so `v0.3.0`'s cask was applied by hand. Binaries and the GitHub release itself
-      are unaffected
+      tag-triggered release workflow — *runs at the Phase 3 release*. The cask step
+      published automatically for `v0.2.0` and `v0.2.1`, returned 403 at `v0.3.0` after
+      the tap token was replaced (that one cask was applied by hand), and has been
+      automatic again ever since — `goreleaserbot` pushed the `v0.4.0` and `v0.5.0`
+      casks. A pre-publish token check now fails the workflow before anything is
+      published, so that failure can't recur silently
 - [x] Design-system pass over the TUI *(shipped in `v0.3.0`)* — three themes
       (Midnight / Paperback / CRT) over one named token set, every cell painted so
       a light theme survives a dark terminal, a two-row header block, a contextual
@@ -93,7 +94,7 @@ Goal: share the team-useful memories across people and projects, no servers.
       A global memory you hold nowhere is still never *placed*: it belongs to no
       project, so the store stays its home until you promote it into one
 
-## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.5.0` released, [engram.im](https://engram.im) live)*
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.5.0` released, [engram.im](https://engram.im) live; one packaging deprecation open)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 
@@ -101,8 +102,14 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 - [x] Push the release tag to trigger the GoReleaser publish workflow (`v0.2.0`,
       `v0.2.1`, then `v0.3.0`)
 - [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`) — *the published cask is
-      current; the push was automatic through `v0.2.1`, but `v0.3.0` was bumped by
-      hand (see the cask caveat under Phase 1)*
+      current, and the push has been automatic since `v0.4.0`; only `v0.3.0` was bumped
+      by hand (see the cask note under Phase 1)*
+- [ ] Migrate the cask off Homebrew's deprecated `postflight` stanza to
+      `postflight_steps`, once GoReleaser can emit it (goreleaser/goreleaser#6870, PR
+      #6873 open). The quarantine-clearing hook is load-bearing — without it macOS
+      refuses to exec the binary — so the swap has to be verified, not assumed. Until
+      then the tap carries a hand-patch that every release reverts; see step 6 of
+      "Releasing" in CONTRIBUTING.md
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 

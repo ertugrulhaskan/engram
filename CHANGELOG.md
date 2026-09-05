@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Homebrew stops warning on every `brew` command.** Homebrew 6.0 deprecated the
+  `postflight` cask stanza GoReleaser generates, so any `brew` command touching
+  `ertugrulhaskan/tap/engram` printed *"Calling `postflight` is deprecated! Use
+  `postflight_steps` instead"* and told users to report it to the tap. The published
+  cask now uses `postflight_steps`.
+
+  This is a hand-patch on the tap rather than a change to engram itself: GoReleaser
+  cannot emit the new stanza yet (goreleaser/goreleaser#6870, PR #6873 open), so every
+  release regenerates that file and reverts the patch until it can — see step 6 of
+  "Releasing" in [CONTRIBUTING.md](CONTRIBUTING.md). The stanza clears the macOS
+  quarantine flag and is load-bearing, not cosmetic: without it Gatekeeper refuses to
+  exec the binary at all, so the swap is verified against a real `brew reinstall`
+  rather than assumed.
+
 ## [0.5.0] - 2026-09-05
 
 ### Added
