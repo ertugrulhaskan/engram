@@ -253,7 +253,8 @@ git can't answer for, on Claude's home-folder project, on a name another project
 memories were shared under, so the name is freed deliberately via `/settings`, never
 reclaimed), and on a config file that doesn't parse. That last rule is enforced in one
 place, `config.Update`: it reads through `config.Read`, which tells absent from
-unparseable (`ErrUnparseable`), so every writer — `>alias`, the theme keys, the seeded
+unparseable (`ErrUnparseable`; an empty file counts as absent, there being nothing in it
+to protect), so every writer — `>alias`, the theme keys, the seeded
 settings file — refuses rather than replacing the user's settings with defaults, and
 says so. Its counterpart is that engram must not be able to *create* such a file:
 `config.Save` writes a temp file beside the target and renames it over, because
@@ -264,8 +265,10 @@ message advertises (`/settings`) is inside the TUI that would no longer open. It
 `fsync`: the failure being closed is a *process* death mid-write, against which the
 rename is complete on its own, and buying the power-loss case as well would mean blocking
 the event loop on every theme keypress, since `config.Update` is called inline from the
-key handler. Three details the rename has to carry by hand, because `os.WriteFile` got them
-free. The temp file is opened through `os.OpenFile` at the mode the config will *end up*
+key handler. Four details the rename has to carry by hand, because `os.WriteFile` got them
+free. A config the user made read-only is refused as `os.WriteFile` refused it: the target
+is opened for writing first (no truncate) and the error returned, since a rename alone needs
+only the directory. The temp file is opened through `os.OpenFile` at the mode the config will *end up*
 with, not through `os.CreateTemp` (which hardcodes `0600`): the umask then narrows a
 **new** config exactly as it always did — a user on `umask 077` keeps a private file —
 and the temp is never wider than its destination, not even for the moment before a
@@ -312,7 +315,12 @@ reaching the identical cross-placement failure through the path instead of the h
 path segment that is a Windows *device* name (`con`, `nul`, `lpt1`) is knowingly **not**
 refused, unlike in `NormalizeAlias`: an alias is a name the user invents and can change
 on request, a remote is not, so refusing one would strand a real repository over a
-checkout platform its owner may never use. Trimming loses nothing; refusing would. Two witnesses decide "no repository":
+checkout platform its owner may never use. Trimming loses nothing; refusing would. The one segment trimming cannot help is `..`:
+dropping it rewrites the path into another repository's bucket, which is what
+`filepath.Clean` did at placement, so `NormalizeRemote` refuses it and names it; `.` is
+dropped, as Clean dropped it; a segment that is only dots or spaces names no directory on
+NTFS and is refused too. `placementPath` keeps a `..` check of its own, on the raw
+segments, for a key read off a store file's frontmatter. Two witnesses decide "no repository":
 `rev-parse --git-dir` exiting 128 *and* no `.git` entry up the tree — either seeing a
 repository means git could not say, since a repository git refuses to read (dubious
 ownership) exits 128 from both commands. What the alias does not solve is

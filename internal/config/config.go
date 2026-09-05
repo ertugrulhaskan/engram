@@ -1,7 +1,7 @@
 // Package config persists engram's user settings (theme, editor) as JSON under
 // the XDG config directory. It contains no UI code.
 //
-// An *absent* file means defaults; an *unparseable* one does not. Read tells the
+// An *absent* or *empty* file means defaults; an *unparseable* one does not. Read tells the
 // two apart (ErrUnparseable), because the file now carries placement decisions —
 // projectAliases — and answering a file engram cannot read with defaults would
 // promote an aliased project's memories into global/ off a file it never saw.
@@ -12,6 +12,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -105,7 +106,10 @@ func Path() (string, error) {
 var ErrUnparseable = errors.New("the config doesn't parse")
 
 // Read parses the config, telling "absent" (zero Config, nil error) apart from
-// "present but unparseable" (ErrUnparseable). It is the only reader: there is
+// "present but unparseable" (ErrUnparseable). An empty or whitespace-only file
+// counts as absent: it carries nothing to protect, and it is what the truncating
+// write before v0.5.0 left behind when a session died between the truncate and
+// the write, or hit a full disk. It is the only reader: there is
 // deliberately no error-dropping convenience wrapper, because every caller has
 // to decide what an unreadable file means for what it is about to do. A writer
 // goes through Update.
@@ -121,6 +125,9 @@ func Read() (Config, error) {
 			return c, nil
 		}
 		return c, err
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return c, nil
 	}
 	if err := json.Unmarshal(data, &c); err != nil {
 		return c, fmt.Errorf("%w (%s: %v)", ErrUnparseable, p, err)
@@ -187,7 +194,10 @@ func Save(c Config) error {
 	// Decide the mode before creating anything, so the temp is never wider than
 	// the file it will become — not even for the moment between the write and a
 	// corrective chmod.
-	mode, existed := targetMode(p)
+	mode, existed, err := openTarget(p)
+	if err != nil {
+		return err
+	}
 	f, tmp, err := createTemp(dir, mode)
 	if err != nil {
 		return err
@@ -212,17 +222,30 @@ func Save(c Config) error {
 	return os.Rename(tmp, p)
 }
 
-// targetMode is the mode Save's output should end up with, and whether the
-// config already exists. An existing file's own permissions are carried across
-// the rename; a new one gets 0644 for the umask to narrow, exactly as it
-// narrowed the file os.WriteFile used to create. Perm() masks to the 0777 bits,
-// so setuid/setgid/sticky are never copied.
-func targetMode(p string) (os.FileMode, bool) {
-	st, err := os.Stat(p)
-	if err != nil {
-		return 0o644, false
+// openTarget is the mode Save's output should end up with, whether the config
+// already exists, and the one refusal os.WriteFile gave for free. It opens the
+// target for writing — the access the old write asked for, without its
+// truncate — because a rename never opens the file it replaces: it needs write
+// access to the directory and nothing more, and would silently overwrite
+// exactly the config a chmod 444, or a dotfiles manager that deploys
+// read-only, was pinning. An existing file's own permissions are read off the
+// handle and carried across the rename; a new one gets 0644 for the umask to
+// narrow, exactly as it narrowed the file os.WriteFile used to create. Perm()
+// masks to the 0777 bits, so setuid/setgid/sticky are never copied.
+func openTarget(p string) (mode os.FileMode, existed bool, err error) {
+	w, err := os.OpenFile(p, os.O_WRONLY, 0)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0o644, false, nil
 	}
-	return st.Mode().Perm(), true
+	if err != nil {
+		return 0, false, err
+	}
+	defer w.Close()
+	st, err := w.Stat()
+	if err != nil {
+		return 0, false, err
+	}
+	return st.Mode().Perm(), true, nil
 }
 
 // resolveConfigPath follows a symlinked config to the file it points at, so a

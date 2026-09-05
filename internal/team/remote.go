@@ -82,7 +82,10 @@ func NormalizeRemote(raw string) (string, error) {
 	// github.com/acme/con would strand a real repository over a checkout
 	// platform its owner may never use. Trimming loses nothing; refusing would.
 	host = strings.TrimRight(strings.ToLower(host), ". ")
-	path = trimPathSegments(strings.ToLower(path))
+	path, err := trimPathSegments(strings.ToLower(path))
+	if err != nil {
+		return "", fmt.Errorf("remote URL %q refused: %v", raw, err)
+	}
 
 	if host == "" {
 		return "", fmt.Errorf("remote URL has no host: %q", raw)
@@ -122,15 +125,30 @@ func stripUserinfo(host string) string {
 
 // trimPathSegments strips trailing dots and spaces from each segment of a
 // normalized key's path, so two spellings NTFS would merge into one directory
-// are one key here too. Empty segments left behind (".../" or a segment that
-// was only dots) are dropped, since they name no directory.
-func trimPathSegments(path string) string {
+// are one key here too. Three kinds of segment never reach the key. An empty
+// one (a doubled slash) and "." are dropped: neither names a directory, and
+// filepath.Clean dropped "." at placement anyway, so a remote written as
+// host/srv/./app keys the bucket its memories were already placed in. ".." is
+// refused, because dropping it would rewrite the path — "acme/../app" became
+// "acme/app", another repository's bucket, which is exactly what Clean did at
+// placement before this refusal existed. A segment that is only dots or spaces
+// is refused because NTFS would strip it to nothing. Both are a refusal engram
+// makes of an answer git gave, and the message says which segment.
+func trimPathSegments(path string) (string, error) {
 	parts := strings.Split(path, "/")
 	out := parts[:0]
-	for _, seg := range parts {
-		if seg = strings.TrimRight(seg, ". "); seg != "" {
-			out = append(out, seg)
+	for _, raw := range parts {
+		if raw == "" || raw == "." {
+			continue
 		}
+		if raw == ".." {
+			return "", fmt.Errorf("a \"..\" path segment would rewrite the key")
+		}
+		seg := strings.TrimRight(raw, ". ")
+		if seg == "" {
+			return "", fmt.Errorf("path segment %q is only dots or spaces", raw)
+		}
+		out = append(out, seg)
 	}
-	return strings.Join(out, "/")
+	return strings.Join(out, "/"), nil
 }

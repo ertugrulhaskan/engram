@@ -184,13 +184,15 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 	ti.CharLimit = 120
 	ti.Width = 44 // bound the visible field so dialogs stay dialog-sized
 
+	aliases, aliasDropped := team.CleanAliases(cfg.ProjectAliases)
 	m := Model{
 		memories:       mems,
 		plans:          plans,
 		docs:           docs,
 		themeIdx:       themeIdx,
 		editorOverride: strings.TrimSpace(cfg.Editor),
-		aliases:        cleanAliases(cfg.ProjectAliases),
+		aliases:        aliases,
+		aliasDropped:   aliasDropped,
 		installedAsst:  installedAssistants(),
 		search:         se,
 		palette:        pal,

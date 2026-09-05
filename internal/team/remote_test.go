@@ -1,6 +1,9 @@
 package team
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNormalizeRemote(t *testing.T) {
 	tests := []struct {
@@ -22,6 +25,8 @@ func TestNormalizeRemote(t *testing.T) {
 		{"mixed case lowercased", "https://GitHub.com/Acme/App.git", "github.com/acme/app"},
 		{"nested path", "git@github.com:team/sub/app.git", "github.com/team/sub/app"},
 		{"surrounding whitespace", "  https://github.com/acme/app.git  ", "github.com/acme/app"},
+		{"dot segment dropped", "ssh://git@host/srv/git/./app.git", "host/srv/git/app"},
+		{"doubled slash collapses", "https://github.com/acme//app.git", "github.com/acme/app"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -46,6 +51,20 @@ func TestNormalizeRemoteErrors(t *testing.T) {
 	} {
 		if got, err := NormalizeRemote(in); err == nil {
 			t.Errorf("NormalizeRemote(%q) = %q, want error", in, got)
+		}
+	}
+	// A ".." segment is refused, not collapsed: dropping it would rewrite the
+	// path into another repository's bucket, which is what filepath.Clean did at
+	// placement before NormalizeRemote refused it. A segment that is only dots
+	// or spaces names no directory on NTFS and is refused too. The message names
+	// the segment, since git answered fine and engram declined the answer.
+	for in, want := range map[string]string{
+		"https://github.com/acme/../app":  "would rewrite the key",
+		"git@github.com:acme/.../app.git": "only dots or spaces",
+		"https://github.com/acme/ /app":   "only dots or spaces",
+	} {
+		if got, err := NormalizeRemote(in); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("NormalizeRemote(%q) = %q, %v; want a refusal saying %q", in, got, err, want)
 		}
 	}
 }

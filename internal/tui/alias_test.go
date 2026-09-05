@@ -290,7 +290,7 @@ func TestAliasRefusedWhenTaken(t *testing.T) {
 	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	got.aliases = cleanAliases(cfg.ProjectAliases)
+	got.aliases, got.aliasDropped = team.CleanAliases(cfg.ProjectAliases)
 	tm, _ = got.actionAlias("acme-app")
 	kept := tm.(Model)
 	if !strings.Contains(kept.status, "already keys "+stale) || !strings.Contains(kept.status, "projectAliases") {
@@ -373,7 +373,7 @@ func TestAliasClearWorksOnARefusedProject(t *testing.T) {
 	if err := config.Save(config.Config{ProjectAliases: map[string]string{memDir: "personal"}}); err != nil {
 		t.Fatal(err)
 	}
-	m.aliases = cleanAliases(loadCfg().ProjectAliases)
+	m.aliases, m.aliasDropped = team.CleanAliases(loadCfg().ProjectAliases)
 
 	tm, _ := m.actionAlias("-")
 	got := tm.(Model)
@@ -671,5 +671,21 @@ func TestAliasWriteAdoptsTheDroppedList(t *testing.T) {
 	}
 	if got.aliases[memDir] != "acme-app" {
 		t.Errorf("aliases[memDir] = %q, want acme-app", got.aliases[memDir])
+	}
+}
+
+// TestNewAdoptsTheDroppedAliasList pins that startup seeds the dropped list the
+// way every later adopter does (the poll tick, /settings, the >alias writes).
+// New used to keep only the clean map, so for the two seconds before the first
+// tick a bare >alias on a project whose configured entry had been ignored
+// answered "no git remote, so it promotes globally": the one statement the
+// RemoteNone branch exists not to make.
+func TestNewAdoptsTheDroppedAliasList(t *testing.T) {
+	m := New(sampleMemories(), nil, nil, config.Config{ProjectAliases: map[string]string{"/mem/a": "My App"}})
+	if len(m.aliasDropped) != 1 || !strings.Contains(m.aliasDropped[0], "/mem/a") {
+		t.Fatalf("aliasDropped after New = %q; want the one ignored entry", m.aliasDropped)
+	}
+	if len(m.aliases) != 0 {
+		t.Errorf("aliases after New = %v; want none, the entry was ignored", m.aliases)
 	}
 }

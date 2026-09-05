@@ -210,11 +210,21 @@ func promoteMessage(ps []preparedPromotion) string {
 }
 
 // placementPath maps a placement ("global" or a normalized project key) and a
-// filename to a path inside the team store, guarding against traversal — the
-// project key comes from NormalizeRemote, which does not strip "..".
+// filename to a path inside the team store, guarding against traversal. It is
+// a second line: NormalizeRemote refuses a ".." segment and NormalizeAlias a
+// name ending in a dot, so no key they return carries one. The guard is for a
+// placement built elsewhere — withdraw reads the key off a store file's own
+// frontmatter — and it checks the raw segments before cleaning, because
+// filepath.Clean collapses an interior ".." into a sibling bucket instead of
+// leaving it to be refused.
 func placementPath(placement, filename string) (string, error) {
 	if placement == "global" {
 		return filepath.Join("global", filename), nil
+	}
+	for _, seg := range strings.Split(filepath.ToSlash(placement), "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("unsafe project key: %q", placement)
+		}
 	}
 	clean := filepath.ToSlash(filepath.Clean(placement))
 	if clean == "" || clean == "." || clean == ".." ||

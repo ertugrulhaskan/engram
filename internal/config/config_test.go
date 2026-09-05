@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -256,5 +258,95 @@ func TestSaveFollowsADanglingSymlink(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "paperback") {
 		t.Errorf("link target = %s, want the saved theme", got)
+	}
+}
+
+// TestReadTreatsAnEmptyFileAsAbsent pins the one unparseable state that carries
+// nothing to protect. The truncating write before v0.5.0 could leave a zero-byte
+// config.json behind (a session killed between the truncate and the write, or a
+// full disk); if Read reported that as ErrUnparseable, main.go would refuse to
+// start the upgraded binary, and the repair it advertises (/settings) lives
+// inside the TUI that would not open. Whitespace-only counts as empty too, and
+// the one write path may replace either.
+func TestReadTreatsAnEmptyFileAsAbsent(t *testing.T) {
+	for _, body := range []string{"", "\n \t\n"} {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		p, err := Path()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		c, err := Read()
+		if err != nil {
+			t.Fatalf("Read() over %q = %v; want nil: an empty file is absent, not unparseable", body, err)
+		}
+		if !reflect.DeepEqual(c, Config{}) {
+			t.Errorf("Read() over %q = %+v; want the zero Config", body, c)
+		}
+		if err := Update(func(c *Config) error { c.Theme = "crt"; return nil }); err != nil {
+			t.Fatalf("Update over %q = %v; want success, there is nothing in it to protect", body, err)
+		}
+		if got := load(); got.Theme != "crt" {
+			t.Errorf("after Update over %q, Theme = %q; want crt", body, got.Theme)
+		}
+	}
+}
+
+// TestSaveRefusesAReadOnlyConfig pins the guard os.WriteFile gave for free and
+// the atomic write has to ask for by hand: a rename replaces the file without
+// opening it, so without the probe a chmod 444 config was rewritten in place
+// and re-chmodded, with nothing to show it had happened.
+func TestSaveRefusesAReadOnlyConfig(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes through any mode")
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := Save(Config{Theme: "crt"}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(p, 0o644) }) // so the temp dir is removable on every platform
+	if err := os.Chmod(p, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(Config{Theme: "dark"}); !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("Save over a read-only config = %v; want a permission error", err)
+	}
+	after, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Errorf("read-only config was rewritten:\n%s", after)
+	}
+	st, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o444 {
+		t.Errorf("mode after the refusal = %v; want 444", st.Mode().Perm())
+	}
+	entries, err := os.ReadDir(filepath.Dir(p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != filepath.Base(p) {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("config dir holds %v after a refused write, want only %q", names, filepath.Base(p))
 	}
 }

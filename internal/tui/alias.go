@@ -27,15 +27,6 @@ func (m Model) projectKey(dir, memDir string) string {
 	return key
 }
 
-// cleanAliases is what New seeds the model with: the config's projectAliases
-// through team.CleanAliases, dropped entries discarded. The first poll tick,
-// the /settings reload and the >alias write paths all adopt the dropped list
-// as well, so a bare >alias never reports an entry that is no longer ignored.
-func cleanAliases(raw map[string]string) map[string]string {
-	clean, _ := team.CleanAliases(raw)
-	return clean
-}
-
 // configErr words a config write that was refused, adding the way out when
 // the file itself is the problem.
 func configErr(err error) string {

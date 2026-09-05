@@ -18,7 +18,7 @@ func TestPlacementPath(t *testing.T) {
 		p != filepath.Join("projects", "github.com/acme/app", "x.md") {
 		t.Errorf("project: p=%q err=%v", p, err)
 	}
-	for _, bad := range []string{"..", "../etc", "github.com/../../etc", "/abs", ""} {
+	for _, bad := range []string{"..", "../etc", "github.com/../../etc", "github.com/acme/../app", "/abs", ""} {
 		if _, err := placementPath(bad, "x.md"); err == nil {
 			t.Errorf("placementPath(%q) should be rejected", bad)
 		}

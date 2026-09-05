@@ -77,7 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `alias:acme` normalizes to exactly the key an alias named `acme` would claim,
   and two unrelated projects sharing one bucket would pull into each other. Such
   a project promotes globally, and the message says so and names the fix (rename
-  the ssh alias) rather than reporting it as a git problem — git answered fine.
+  the ssh alias) rather than reporting it as a git problem — git answered fine. If v0.4.0 already
+  promoted such a project, its store copies stay under the old key and `>pull`
+  reports them skipped, the same migration note as a project that gains a remote.
 
   Clearing works even where setting is refused: `>alias -` removes an entry for
   *any* project, including your home folder or a machine with no git installed.
@@ -98,7 +100,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on an aliased project would publish into `global/` — a placement decision made
   off a file engram couldn't read. The message names the file and the JSON fault
   so it can be fixed in any editor, and it matches what every write path already
-  did with the same file.
+  did with the same file. An empty file is the one exception: it carries no
+  setting to protect, and it is what the old truncating write left behind on a
+  crash or a full disk, so it reads as absent and the upgraded binary starts.
 - **`@` opens the assistant list instead of launching Claude Code.** With four
   providers there is no single right answer for a bare keypress, and picking
   silently would start a session you never chose — so `@` now opens the palette
@@ -118,7 +122,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which the change above then treats as a fatal startup error, with the repair
   it points at (`/settings`) inside the TUI that no longer opens. The new
   contents now go to a temp file beside it and are renamed over, so a reader
-  sees the whole old file or the whole new one. Your file's permissions are
+  sees the whole old file or the whole new one. A file you made read-only is
+  still refused, as the old write refused it: a rename needs only the directory,
+  so the write asks the file for access first. Your file's permissions are
   carried across the rename, so a `chmod 600` on `config.json` sticks — and a
   `config.json` your dotfiles manager symlinks into a repo is still written
   *through* the link, rather than being replaced by a regular file.
@@ -127,7 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different store bucket from the same remote without it — until a teammate
   checked the store out on Windows, where NTFS strips both and merges the two
   directories, mixing up two unrelated projects' memories. Both are now trimmed
-  from the host and from every path segment. If you have such a remote and had
+  from the host and from every path segment. A `.` segment is dropped and a `..`
+  segment is refused rather than collapsed: `acme/../app` used to reach the store
+  as `acme/app`, another repository's bucket. A segment that is only dots or
+  spaces is refused too, since NTFS would strip it to nothing. If you have such a remote and had
   already promoted under it, those memories stay in the old bucket (`>pull`
   reports them skipped) until you promote them again — the same migration note
   that applies to a project which gains a remote after being keyed by `>alias`.

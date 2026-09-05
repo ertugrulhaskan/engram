@@ -311,7 +311,7 @@ that simply look generated — a guard, not a guarantee, so treat the override a
 real decision.
 
 A `config.json` that isn't valid JSON **stops startup**, naming the file and the
-fault, rather than being silently replaced by defaults — once the file carries
+fault (an empty file counts as absent), rather than being silently replaced by defaults: once the file carries
 `projectAliases`, defaults are a placement decision made off a file engram
 couldn't read. Every write refuses the same file for the same reason, and
 engram's own writes are atomic, so it can't produce one.
