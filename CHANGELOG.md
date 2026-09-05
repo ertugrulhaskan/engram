@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-09-03
+## [0.5.0] - 2026-09-05
 
 ### Added
 - **`@Gemini`, `@Codex` and `@Copilot` join `@Claude`.** The assistant handoff is
@@ -174,6 +174,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   were 16px-tall targets and gained 4px of vertical padding, clearing the 24px
   minimum. The privacy page also links home as `/` instead of `index.html`, which
   Cloudflare Pages answers with a 308 redirect.
+- **The privacy policy discloses the page-view count Cloudflare adds at the edge.**
+  Cloudflare Web Analytics is a toggle on the Pages project, not in the repo, and its
+  beacon loads on every page ahead of the cookie banner; the policy named only Google
+  Analytics and server logs. It now lists what the beacon records, on Cloudflare's own
+  description (no cookies, no fingerprinting), and the basis for running it without
+  consent. The policy's date and the sitemap's `lastmod` move together.
 
 ### Security
 - Two indirect dependencies moved past published advisories that `govulncheck`
