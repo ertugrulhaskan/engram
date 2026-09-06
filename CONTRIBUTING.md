@@ -77,7 +77,8 @@ so they drift silently — when the page's pitch, install commands, or platform 
 change, update them in the same commit (and bump the sitemap's `<lastmod>`). The two
 `application/ld+json` blocks in `index.html` are subject to the same rule: the `FAQPage`
 answers must stay **word-for-word identical** to the visible FAQ cards, since mismatched
-FAQ markup is a Google structured-data policy violation. Keep `operatingSystem` in the
+FAQ markup is a Google structured-data policy violation. `.github/scripts/verify-site.py`
+checks that pair on every run, so drift fails CI instead of shipping. Keep `operatingSystem` in the
 `SoftwareApplication` block at `"macOS, Linux"` — it is a machine-readable support claim,
 and native Windows is out of scope rather than pending (SPEC §10).
 

@@ -10,12 +10,17 @@ Both of these ship green and break only once Cloudflare is serving the result:
 2. Tailwind scans only the files named by @source in www/css/input.css. Add a page
    and forget the line and the build emits no classes for it: the stylesheet is
    still "fresh" by a rebuild-and-diff check, and the page ships unstyled.
+3. The FAQPage JSON-LD restates the visible FAQ cards. Google requires the two to
+   match, so an answer edited on the page but not in the schema is a structured-data
+   policy problem that only a crawler ever sees.
 
 Run it by hand any time: python3 .github/scripts/verify-site.py
 """
 
 import base64
 import hashlib
+import html as html_mod
+import json
 import os
 import pathlib
 import re
@@ -104,10 +109,73 @@ for page in pages:
             f"    or Tailwind emits none of this page's classes and it ships unstyled."
         )
 
+
+
+def faq_text(fragment: str) -> str:
+    """A card's text as a reader sees it.
+
+    Tags are dropped before entities are unescaped, so an escaped &lt;git-url&gt;
+    ends up as the literal <git-url> the JSON-LD carries. Doing it the other way
+    round turns that placeholder into a tag and deletes it, which reads as a
+    mismatch that is not there.
+    """
+    return re.sub(r"\s+", " ", html_mod.unescape(re.sub(r"<[^>]+>", "", fragment))).strip()
+
+
+index = WWW / "index.html"
+if index.is_file():
+    src = index.read_text(encoding="utf-8")
+    faq = None
+    for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', src, re.S):
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError as exc:
+            failures.append(f"index.html: a JSON-LD block does not parse: {exc}")
+            continue
+        if data.get("@type") == "FAQPage":
+            faq = data
+
+    if faq is not None:
+        section = src[src.index('id="faq"'):] if 'id="faq"' in src else ""
+        cards = re.findall(
+            r"<details\b.*?<h3[^>]*>(.*?)</h3>.*?</summary>\s*(.*?)\s*</details>",
+            section,
+            re.S,
+        )
+        entries = faq.get("mainEntity", [])
+        if not cards:
+            failures.append(
+                "index.html: found a FAQPage schema but could not read the visible cards.\n"
+                "    this extractor expects <details> ... <h3>question</h3> ... </summary>answer</details>;\n"
+                "    if the markup changed, update verify-site.py rather than deleting the check."
+            )
+        elif len(cards) != len(entries):
+            failures.append(
+                f"index.html: {len(cards)} visible FAQ cards but {len(entries)} FAQPage entries.\n"
+                "    fix: add or remove the matching JSON-LD entry."
+            )
+        else:
+            for i, (q_html, a_html) in enumerate(cards, start=1):
+                entry = entries[i - 1]
+                pairs = (
+                    ("question", faq_text(q_html), re.sub(r"\s+", " ", entry.get("name", "")).strip()),
+                    ("answer", faq_text(a_html),
+                     re.sub(r"\s+", " ", entry.get("acceptedAnswer", {}).get("text", "")).strip()),
+                )
+                for label, visible, schema in pairs:
+                    if visible != schema:
+                        failures.append(
+                            f"index.html: FAQ {i} {label} differs between the card and the FAQPage schema.\n"
+                            f"    card:   {visible!r}\n"
+                            f"    schema: {schema!r}\n"
+                            "    fix: make them word-for-word identical; Google treats a mismatch as a\n"
+                            "    structured-data policy violation, and nothing else checks it."
+                        )
+
 if failures:
     print("site checks FAILED:\n", file=sys.stderr)
     for f in failures:
         print(f"  - {f}\n", file=sys.stderr)
     sys.exit(1)
 
-print(f"site checks passed: {len(pages)} pages, CSP hashes and @source lines all present.")
+print(f"site checks passed: {len(pages)} pages; CSP hashes, @source lines and FAQ/JSON-LD parity all agree.")

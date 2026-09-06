@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   genuine `404`. It carries `noindex` and stays out of the sitemap on purpose.
 
 ### Changed
+- **The site's silent couplings are checked automatically.** `.github/scripts/verify-site.py`
+  runs in CI and can be run by hand. It verifies that every inline script is covered by a
+  CSP hash, that every page is registered as a Tailwind `@source`, and that the `FAQPage`
+  schema still matches the visible FAQ cards word for word. All three were previously
+  documented rules with nothing enforcing them, and all three fail only in production or
+  only in a crawler, which is to say nowhere anyone looks.
 - **The resolve confirm stops holding both memory bodies.** Opening a conflict kept
   each side's full text on the model for as long as the dialog was open, from a time
   when a resize re-diffed them. It hasn't re-diffed since the alignment was cached, so
