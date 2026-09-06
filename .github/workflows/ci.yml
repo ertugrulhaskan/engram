@@ -77,5 +77,5 @@ jobs:
       # The rebuild-and-diff above cannot see either of these: a page with no @source
       # line rebuilds to identical CSS, and the CSP hashes are never exercised locally
       # because nothing local sends the header.
-      - name: Check the CSP hashes and Tailwind sources
+      - name: Check the CSP hashes, Tailwind sources and FAQ schema
         run: python3 .github/scripts/verify-site.py

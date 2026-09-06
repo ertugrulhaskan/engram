@@ -32,9 +32,12 @@ points after each step** (don't fold them into one silent summary):
    README, this file, memories, plans).
 
 This is in addition to the formatting/vet/test gate in "Code rules". **That half is the
-only machine-enforced part:** `.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...`,
-and `go test ./...` on every push to `main` and every PR. Steps 1–4 have no enforcement at
-all — `.git/hooks/` holds only the stock samples — so the discipline lives here.
+only machine-enforced part:** on every push to `main` and every PR,
+`.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...` and `go test ./...` in its
+`build` job, and in its `site` job rebuilds `www/css/styles.css` to fail on a stale commit
+of it, then runs `.github/scripts/verify-site.py` for the CSP hashes, the Tailwind
+`@source` lines and FAQ/JSON-LD parity. Steps 1–4 have no enforcement at all —
+`.git/hooks/` holds only the stock samples — so the discipline lives here.
 
 ## Keep the docs in sync — before you commit
 
@@ -76,7 +79,8 @@ behind the shipped index-sync and release work.
   never rewrite Claude's fields.
 - Run `gofmt -w .` before committing, and keep `go vet ./...` / `go test ./...` green.
   CI (`.github/workflows/ci.yml`) enforces all three, but only *after* the push — running
-  them locally is what saves a red build.
+  them locally is what saves a red build. The same applies to the site checks: run
+  `npm run build:css` and `python3 .github/scripts/verify-site.py` after touching `www/`.
 - Commit messages: conventional prefixes, present tense ("add x", not "added x").
 
 ## Release / publishing
