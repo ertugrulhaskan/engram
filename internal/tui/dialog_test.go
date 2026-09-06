@@ -42,10 +42,10 @@ func TestDialogBoxesUniformWidth(t *testing.T) {
 		team1.secretFindings = []secrets.Finding{{Rule: "aws access key id", Line: 14, Match: "AKIA••••••••••••7Q2M"}}
 		team1.withdrawTitle = "A shared memory"
 		team1.pullPlan = team.PullResult{Placed: 1, Updated: 3, Ahead: 1, Conflicts: 1, UpToDate: 2, Skipped: 1}
-		team1.resolveRows, _ = resolveDiff(
+		team1.setResolveSides(
 			[]string{"Keep migrations reversible.", "Wrap every migration in a transaction."},
 			[]string{"Keep migrations reversible.", "Wrap it, and keep a down step."},
-			resolveDiffContext, team1.resolveDiffRows())
+			false)
 		team1.driftUnindexed = []string{"migrations.md", "staging.md"}
 		team1.driftDangling = []string{"gone.md"}
 

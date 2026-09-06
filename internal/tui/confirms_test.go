@@ -91,7 +91,7 @@ func TestResolveConfirmFlow(t *testing.T) {
 	m.mode = modeResolveConfirm
 	m.resolvePath = "/x/mem.md"
 	m.resolveTmp = tmp
-	m.resolveRows, _ = resolveDiff([]string{"mine"}, []string{"theirs"}, resolveDiffContext, m.resolveDiffRows())
+	m.setResolveSides([]string{"mine"}, []string{"theirs"}, false)
 
 	out := m.View()
 	for _, want := range []string{"resolve — both sides moved", "− yours · + the team store", "− mine", "+ theirs", "Opens in $EDITOR."} {
@@ -185,8 +185,8 @@ func TestResolveConfirmClearsItsStateOnBothExits(t *testing.T) {
 		}
 		next, _ := m.updateResolveConfirm(press)
 		got := next.(Model)
-		if got.resolveYours != nil || got.resolveTheirs != nil {
-			t.Errorf("%s: sides retained (%d/%d lines)", key, len(got.resolveYours), len(got.resolveTheirs))
+		if got.resolveAligned != nil {
+			t.Errorf("%s: alignment retained (%d rows)", key, len(got.resolveAligned))
 		}
 		if got.resolveRows != nil {
 			t.Errorf("%s: %d diff rows retained", key, len(got.resolveRows))

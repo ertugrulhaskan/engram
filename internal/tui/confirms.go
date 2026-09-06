@@ -162,16 +162,16 @@ func (m Model) updateResolveConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // clearResolve drops everything the resolve confirm was holding, on both ways
-// out of it. Two reasons it takes all of it and not just the merge file. The
-// sides are whole memory bodies, kept on the Model only so a resize can re-diff
-// them, and a session that resolved one 4,000-line memory held both copies
-// until it exited. And they are stale state waiting for a caller: actionResolve
-// returns early when team.BeginConflictResolve fails, so anything that rendered
-// resolveModal without going through it would draw the *previous* memory's
-// diff under the current memory's name.
+// out of it, rather than just the merge file. What it drops is stale state
+// waiting for a caller: actionResolve returns early when
+// team.BeginConflictResolve fails, so anything that rendered resolveModal
+// without going through it would draw the *previous* memory's diff under the
+// current memory's name. The retention half of the old reasoning is gone with
+// the sides themselves — resolveAligned holds a collapsed diff, not two whole
+// memory bodies — but this still has to run, because a wrong diff shown
+// confidently is worse than the memory it used to cost.
 func (m *Model) clearResolve() {
 	m.resolvePath, m.resolveTmp = "", ""
-	m.resolveYours, m.resolveTheirs = nil, nil
 	m.resolveAligned, m.resolveChanged = nil, false
 	m.resolveRows = nil
 	m.resolveIdent = false
@@ -280,7 +280,7 @@ func (m *Model) setResolveDiff() {
 // frame-independent half of the diff once. setResolveDiff then re-caps it for
 // whatever frame is current, including after a resize, without re-aligning.
 func (m *Model) setResolveSides(yours, theirs []string, identical bool) {
-	m.resolveYours, m.resolveTheirs, m.resolveIdent = yours, theirs, identical
+	m.resolveIdent = identical
 	m.resolveAligned, m.resolveChanged = alignDiff(yours, theirs, resolveDiffContext)
 	m.setResolveDiff()
 }

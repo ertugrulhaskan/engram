@@ -142,9 +142,9 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	}
 	// Diff the two sides before $EDITOR opens, from the sides themselves — the
 	// merge file can't be split back into halves reliably (see ResolveSession).
-	// The sides are kept on the model, not just the rows they produced: the row
-	// budget comes from the frame, so a resize while this confirm is open has to
-	// re-diff them (setResolveDiff).
+	// setResolveSides keeps the collapsed alignment and drops the sides: only the
+	// row budget depends on the frame, so a resize re-caps what is cached rather
+	// than re-diffing.
 	m.resolvePath, m.resolveTmp = it.Path, rs.TmpPath
 	m.setResolveSides(rs.Yours, rs.Theirs, rs.Identical)
 	m.mode = modeResolveConfirm

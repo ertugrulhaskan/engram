@@ -92,14 +92,14 @@ func TestCapDiff(t *testing.T) {
 	}
 }
 
-// resolveDiff reports "no differences" for sides whose content matches — a
+// alignDiff reports "no differences" for sides whose content matches — a
 // resolve is reachable on an anchor difference alone.
-func TestResolveDiffNoChange(t *testing.T) {
-	rows, changed := resolveDiff([]string{"same"}, []string{"same"}, 2, 12)
+func TestAlignDiffNoChange(t *testing.T) {
+	rows, changed := alignDiff([]string{"same"}, []string{"same"}, 2)
 	if changed || rows != nil {
 		t.Errorf("identical sides: rows=%+v changed=%v, want none/false", rows, changed)
 	}
-	rows, changed = resolveDiff([]string{"a"}, []string{"b"}, 2, 12)
+	rows, changed = alignDiff([]string{"a"}, []string{"b"}, 2)
 	if !changed || len(rows) != 2 {
 		t.Errorf("differing sides: rows=%+v changed=%v", rows, changed)
 	}
@@ -203,14 +203,13 @@ func TestCapDiffTailIsNotCalledUnchanged(t *testing.T) {
 	}
 	m := ready(t)
 	m.mode = modeResolveConfirm
-	rows, changed := resolveDiff(yours, theirs, resolveDiffContext, m.resolveDiffRows())
-	if !changed || len(rows) != m.resolveDiffRows() {
-		t.Fatalf("rows=%d changed=%v, want %d rows", len(rows), changed, m.resolveDiffRows())
+	m.setResolveSides(yours, theirs, false)
+	if !m.resolveChanged || len(m.resolveRows) != m.resolveDiffRows() {
+		t.Fatalf("rows=%d changed=%v, want %d rows", len(m.resolveRows), m.resolveChanged, m.resolveDiffRows())
 	}
-	if last := rows[len(rows)-1]; last.op != diffMore {
+	if last := m.resolveRows[len(m.resolveRows)-1]; last.op != diffMore {
 		t.Fatalf("last row op = %v, want diffMore", last.op)
 	}
-	m.resolveRows = rows
 	out := m.View()
 	if strings.Contains(out, "unchanged line") {
 		t.Errorf("a capped diff must not claim the hidden tail is unchanged:\n%s", out)

@@ -187,31 +187,17 @@ func capDiff(rows []diffRow, max int) []diffRow {
 	return append(append([]diffRow{}, rows[:max-1]...), diffRow{op: diffMore, n: dropped})
 }
 
-// resolveDiff builds the rows the resolve confirm shows: the two sides
-// diffed, unchanged runs collapsed to ctx lines of context, capped at max
-// rows. changed reports whether the shared content differs at all — a resolve
-// is reachable on an anchor difference alone, and "no differences" is a real
-// answer worth saying rather than an empty box.
+// alignDiff is the frame-independent half of the resolve confirm's diff: the LCS
+// alignment and the context collapse, neither of which depends on how many rows
+// the dialog has. changed reports whether the shared content differs at all — a
+// resolve is reachable on an anchor difference alone, and "no differences" is a
+// real answer worth saying rather than an empty box.
 //
-// A max below 1 means the frame has no room for a preview, and the answer is no
-// rows with changed still true: the caller says so in a line instead. capDiff's
-// own max < 1 guard returns the rows untrimmed, which is right for "don't cap"
-// and would be exactly wrong here — it would hand back the whole diff to a
-// dialog that has no room for any of it.
-func resolveDiff(yours, theirs []string, ctx, max int) (rows []diffRow, changed bool) {
-	collapsed, changed := alignDiff(yours, theirs, ctx)
-	if !changed || max < 1 {
-		return nil, changed
-	}
-	return capDiff(collapsed, max), true
-}
-
-// alignDiff is resolveDiff's frame-independent half: the LCS alignment and the
-// context collapse, neither of which depends on how many rows the dialog has.
-// It is split out because the confirm re-diffs on every tea.WindowSizeMsg, and
-// a drag-resize is a stream of them — re-running the O(n*m) table for two
-// 500-line memories is a 250k-cell allocation per event, on the event loop,
-// to change one integer. setResolveDiff caches this and re-runs only capDiff.
+// It is split from the capping because the confirm re-measures on every
+// tea.WindowSizeMsg, and a drag-resize is a stream of them — re-running the
+// O(n*m) table for two 500-line memories is a 250k-cell allocation per event, on
+// the event loop, to change one integer. setResolveSides runs this once per
+// conflict and setResolveDiff re-runs only capDiff.
 func alignDiff(yours, theirs []string, ctx int) (rows []diffRow, changed bool) {
 	full := diffLines(yours, theirs)
 	for _, r := range full {

@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   genuine `404`. It carries `noindex` and stays out of the sitemap on purpose.
 
 ### Changed
+- **The resolve confirm stops holding both memory bodies.** Opening a conflict kept
+  each side's full text on the model for as long as the dialog was open, from a time
+  when a resize re-diffed them. It hasn't re-diffed since the alignment was cached, so
+  the copies were being carried for nothing: a 4,000-line memory meant two of those in
+  memory until the dialog closed. Only the collapsed diff is kept now. No visible
+  change to what the dialog shows.
 - **Native Windows is out of scope, not pending.** It had been carried as an open
   question since 2026-07-06. Windows binaries still ship and are still labelled
   untested, and nothing about what you install changes; what changes is the honesty of

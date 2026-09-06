@@ -66,7 +66,9 @@ which is why two hashes cover three pages). Change one of those scripts by a sin
 the hash no longer matches, so the browser refuses to run it and the page paints in the wrong
 theme — on production only, since nothing local sends the header. `_headers` carries the
 command that recomputes the hashes, and `.github/scripts/verify-site.py` checks both this
-and the `@source` requirement below. CI runs it, and you can run it directly at any time. The same file is also why a new page must be added to
+and the `@source` requirement below. CI runs it, and you can run it directly at any time.
+Tailwind's `source(none)` is what makes that second check necessary, and it is described
+under "Sources are registered explicitly" below. The same file is also why a new page must be added to
 `input.css` as an `@source` line: without it Tailwind never emits that page's classes, and
 the page ships unstyled rather than failing loudly.
 

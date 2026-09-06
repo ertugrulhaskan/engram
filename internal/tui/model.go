@@ -90,12 +90,11 @@ type Model struct {
 	// resolve confirm (modeResolveConfirm)
 	resolvePath string // the conflicted memory
 	resolveTmp  string // merge temp file BeginConflictResolve wrote (removed on cancel)
-	// The two sides BeginConflictResolve merged, kept rather than discarded once
-	// the rows are built: the row budget comes from the frame, so a resize while
-	// the confirm is open has to re-diff them (setResolveDiff).
-	resolveYours  []string
-	resolveTheirs []string
-	resolveIdent  bool // the sides' shared content is byte-identical (only the anchor differs)
+	// The sides BeginConflictResolve merged are deliberately NOT kept. They were,
+	// back when a resize re-diffed them; resolveAligned below now holds the only
+	// part a resize needs, so holding two whole memory bodies for the life of the
+	// confirm bought nothing. A 4,000-line memory is the case that showed it.
+	resolveIdent bool // the sides' shared content is byte-identical (only the anchor differs)
 	// resolveAligned is the frame-independent half of the diff — the LCS
 	// alignment with context collapsed — computed once per conflict, so a
 	// resize re-caps it instead of re-running an O(n*m) table on the event loop.
