@@ -1023,9 +1023,14 @@ says that instead of rendering an empty diff.
   instruction files first — files on disk, no API needed. Server-side memories
   (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing
   programmatic access; likely export/import at first.
-- Native Windows support. Binaries cross-compile and ship, but two Unix
-  assumptions are known to break natively: `decodeProjectPath` resolves from `/`
-  (Windows encodings carry a drive letter and fail the leading-`-` check), and
-  the editor chain falls back to `vi`. WSL works (it's a Linux environment).
-  Until these are fixed and tested on a real Windows machine, public copy says
-  macOS/Linux only.
+- **Native Windows: out of scope, decided 2026-09-06.** This is no longer an open
+  question. Binaries cross-compile and ship, but native Windows has never been run and
+  two Unix assumptions are known to break it: `decodeProjectPath` resolves from `/`
+  (Windows encodings carry a drive letter and fail the leading-`-` check), and the
+  editor chain falls back to `vi`, which stock Windows does not have. Fixing either is
+  cheap; *verifying* the fix needs a real Windows machine, which the maintainer does not
+  have and does not intend to obtain, so an unverifiable fix would only convert a known
+  gap into an unknown one. WSL works, being a Linux environment, and is what the README
+  recommends. The Windows archives keep shipping because cross-compiling costs nothing
+  and they are labelled untested; that is not a support claim, and public copy stays
+  macOS/Linux. Reopen only if someone with a Windows machine offers to verify.

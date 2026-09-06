@@ -73,8 +73,10 @@ a server, or a subscription.
 
 ## Claims we must not make
 
-- **No platform we haven't verified.** macOS and Linux only. Windows is unverified, so the site
-  and README must not list it until it is.
+- **No platform we haven't verified.** macOS and Linux only. Native Windows is unverified
+  and, as of 2026-09-06, not planned (SPEC §10), so treat this as settled rather than
+  temporary: the site and README must not list it. The Windows archives that ship are
+  labelled untested and must never be worded as support.
 - **No invented proof.** No user counts, no testimonials, no logos, no ratings, no "trusted by".
 - **No blurring of shipped vs planned.** If ROADMAP says in progress, the page says in progress.
 - **No promise beyond what the tool does.** engram never modifies a user's memory files except

@@ -43,9 +43,10 @@ go install github.com/ertugrulhaskan/engram@latest
 ```
 
 **Prebuilt binaries** for macOS / Linux (amd64 + arm64) are attached to each
-[release](https://github.com/ertugrulhaskan/engram/releases). Windows binaries
-are published as well but **untested** — engram targets macOS/Linux today; on
-Windows, use WSL.
+[release](https://github.com/ertugrulhaskan/engram/releases). Windows binaries are
+published too, but they are **untested, and native Windows is not planned**: verifying
+it needs a real Windows machine to test on. On Windows, use WSL, which is a Linux
+environment and works today.
 
 **From source:**
 

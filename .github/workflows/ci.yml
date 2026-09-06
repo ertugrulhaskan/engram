@@ -5,15 +5,25 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege, stated rather than inherited: nothing here writes to the repo, and
+# pinning it means a change to the repository-wide default cannot quietly widen these
+# jobs. release.yml asks for contents: write because it genuinely publishes;
+# verify-tap-token.yml asks for nothing at all.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Actions are pinned by commit SHA, not by tag: a tag is mutable, so `@v4` means
+      # trusting the owner never to move it. The trailing comment is the human-readable
+      # version, and Dependabot updates both together.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.23"
 
@@ -31,3 +41,41 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  # www/css/styles.css is committed and Cloudflare Pages runs no build step, so a class
+  # added to a page without a rebuild ships unstyled, and a Tailwind bump that never
+  # regenerates the file leaves production on output from the old compiler. Neither
+  # failure is visible anywhere else: the deploy succeeds and the page just looks wrong.
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install pinned build tooling
+        run: npm ci
+
+      - name: Rebuild the stylesheet
+        run: npm run build:css
+
+      - name: Fail if the committed stylesheet is stale
+        run: |
+          if ! git diff --quiet -- www/css/styles.css; then
+            echo "www/css/styles.css does not match a fresh build from the pinned Tailwind."
+            echo "Run 'npm run build:css' and commit the result."
+            git diff --stat -- www/css/styles.css
+            exit 1
+          fi
+          echo "Committed stylesheet matches a fresh build."
+
+      # The rebuild-and-diff above cannot see either of these: a page with no @source
+      # line rebuilds to identical CSS, and the CSP hashes are never exercised locally
+      # because nothing local sends the header.
+      - name: Check the CSP hashes and Tailwind sources
+        run: python3 .github/scripts/verify-site.py

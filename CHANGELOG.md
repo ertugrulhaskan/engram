@@ -16,21 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   could index it as a duplicate of `/`. `www/404.html` now answers with a short page and a
   genuine `404`. It carries `noindex` and stays out of the sitemap on purpose.
 
-### Security
-- **The site sends security response headers.** New `www/_headers`, read by Cloudflare Pages
-  at deploy time: HSTS (one year, `includeSubDomains`, no `preload`), `X-Frame-Options: DENY`,
-  a `Permissions-Policy` that denies every browser feature the site does not use, and a
-  Content-Security-Policy. Previously the only headers sent were `X-Content-Type-Options` and
-  `Referrer-Policy`, both from Cloudflare's own defaults.
-
-  The CSP carries no `'unsafe-inline'`: the two inline theme guards are allowed by SHA-256
-  hash, and the only external origins permitted are Cloudflare's analytics beacon and, once a
-  visitor accepts cookies, Google Analytics. Verified in a browser against the real header
-  file rather than assumed — the pages load with no violations, and accepting cookies still
-  loads and reports to GA.
-
-  **This ships on a deploy, not on a push.** Until `npx wrangler pages deploy` runs, production
-  keeps the old two headers.
+### Changed
+- **Native Windows is out of scope, not pending.** It had been carried as an open
+  question since 2026-07-06. Windows binaries still ship and are still labelled
+  untested, and nothing about what you install changes; what changes is the honesty of
+  the plan. Verifying a Windows fix needs a real Windows machine to test on, and without
+  one a fix would only turn a known gap into an unknown one. Use WSL, which is a Linux
+  environment and works today. See SPEC §10 for the two specific Unix assumptions.
 
 ### Fixed
 - **Homebrew stops warning on every `brew` command.** Homebrew 6.0 deprecated the
@@ -46,6 +38,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quarantine flag and is load-bearing, not cosmetic: without it Gatekeeper refuses to
   exec the binary at all, so the swap is verified against a real `brew reinstall`
   rather than assumed.
+
+### Security
+- **The site sends security response headers.** New `www/_headers`, read by Cloudflare Pages
+  at deploy time: HSTS (one year, `includeSubDomains`, no `preload`), `X-Frame-Options: DENY`,
+  a `Permissions-Policy` that denies every browser feature the site does not use, and a
+  Content-Security-Policy. Previously the only headers sent were `X-Content-Type-Options` and
+  `Referrer-Policy`, both from Cloudflare's own defaults.
+
+  The CSP carries no `'unsafe-inline'`: the two inline theme guards are allowed by SHA-256
+  hash, and the only external origins permitted are Cloudflare's analytics beacon and, once a
+  visitor accepts cookies, Google Analytics. Verified in a browser against the real header
+  file rather than assumed — the pages load with no violations, and accepting cookies still
+  loads and reports to GA.
+
+  **This ships on a deploy, not on a push.** Until `npx wrangler pages deploy` runs, production
+  keeps the old two headers.
+- **Dependencies are watched again.** A new `.github/dependabot.yml` opens grouped monthly
+  version-update pull requests for Go modules, GitHub Actions and the Tailwind build. The
+  trigger was two reachable advisories in `goldmark` and `x/net` that sat unnoticed until
+  they were found by hand. Note this file covers *version* updates only: Dependabot
+  security alerts are a repository setting, not a file, and are noted as such in the config.
+- **The build workflows are pinned and least-privileged.** Every GitHub Action is now
+  referenced by commit SHA rather than a mutable tag, and `ci.yml` declares
+  `permissions: contents: read` instead of inheriting the repository default. This matters
+  because `release.yml` carries a token that can write the Homebrew tap, so an action tag
+  moved under us reaches the publishing path. `release.yml` is never exercised by CI, since
+  it runs only on a `v*` tag, so a bump touching it first executes during a real release;
+  the config says so at the point of decision rather than silencing those updates, because
+  a Dependabot `ignore` rule would suppress security pull requests along with them.
 
 ## [0.5.0] - 2026-09-05
 

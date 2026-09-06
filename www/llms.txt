@@ -15,7 +15,8 @@ auto-learned memories through your own git remote.
 
 - Install (Homebrew): `brew install ertugrulhaskan/tap/engram`
 - Install (Go): `go install github.com/ertugrulhaskan/engram@latest`
-- Platforms: macOS and Linux. Windows binaries ship but are untested; use WSL.
+- Platforms: macOS and Linux. Windows binaries ship but are untested and native
+  Windows is not planned; use WSL.
 - Assistants: alongside Claude Code's memories, engram lists these read-only. Per project:
   `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`, Cursor rules
   (`.cursor/rules/*.mdc`) and Copilot's `.github/instructions/*.instructions.md`. Globally:

@@ -65,7 +65,8 @@ Content-Security-Policy there pins the SHA-256 of each inline theme guard: one h
 which is why two hashes cover three pages). Change one of those scripts by a single byte and
 the hash no longer matches, so the browser refuses to run it and the page paints in the wrong
 theme — on production only, since nothing local sends the header. `_headers` carries the
-command that recomputes the hashes. The same file is also why a new page must be added to
+command that recomputes the hashes, and `.github/scripts/verify-site.py` checks both this
+and the `@source` requirement below. CI runs it, and you can run it directly at any time. The same file is also why a new page must be added to
 `input.css` as an `@source` line: without it Tailwind never emits that page's classes, and
 the page ships unstyled rather than failing loudly.
 
@@ -75,8 +76,8 @@ change, update them in the same commit (and bump the sitemap's `<lastmod>`). The
 `application/ld+json` blocks in `index.html` are subject to the same rule: the `FAQPage`
 answers must stay **word-for-word identical** to the visible FAQ cards, since mismatched
 FAQ markup is a Google structured-data policy violation. Keep `operatingSystem` in the
-`SoftwareApplication` block at `"macOS, Linux"` until native Windows is actually verified
-(SPEC §10) — it is a machine-readable support claim.
+`SoftwareApplication` block at `"macOS, Linux"` — it is a machine-readable support claim,
+and native Windows is out of scope rather than pending (SPEC §10).
 
 A note on `llms.txt`: it is included by maintainer preference, not evidence. Measurements
 in 2026 found ~97% of `llms.txt` files are never fetched, AI crawlers read the HTML
@@ -157,6 +158,15 @@ value, so a field nobody set can't decide what the UI offers.
   keys engram understands; don't rewrite Claude's fields.
 - Keep commit messages clear and in the present tense ("add type filter", not
   "added type filter").
+- **Pin any new GitHub Action by commit SHA**, with the version as a trailing
+  comment: `uses: actions/checkout@11d5960… # v4.4.0`. A tag is mutable, so `@v4`
+  means trusting its owner never to move it, and the release workflow holds a token
+  that can write the Homebrew tap. Dependabot updates the SHA and the comment
+  together, so this costs nothing to maintain.
+- **Give every workflow an explicit `permissions:` block.** `ci.yml` takes
+  `contents: read`, `verify-tap-token.yml` takes `{}`, and only `release.yml` asks
+  for `contents: write`. Stating it means a change to the repository-wide default
+  cannot silently widen what a workflow can do.
 
 ## Proposing changes
 

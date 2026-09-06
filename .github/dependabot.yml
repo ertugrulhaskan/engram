@@ -1,0 +1,74 @@
+# Dependabot version updates.
+#
+# The trigger for adding this: goldmark and x/net sat on published advisories until
+# they were found by hand and fixed in 0d79d78. Nothing was watching, and a project
+# that goes quiet for a while is exactly where that gap hurts.
+#
+# THIS FILE IS ONLY HALF THE JOB. It configures *version* updates. Dependabot
+# *security* alerts and their automatic fix PRs are a repository setting, not a file:
+# Settings > Advanced Security > Dependabot alerts / Dependabot security updates. A
+# repo with this file and that toggle off still learns about a new CVE from nobody.
+#
+# Tuned for low noise on purpose, because engram is not worked on every week: monthly
+# rather than weekly, every ecosystem grouped into a single pull request, and a small
+# open-PR limit. None of that blocks anything, it only batches it.
+#
+# Note there is deliberately NO `ignore:` rule anywhere in this file. An `ignore` filters
+# security updates as well as version updates, so using one to hold back, say, major
+# action bumps would also mute the security PR for a CVE fixed only in that major. Risky
+# upgrades are handled by reviewing the pull request, which is the step Dependabot cannot
+# skip: nothing here merges itself.
+
+version: 2
+updates:
+  # The binary's own dependencies. This is the one that matters: it is what ships to
+  # users through the release archives, the Homebrew cask and `go install`.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      go-modules:
+        patterns: ["*"]
+
+  # The release path itself. A stale actions/checkout or setup-go is a supply-chain
+  # surface for a workflow that holds HOMEBREW_TAP_TOKEN and publishes binaries.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns: ["*"]
+    # READ BEFORE MERGING A BUMP THAT TOUCHES release.yml. ci.yml runs Go and site
+    # checks only, so release.yml is never exercised until a `v*` tag is pushed: a bump
+    # merged here first executes during a real release, and a failure there lands after
+    # GoReleaser has already created the GitHub Release. That is the half-published state
+    # verify-tap-token.sh exists to prevent. Before merging one, run the `goreleaser
+    # check` and snapshot dry-run from CONTRIBUTING's "Releasing".
+
+  # Tailwind, used only to build www/css/styles.css. It never reaches a user's machine:
+  # the built CSS is committed and Cloudflare Pages runs no build step. Lowest stakes of
+  # the three, kept because the built file is a public artifact.
+  #
+  # Expect these pull requests to fail CI, and read that as the system working. A bump
+  # changes package-lock.json but cannot regenerate the committed stylesheet, so the
+  # `site` job in ci.yml reports it as stale. Run `npm run build:css` and commit the
+  # result into the same pull request; that is the step there is no other way to catch,
+  # since Pages has no build step and would just keep serving the old file.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      tailwind:
+        patterns: ["*"]
