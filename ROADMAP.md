@@ -111,6 +111,10 @@ Goal: ship engram publicly — flip the repo public and make it installable.
       then the tap carries a hand-patch that every release reverts; see step 6 of
       "Releasing" in CONTRIBUTING.md
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
+- [x] Harden the deployed site: security response headers (`www/_headers` — HSTS,
+      `Permissions-Policy`, and a CSP with hashed inline scripts rather than
+      `'unsafe-inline'`) and a real `404.html`, replacing the home-page-with-a-200 that
+      Pages serves for unknown paths by default
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
 ## Phase 4 — Other assistants *(tier 1 — local instruction files — shipped in `v0.4.0`; tier 2 open)*

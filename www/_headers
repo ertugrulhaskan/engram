@@ -1,0 +1,65 @@
+# Response headers for engram.im, read by Cloudflare Pages at deploy time.
+#
+# Like everything else in www/, this file ships only on a deploy. A git push does
+# not apply it:
+#
+#   npx wrangler pages deploy www --project-name=engram-im --branch=main
+#
+# Headers set here OVERRIDE what Cloudflare ordinarily sends, so the two it already
+# gets right (X-Content-Type-Options, Referrer-Policy) are restated rather than left
+# out: the whole policy then lives in the repo and survives a change of host.
+# Cloudflare's limits are 100 rules and 2,000 characters per line.
+#
+# HSTS: includeSubDomains is safe today because engram.im has no subdomain records
+# at all. If www.engram.im or any other subdomain is ever added, it must be HTTPS
+# from its first day. `preload` is deliberately NOT set: joining the browser preload
+# list is slow to reverse, and it buys little for a single apex host.
+#
+# THE CSP TRAP, read this before editing any page. script-src carries the SHA-256 of
+# the inline theme script, once for index.html and once for the copy in privacy.html
+# and 404.html. Changing those scripts by even one byte invalidates the hash, and the
+# page then loads with no theme applied and a console error, on production only,
+# where nothing tests it. Recompute after any edit:
+#
+#   python3 -c "import hashlib,base64,re,sys; h=open(sys.argv[1]).read(); \
+#     [print('sha256-' + base64.b64encode(hashlib.sha256(m.group(2).encode()).digest()).decode()) \
+#      for m in re.finditer(r'<script([^>]*)>(.*?)</script>', h, re.S) \
+#      if 'src=' not in m.group(1) and 'ld+json' not in m.group(1)]" www/index.html
+#
+# 'unsafe-inline' would remove that maintenance burden and most of the protection
+# with it, so the hashes stay. JSON-LD blocks need no hash: a script element whose
+# type is not executable is not gated by script-src.
+#
+# What each non-obvious origin is for:
+#   static.cloudflareinsights.com  the Web Analytics beacon Cloudflare injects at the
+#                                  edge. It is not in this repo, it is a toggle on the
+#                                  Pages project. Measured against production on
+#                                  2026-09-05: the beacon is an external script with
+#                                  type="module" (never inline, so the hashes below do
+#                                  not have to cover it), and it reports to
+#                                  /cdn-cgi/rum, which is same-origin. The
+#                                  cloudflareinsights.com entry in connect-src is
+#                                  therefore NOT load-bearing today; it is kept only as
+#                                  a hedge in case Cloudflare moves that endpoint back
+#                                  off-origin, and can be dropped without breaking
+#                                  anything.
+#   www.googletagmanager.com       gtag.js, requested by js/main.js only after the
+#                                  visitor accepts cookies. Before that it never loads.
+#   *.google-analytics.com,        where GA4 sends measurement hits once loaded.
+#   *.analytics.google.com
+# 'self' also covers the email-decode script Cloudflare injects into /privacy to
+# obfuscate the mailto: address: it is served from engram.im/cdn-cgi/scripts/, confirmed
+# same-origin in the same measurement.
+#
+# Google's own CSP guidance additionally lists *.g.doubleclick.net, *.google.com and
+# each google.<TLD>. Those are for ads and remarketing signals, which this property
+# does not use, so they are left out on purpose. If Google Signals is ever switched
+# on, GA will start failing here and those origins are what it wants.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), xr-spatial-tracking=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'sha256-+gb8DOdV/EFd9VRuIkjeI906R9Hy0GYzE41VgdqDYzQ=' 'sha256-Fk7icXc2qFi7H23sZM7RatandBmxMhjTayJavUCsuHo=' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com; font-src 'self'; connect-src 'self' https://cloudflareinsights.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; manifest-src 'self'; upgrade-insecure-requests

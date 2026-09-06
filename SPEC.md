@@ -970,13 +970,31 @@ says that instead of rendering an empty diff.
   with the docs.
 - Served via **Cloudflare Pages** (static hosting, project `engram-im`): no build step
   (CSS is prebuilt & committed), upload directory `www`, custom domain `engram.im`.
-  Deploys are manual — `npx wrangler pages deploy www --project-name=engram-im`. DNS
-  stays at Namecheap (their nameservers are required for the domain's email
-  forwarding), pointing at `engram-im.pages.dev`. Note Pages serves pages
+  Deploys are manual — `npx wrangler pages deploy www --project-name=engram-im
+  --branch=main` (omit `--branch` and you get a preview deployment that reports success
+  while production is untouched). **DNS is
+  on Cloudflare**, not Namecheap: the whole zone moved on 2026-08-07 because Cloudflare
+  cannot serve an apex from another provider's nameservers. `cruz.ns.cloudflare.com` and
+  `dean.ns.cloudflare.com` are set as Custom DNS at Namecheap, which stays the registrar
+  only, and the apex resolves to Cloudflare's proxy addresses rather than to
+  `engram-im.pages.dev`. The cost of that move is that Namecheap's email forwarding for
+  the domain stopped working, which is why mail to `@engram.im` is accepted and then
+  dropped. Note Pages serves pages
   extensionless and 308-redirects `/x.html` → `/x`, so links, canonicals and the
   sitemap use `/privacy`, not `/privacy.html`. Google Analytics is loaded **only after cookie consent** (see the
   banner in `index.html` + `main.js`); the [Privacy Policy](../www/privacy.html) is
-  `www/privacy.html`.
+  `www/privacy.html`. `www/404.html` is the not-found page: without it Pages answers an
+  unknown path with the home page and a 200, which is wrong for both a reader and a
+  crawler. It carries `noindex` and is deliberately absent from the sitemap.
+- **Response headers** come from `www/_headers`, which Pages reads at deploy time and
+  never serves. It sets HSTS, `X-Frame-Options`, a `Permissions-Policy` denying every
+  feature the site does not use, and a Content-Security-Policy with no `'unsafe-inline'`:
+  the inline theme guards are allowed by SHA-256 hash instead. That couples the header
+  file to the markup — editing an inline script invalidates its hash and breaks the theme
+  in production only — so the recompute command lives in `_headers` beside the hashes.
+  Headers set there override Cloudflare's own, so the two it already sends correctly
+  (`X-Content-Type-Options`, `Referrer-Policy`) are restated rather than omitted, keeping
+  the whole policy in the repo.
 - **Search / AI-answer surface.** `www/robots.txt` disallows nothing and names the AI
   *answer* agents (`OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`,
   `PerplexityBot`) separately from the *training* crawlers (`GPTBot`, `ClaudeBot`,

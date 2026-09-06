@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Page not found · engram</title>
+<meta name="description" content="That page is not on engram.im. Head back to the home page for the install command and what engram does." />
+<meta name="robots" content="noindex, follow" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.theme;
+      if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="flex min-h-screen flex-col bg-white text-neutral-800 font-sans leading-relaxed antialiased dark:bg-neutral-950 dark:text-neutral-300">
+
+<header class="border-b border-neutral-200 dark:border-neutral-800">
+  <div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+    <a href="/" class="font-mono text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">engram</a>
+    <a href="/" class="font-mono text-xs text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200">← back to home</a>
+  </div>
+</header>
+
+<main class="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+  <p class="mb-2 font-mono text-xs text-neutral-500 dark:text-neutral-400">Error 404</p>
+  <h1 class="mb-2 font-mono text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">Page not found</h1>
+  <p class="mb-6">There is nothing at this address. The page may have moved, or the link that brought you here may be wrong.</p>
+
+  <div class="flex flex-wrap gap-3">
+    <a class="inline-block rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-200 dark:hover:border-blue-400" href="/">Home</a>
+    <a class="inline-block rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-neutral-700 dark:text-neutral-200 dark:hover:border-blue-400" href="https://github.com/ertugrulhaskan/engram">GitHub ↗</a>
+  </div>
+</main>
+
+<footer class="mt-8 border-t border-neutral-200 py-6 pb-12 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+  <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-6">
+    <span>engram <span class="font-normal text-neutral-500">memory for Claude Code, personal and team</span></span>
+    <span>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="/">Home</a>
+      <a class="ml-5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200" href="https://github.com/ertugrulhaskan/engram">GitHub</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

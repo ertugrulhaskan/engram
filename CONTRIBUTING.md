@@ -45,8 +45,10 @@ subfolders:
 www/
     index.html       # markup + a tiny inline pre-paint theme guard in <head>
     privacy.html     # privacy policy
+    404.html         # not-found page, served with a real 404 status by Pages
+    _headers         # response headers; config, not an asset, so it is never served
     robots.txt       # crawler policy — nothing disallowed, AI agents named explicitly
-    sitemap.xml      # 2 URLs, hand-maintained <lastmod>
+    sitemap.xml      # 2 URLs, hand-maintained <lastmod>; 404.html is left out on purpose
     llms.txt         # plain-text site summary for LLMs
     favicon.svg      # tab icon
     og.png           # Open Graph / Twitter card image
@@ -56,6 +58,16 @@ www/
     js/
         main.js      # page behavior — plain classic deferred script, no modules/deps
 ```
+
+**Editing an inline `<script>` breaks the live site if you forget `_headers`.** The
+Content-Security-Policy there pins the SHA-256 of each inline theme guard: one hash for
+`index.html`, one shared by `privacy.html` and `404.html` (their scripts are byte-identical,
+which is why two hashes cover three pages). Change one of those scripts by a single byte and
+the hash no longer matches, so the browser refuses to run it and the page paints in the wrong
+theme — on production only, since nothing local sends the header. `_headers` carries the
+command that recomputes the hashes. The same file is also why a new page must be added to
+`input.css` as an `@source` line: without it Tailwind never emits that page's classes, and
+the page ships unstyled rather than failing loudly.
 
 `robots.txt`, `sitemap.xml`, and `llms.txt` restate content that lives in `index.html`,
 so they drift silently — when the page's pitch, install commands, or platform support
@@ -78,8 +90,8 @@ npm run watch:css    # rebuild on change while editing
 ```
 
 `www/css/styles.css` is **committed** (Cloudflare Pages serves `www/` statically with no
-build step), so rebuild and commit it whenever you change classes in `index.html` or
-`privacy.html`.
+build step), so rebuild and commit it whenever you change classes in `index.html`,
+`privacy.html` or `404.html`.
 
 Deploying the site is manual and separate from `git push`:
 
@@ -92,8 +104,8 @@ internal links, `<link rel="canonical">`, `og:url`, `sitemap.xml` and `llms.txt`
 use `/privacy`. Keep them consistent or the canonical points at a redirect.
 
 **Sources are registered explicitly.** `input.css` imports Tailwind with
-`source(none)`, so the only scanned files are the three `@source` lines: the two HTML
-pages and `www/js/main.js`. Without `source(none)`, Tailwind's automatic detection also
+`source(none)`, so the only scanned files are the four `@source` lines: the three
+HTML pages and `www/js/main.js`. Without `source(none)`, Tailwind's automatic detection also
 scans the whole repo — every Go file and Markdown doc — and harvests ordinary English
 words as class candidates, silently emitting junk utilities (`.grow`, `.table`,
 `.static`, `.visible`…) into the shipped stylesheet; writing the word "grow" in a

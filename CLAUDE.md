@@ -54,6 +54,10 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
   the two `application/ld+json` blocks in `www/index.html`) — these restate what's on the
   landing page, so a pitch/install/platform change must update them too. The `FAQPage`
   answers must stay word-for-word identical to the visible FAQ cards.
+- **`www/_headers`** — its CSP pins a SHA-256 hash of each inline `<script>`, so editing
+  one of those scripts without recomputing the hash breaks the page in production only.
+  Adding a page also means an `@source` line in `www/css/input.css` and a CSS rebuild.
+  The recompute command is in `_headers` itself.
 - **Memories** (the project's `~/.claude/.../memory/` files) — when a project decision
   changes, update the relevant memory and its `MEMORY.md` line.
 

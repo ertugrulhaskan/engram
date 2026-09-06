@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A real not-found page.** An unknown URL on engram.im used to answer with the full home
+  page and a `200`, so a mistyped or stale link looked like the front door and a crawler
+  could index it as a duplicate of `/`. `www/404.html` now answers with a short page and a
+  genuine `404`. It carries `noindex` and stays out of the sitemap on purpose.
+
+### Security
+- **The site sends security response headers.** New `www/_headers`, read by Cloudflare Pages
+  at deploy time: HSTS (one year, `includeSubDomains`, no `preload`), `X-Frame-Options: DENY`,
+  a `Permissions-Policy` that denies every browser feature the site does not use, and a
+  Content-Security-Policy. Previously the only headers sent were `X-Content-Type-Options` and
+  `Referrer-Policy`, both from Cloudflare's own defaults.
+
+  The CSP carries no `'unsafe-inline'`: the two inline theme guards are allowed by SHA-256
+  hash, and the only external origins permitted are Cloudflare's analytics beacon and, once a
+  visitor accepts cookies, Google Analytics. Verified in a browser against the real header
+  file rather than assumed — the pages load with no violations, and accepting cookies still
+  loads and reports to GA.
+
+  **This ships on a deploy, not on a push.** Until `npx wrangler pages deploy` runs, production
+  keeps the old two headers.
+
 ### Fixed
 - **Homebrew stops warning on every `brew` command.** Homebrew 6.0 deprecated the
   `postflight` cask stanza GoReleaser generates, so any `brew` command touching
