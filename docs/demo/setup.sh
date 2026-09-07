@@ -1,15 +1,17 @@
 #!/bin/bash
 # Stage a fictional demo home for the README screenshot.
-# All names are fictional (an imaginary AI app called "nimbus").
+# Every name here is invented (an imaginary AI product called "nimbus").
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC="$ROOT/src"
 DEMOHOME="$ROOT/home"
-PROJECTS="$DEMOHOME/.claude/projects"
+CLAUDEHOME="$DEMOHOME/.claude"
+PROJECTS="$CLAUDEHOME/projects"
+PLANS="$CLAUDEHOME/plans"
 
 rm -rf "$SRC" "$DEMOHOME"
-mkdir -p "$SRC" "$PROJECTS" "$DEMOHOME/.config"
+mkdir -p "$SRC" "$PROJECTS" "$PLANS" "$DEMOHOME/.config"
 
 # Claude Code encodes a project path by flattening / . _ (and -) to "-".
 encode() { printf '%s' "$1" | tr '/._' '---'; }
@@ -23,81 +25,110 @@ make_project() { # $1 = project dir name under $SRC
   printf '%s' "$mem"
 }
 
+# --- the global rules file (files source, "global" scope) -------------------
+cat > "$CLAUDEHOME/CLAUDE.md" <<'EOF'
+# User-wide rules
+
+- Ask before touching anything outside the repo I named.
+- Small, reviewable steps. Verify one before starting the next.
+- Never paste real user data into a prompt, an eval, or a test.
+EOF
+
 # --- nimbus-api ------------------------------------------------------------
 M="$(make_project nimbus-api)"
+
+cat > "$SRC/nimbus-api/CLAUDE.md" <<'EOF'
+# nimbus-api
+
+The Go service behind nimbus: routing, retrieval, and the model calls.
+
+- Prompts live in `prompts/`, versioned in git. Never inline one.
+- Every model call goes through `internal/llm` so spend is tracked.
+- `make eval` must be green before a prompt change is pushed.
+EOF
 
 cat > "$M/model-routing.md" <<'EOF'
 ---
 name: model-routing
-description: Haiku classifies the request; Sonnet writes the answer
+description: Haiku classifies the request, Sonnet writes the answer
 metadata:
   type: project
 ---
 
-# Model routing: Haiku triages, Sonnet answers
+# Haiku triages, Sonnet answers
 
-Every request hits Haiku first with the 12-label intent prompt; only
-`needs_answer` intents get forwarded to Sonnet with retrieved context.
+Every request hits Haiku first with the intent prompt. Only a
+`needs_answer` intent goes on to Sonnet with retrieved context.
 
-- Cuts cost roughly in half at p50 latency parity
-- Routing prompt lives in `prompts/route.md`, versioned in git
-- Fallback: on classifier timeout (>800ms) we skip straight to Sonnet
+- Halves cost at the same p50 latency
+- The routing prompt lives in `prompts/route.md`
+- On a classifier timeout (>800ms) we skip to Sonnet
 EOF
 
 cat > "$M/rag-pipeline-defaults.md" <<'EOF'
 ---
 name: rag-pipeline-defaults
-description: Chunking, retrieval and rerank settings that beat the eval baseline
+description: The chunking and retrieval settings that beat the baseline
 metadata:
   type: project
 ---
 
-# RAG pipeline defaults: chunking + retrieval
+# RAG pipeline defaults
 
-Retrieval was flat until chunking was fixed — these beat the baseline.
+Retrieval was flat until the chunking was fixed.
 
 ## What works
 
-- **Chunking:** 512 tokens, 64-token overlap, split on headings first
-- **Retrieval:** top-8 by cosine, reranked down to top-3
-- **Context budget:** retrieved chunks capped at 2k tokens total
+- **Chunking:** 512 tokens, 64-token overlap
+- **Retrieval:** top-8 by cosine, reranked to top-3
+- **Context budget:** 2k tokens of retrieved text
 
 ## Why
 
 Smaller chunks kept splitting tables mid-row.
 
-The rerank step moved accuracy (+11 pts) — not a bigger `top_k`.
+Reranking moved accuracy (+11 pts), not a bigger `top_k`.
 
-Related: [[model-routing]] — that model consumes these chunks.
+Related: [[model-routing]], which reads these chunks.
 EOF
 
 cat > "$M/redact-prompts.md" <<'EOF'
 ---
 name: redact-prompts
-description: Strip PII before prompts leave the process — Sentry included
+description: Strip PII before a prompt leaves the process
 metadata:
   type: feedback
 ---
 
-# Never log raw prompts — redact before Sentry
+# Never log raw prompts
 
-**Why:** user prompts contain emails and account numbers; one leaked
+**Why:** prompts carry emails and account numbers, so one leaked
 breadcrumb is a compliance incident.
 
-**How to apply:** pass every outbound string through `redact()` in
-`internal/privacy` — including error reporters and debug logs.
+**How to apply:** send every outbound string through `redact()` in
+`internal/privacy`, error reporters included.
 EOF
 
-cat > "$(dirname "$M")/memory/MEMORY.md" <<'EOF'
+cat > "$M/MEMORY.md" <<'EOF'
 # nimbus-api — project memory
 
-- [Model routing: Haiku triages, Sonnet answers](model-routing.md) — cost cut, latency parity
-- [RAG pipeline defaults: chunking + retrieval](rag-pipeline-defaults.md) — the settings that beat the baseline
-- [Never log raw prompts — redact before Sentry](redact-prompts.md) — PII stays in-process
+- [Haiku triages, Sonnet answers](model-routing.md) — half the cost, same latency
+- [RAG pipeline defaults](rag-pipeline-defaults.md) — the settings that beat the baseline
+- [Never log raw prompts](redact-prompts.md) — PII stays in-process
 EOF
 
 # --- nimbus-chat -----------------------------------------------------------
 M="$(make_project nimbus-chat)"
+
+cat > "$SRC/nimbus-chat/CLAUDE.md" <<'EOF'
+# nimbus-chat
+
+The web client: composer, streaming transcript, and history.
+
+- pnpm workspaces, `strict: true`, no `any` escapes.
+- The transcript renders tokens as they stream. Don't buffer it.
+- Run `pnpm test` before every push.
+EOF
 
 cat > "$M/sse-streaming.md" <<'EOF'
 ---
@@ -107,11 +138,11 @@ metadata:
   type: project
 ---
 
-# Stream tokens over SSE, not websockets
+# Stream tokens over SSE
 
-The composer renders tokens from a plain `EventSource`. We tried
-websockets first and dropped them: SSE reconnects for free, plays nice
-with the CDN, and the server stays stateless.
+The composer reads tokens from a plain `EventSource`. We tried
+websockets first and dropped them: SSE reconnects for free and the
+server stays stateless.
 EOF
 
 cat > "$M/user-prefs.md" <<'EOF'
@@ -124,14 +155,14 @@ metadata:
 
 # Prefers pnpm + strict TypeScript
 
-Monorepo uses pnpm workspaces. `strict: true` everywhere — no `any`
-escapes. Prefers small, reviewable PRs over big drops.
+The monorepo uses pnpm workspaces. `strict: true` everywhere, no
+`any` escapes. Prefers small, reviewable PRs over big drops.
 EOF
 
 cat > "$M/claude-api-links.md" <<'EOF'
 ---
 name: claude-api-links
-description: The three tabs open during any model-behavior debugging
+description: The tabs that stay open while debugging model behavior
 metadata:
   type: reference
 ---
@@ -140,19 +171,29 @@ metadata:
 
 - Docs: https://docs.anthropic.com
 - Status: https://status.anthropic.com
-- Internal cost dashboard: `grafana/nimbus-llm-spend`
+- Spend dashboard: `grafana/nimbus-llm-spend`
 EOF
 
-cat > "$(dirname "$M")/memory/MEMORY.md" <<'EOF'
+cat > "$M/MEMORY.md" <<'EOF'
 # nimbus-chat — project memory
 
-- [Stream tokens over SSE, not websockets](sse-streaming.md) — stateless server, CDN-friendly
-- [Prefers pnpm + strict TypeScript](user-prefs.md) — workspace + review habits
+- [Stream tokens over SSE](sse-streaming.md) — stateless server, free reconnects
+- [Prefers pnpm + strict TypeScript](user-prefs.md) — workspace and review habits
 - [Claude API docs + status page](claude-api-links.md) — debugging bookmarks
 EOF
 
 # --- eval-harness ----------------------------------------------------------
 M="$(make_project eval-harness)"
+
+cat > "$SRC/eval-harness/CLAUDE.md" <<'EOF'
+# eval-harness
+
+Runs the golden set against a prompt or model change and scores it.
+
+- A new case needs a failure-mode tag, or the report can't group it.
+- Scores are only comparable within one model version. Say which.
+- Never edit a golden answer to make a run pass.
+EOF
 
 cat > "$M/golden-set.md" <<'EOF'
 ---
@@ -162,11 +203,11 @@ metadata:
   type: project
 ---
 
-# Golden set: 40 prompts, tagged by failure mode
+# Golden set: 40 tagged prompts
 
-Lives in `evals/golden/`. Each case is tagged (`hallucination`,
-`refusal`, `format`) so a regression names its failure mode instead of
-just a score drop.
+Lives in `evals/golden/`. Every case carries a failure-mode tag
+(`hallucination`, `refusal`, `format`), so a regression names what
+broke instead of just dropping a score.
 EOF
 
 cat > "$M/run-evals-first.md" <<'EOF'
@@ -177,13 +218,13 @@ metadata:
   type: feedback
 ---
 
-# Run the evals before every prompt change
+# Run evals before prompt edits
 
-**Why:** prompt edits look harmless and regress silently — the golden
-set catches what code review can't.
+**Why:** prompt edits look harmless and regress quietly; the golden
+set catches what code review cannot.
 
-**How to apply:** `make eval` before pushing anything under `prompts/`;
-paste the score table into the PR description.
+**How to apply:** run `make eval` before pushing anything under
+`prompts/`, and paste the score table into the PR.
 EOF
 
 cat > "$M/score-dashboard.md" <<'EOF'
@@ -196,16 +237,52 @@ metadata:
 
 # Nightly eval scores dashboard
 
-- Scores: `grafana/nimbus-evals` (nightly run, per failure-mode tag)
+- Scores: `grafana/nimbus-evals`, per failure-mode tag
 - Raw transcripts: `s3://nimbus-evals/runs/`
 EOF
 
-cat > "$(dirname "$M")/memory/MEMORY.md" <<'EOF'
+cat > "$M/MEMORY.md" <<'EOF'
 # eval-harness — project memory
 
-- [Golden set: 40 prompts, tagged by failure mode](golden-set.md) — regressions name their failure mode
-- [Run the evals before every prompt change](run-evals-first.md) — make eval, paste the table
-- [Nightly eval scores dashboard](score-dashboard.md) — grafana + raw transcripts
+- [Golden set: 40 tagged prompts](golden-set.md) — regressions name what broke
+- [Run evals before prompt edits](run-evals-first.md) — make eval, paste the table
+- [Nightly eval scores dashboard](score-dashboard.md) — grafana and raw transcripts
+EOF
+
+# --- plans (~/.claude/plans, what plan mode writes) -------------------------
+cat > "$PLANS/streaming-tool-use.md" <<'EOF'
+# Plan: Stream tool use into the composer
+
+Tool calls currently land only after the turn finishes, so a long
+search looks like a hang.
+
+1. Emit `tool_use` and `tool_result` as their own SSE events
+2. Render a collapsed row per call, expandable on click
+3. Keep the transcript scrolled to the newest event
+4. Add a Playwright case for a turn with two tool calls
+EOF
+
+cat > "$PLANS/prompt-cache-rollout.md" <<'EOF'
+# Plan: Cache the system prompt
+
+The system prompt and the tool definitions are resent on every turn.
+
+1. Split the prompt into a stable prefix and the per-turn tail
+2. Mark the prefix as cacheable
+3. Log cache reads and writes per request
+4. Compare spend over a week before rolling it out everywhere
+EOF
+
+cat > "$PLANS/cross-encoder-rerank.md" <<'EOF'
+# Plan: Try a cross-encoder reranker
+
+Reranking is the step that moved accuracy, so it is worth a better
+model before anything else is tuned.
+
+1. Score the golden set with the current reranker as a baseline
+2. Swap in the cross-encoder behind a flag
+3. Compare accuracy and added latency per failure-mode tag
+4. Keep it only if p95 latency stays under budget
 EOF
 
 echo "demo home staged at: $DEMOHOME"

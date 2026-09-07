@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Documentation
+- **The README screenshot is a fresh capture, over simpler demo data.** The old one was
+  stamped `v0.5.0` and showed six of its nine memory titles truncated with an ellipsis,
+  `plans 0` and `files 3` — an app that looked half-empty and a version behind. The
+  fictional fixtures in `docs/demo/setup.sh` are rewritten so the memories fit the panes
+  (no truncated title, no wrapped preview line) and now stage plans and instruction files
+  too, so every header counter shows real content. They stay entirely made up: an imaginary
+  AI product, its eval harness, and the memories a team would keep about routing, retrieval
+  and evals. `docs/demo/README.md` records the traps that cost a capture each, alongside
+  the ones already known: `Down` steps over memory rows only, and a project's memories sort
+  by type and then title, so `MEMORY.md` never sets the order.
 - **README explains the macOS quarantine prompt on downloaded binaries.** The release
   archives are unsigned and unnotarized, so a browser-downloaded one is quarantined and
   Gatekeeper blocks the binary after extraction: Finder says Apple could not verify it is
