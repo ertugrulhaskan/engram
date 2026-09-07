@@ -49,7 +49,8 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
 - **SPEC.md** — update the data model (§6), module layout (§8), or design sections
   when types, packages, or behavior change.
 - **README.md** — keep the keybinding table, install steps, and feature list matching
-  the actual TUI.
+  the actual TUI. **`docs/tui.png` drifts silently** — nothing in CI looks at it, so a UI
+  change or a version bump needs a recapture (`docs/demo/README.md`), not a text edit.
 - **BRAND.md** — the voice and claims rules public copy is checked against: the site and
   `llms.txt` today, README and TUI strings as they are touched. A naming, platform, or proof
   rule changes there first; the copy follows.

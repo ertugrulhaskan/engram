@@ -10,17 +10,21 @@ Requires [vhs](https://github.com/charmbracelet/vhs) (`brew install vhs`).
 
 ```sh
 cd docs/demo
-# Stamp the version you are shipping. A plain `go build` leaves it empty, and
-# the header then shows a long VCS pseudo-version (v0.2.2-0.2026…) that gets
-# clipped mid-string in the capture.
-go build -ldflags "-s -w -X main.version=v0.5.1" -o engram ../..
+# Stamp the version. A plain `go build` leaves it empty, and the header then
+# shows a long VCS pseudo-version (v0.2.2-0.2026…) that gets clipped mid-string
+# in the capture. Defaults to the latest release tag; at release time that tag
+# does not exist yet, so set VERSION to the one you are about to cut. The
+# `:?` guard matters — a shallow clone or a fork with no tags fetched would
+# otherwise stamp an empty string and silently bring the pseudo-version back.
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null)}"
+go build -ldflags "-s -w -X main.version=${VERSION:?no release tag — set VERSION=vX.Y.Z}" -o engram ../..
 bash setup.sh              # stage the fictional demo home
 find home src -name "*.md" -exec touch -A -000400 {} +   # see the stamp note below
 vhs tui.tape               # drive the TUI, write tui.png
 cp tui.png ../tui.png      # promote the new capture
 ```
 
-**Look at the PNG before promoting it.** Four things go wrong quietly, and each
+**Look at the PNG before promoting it.** Five things go wrong quietly, and each
 was caught only by looking at a capture rather than trusting it:
 
 - **vhs drops a glyph now and then.** A `v0.4.0` run lost the em dash from a
@@ -58,6 +62,7 @@ by type (project, feedback, user, reference) and then alphabetically by title**;
 a file itself is missing. So renaming a memory's heading, or changing its
 `metadata.type`, re-anchors the tape silently. If `setup.sh`'s fixtures change,
 recount and adjust.
+
 Generated artifacts (`engram`, `home/`, `src/`, `demo.gif`, `tui.png`) are
 gitignored, which is also what keeps the real local paths encoded in
 `home/.claude/projects/` out of the repo.

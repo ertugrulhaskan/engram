@@ -197,6 +197,13 @@ To cut a release:
    these, so they only stay honest by hand. (Match the whole `vX.Y.Z` shape, not a
    `v0.`-prefixed one — a `v0.` pattern silently finds nothing the day the project
    reaches 1.0.0 and reads as "nothing to bump".)
+
+   **The README screenshot carries one of these strings too** — its header renders
+   `engram vX.Y.Z` — so recapture it in this same commit. The version always moves at
+   this step, so this is not optional: `v0.5.1` shipped `v0.5.0`'s screenshot because
+   nobody re-ran the capture, not because the stamp was wrong (it had been bumped
+   correctly). Follow [`docs/demo/README.md`](docs/demo/README.md) with `VERSION` set to
+   the tag you are about to cut, since it does not exist yet.
 3. Tag and push **the specific tag** (never `git push --tags` — that would also push
    any un-pushed local tags and fire stray releases):
    ```sh

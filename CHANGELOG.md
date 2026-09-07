@@ -20,7 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AI product, its eval harness, and the memories a team would keep about routing, retrieval
   and evals. `docs/demo/README.md` records the traps that cost a capture each, alongside
   the ones already known: `Down` steps over memory rows only, and a project's memories sort
-  by type and then title, so `MEMORY.md` never sets the order.
+  by type and then title, so `MEMORY.md` never sets the order. The capture command now
+  takes its version stamp from the latest release tag (or an explicit `VERSION`) instead
+  of a hardcoded string, and recapturing is a named part of step 2 of "Releasing" —
+  `v0.5.1` shipped `v0.5.0`'s screenshot because no step called for the recapture, not
+  because the stamp was stale. Nothing in CI checks the image, so the checklist is what
+  holds.
 - **README explains the macOS quarantine prompt on downloaded binaries.** The release
   archives are unsigned and unnotarized, so a browser-downloaded one is quarantined and
   Gatekeeper blocks the binary after extraction: Finder says Apple could not verify it is
