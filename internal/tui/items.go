@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ type Item struct {
 	GroupLabel string         // header text for the first row of a group
 	GroupColor string         // header color (hex)
 	Right      string         // right-aligned column text (project when grouped by type, or date)
-	Context    string         // preview meta context (project name, or "plan")
+	Context    string         // preview meta context (project name, scope, or a plan's parent dir)
 	Detail     string         // extra preview-meta note (a rule file's scoping, e.g. "applies to src/**"); "" = none
 	MemDir     string         // memory dir for new/index/drift; "" for plans
 	ProjectDir string         // decoded project dir, for launching an assistant in context; "" for plans
@@ -245,7 +246,14 @@ func (m Model) planItems() []Item {
 		items = append(items, Item{
 			Title: p.Title, Body: p.Body, Raw: p.Body, Path: p.Path, Modified: p.Modified,
 			GroupKey: key, GroupLabel: label, GroupColor: colorFor(key),
-			Right: humanizeSince(p.Modified), Context: "plan", Kind: "plan",
+			// Context is the segment before the first slash in the preview meta, and
+			// shortPath drops a file's parent dir only when it repeats Context. Taken
+			// from the plan's own parent dir rather than written out, so it cannot
+			// drift from plan.Discover's directory: the literal "plan" against a
+			// plans/ dir is what made the meta read "plan/plans/x.md". Discovery is
+			// flat (os.ReadDir, dirs skipped), so this is always the plans dir base.
+			Right: humanizeSince(p.Modified), Kind: "plan",
+			Context: filepath.Base(filepath.Dir(p.Path)),
 		})
 	}
 	return items

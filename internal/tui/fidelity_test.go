@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path"
 	"strings"
 	"testing"
 
@@ -71,6 +72,34 @@ func TestShortPath(t *testing.T) {
 		if got := shortPath(c.it); got != c.want {
 			t.Errorf("shortPath(%q,%q)=%q, want %q", c.it.Path, c.it.Context, got, c.want)
 		}
+	}
+}
+
+// A plan carries no Badge, so Context is the only type word the preview meta
+// shows — and plans sit in a directory whose base is that same word pluralized.
+// While Context was the singular "plan", shortPath's dedup missed by one
+// character and the meta read "plan/plans/auto-reload.md". This drives
+// planItems rather than calling shortPath on a hand-built Item, so reverting the
+// constant fails here instead of quietly reappearing in the preview.
+func TestPlanPreviewPathNotDoubled(t *testing.T) {
+	m := toSource(t, "/plans")
+	it, ok := m.selected()
+	if !ok {
+		t.Fatal("no plan selected")
+	}
+	// Derived, not the literal "plans": asserting the word would pin the value
+	// against itself and stay green if plan.Discover's directory were renamed.
+	want := path.Base(path.Dir(it.Path)) + "/" + path.Base(it.Path)
+	if got := shortPath(it); got != want {
+		t.Errorf("shortPath = %q, want %q", got, want)
+	}
+	// On the rendered line, not shortPath alone — the doubling was visible here.
+	lines := strings.Split(ansi.Strip(m.previewPane()), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("preview has %d lines", len(lines))
+	}
+	if !strings.Contains(lines[1], want) {
+		t.Errorf("preview meta %q does not carry the location %q", lines[1], want)
 	}
 }
 

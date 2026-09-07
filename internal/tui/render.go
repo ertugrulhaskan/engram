@@ -391,9 +391,12 @@ func (m Model) memRow(it Item, selected bool, markW, badgeW, scopeW, syncW, righ
 // base, and the filename, derived from the real path (never assembled from
 // assumptions about the layout).
 //
-// The parent dir is dropped when it repeats the project name, which is exactly
-// the case for a file sitting in the project root: an AGENTS.md at
-// /code/acme-site would otherwise read "acme-site/acme-site/AGENTS.md".
+// The parent dir is dropped when it repeats Context, which is the case for a
+// file sitting in the project root: an AGENTS.md at /code/acme-site would
+// otherwise read "acme-site/acme-site/AGENTS.md". Plans depend on this branch
+// too, and deliberately: they have no project, so planItems sets Context to
+// their own parent dir base to collapse "plan/plans/x.md" to "plans/x.md".
+// Narrowing this to project names only would silently double that line again.
 func shortPath(it Item) string {
 	if it.Path == "" {
 		return ""

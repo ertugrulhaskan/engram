@@ -30,6 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requires one named exactly `build`. CI and the release workflow now pin the same Go
   patch version, so the toolchain that builds published binaries is the one CI exercises.
 
+### Fixed
+- **A plan's preview meta no longer doubles its directory.** It read
+  `plan/plans/prompt-cache-rollout.md` and now reads `plans/prompt-cache-rollout.md`. The
+  location line is built as `context/parent-dir/file`, with the parent dropped when it
+  repeats the context — the same guard that stops a project's own rules file reading
+  `acme/acme/CLAUDE.md`. Plans set that context to the singular `plan` against a `plans/`
+  directory, so the guard missed by one character. A plan carries no type badge, so this
+  word is the only type label the line shows. The value is now taken from the plan's own
+  parent directory rather than written out, so it cannot drift from where
+  `plan.Discover` actually reads: renaming that directory would have reintroduced the
+  doubling in a new spelling. Nothing else depended on the value — the drift banner and
+  the reconcile dialog are gated to the memories source, and the list filter is a
+  substring match, so searching `plan` still finds plans.
+
 ### Security
 - **`golang.org/x/net` moved to `v0.58.0` and `x/sys` to `v0.47.0`**, clearing eleven
   advisories accumulated since the last sweep. **None of them was exploitable through
