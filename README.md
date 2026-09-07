@@ -48,6 +48,28 @@ published too, but they are **untested, and native Windows is not planned**: ver
 it needs a real Windows machine to test on. On Windows, use WSL, which is a Linux
 environment and works today.
 
+> **macOS: a release archive downloaded in a browser needs one extra command.** These
+> binaries are not code-signed or notarized, so macOS quarantines the archive your browser
+> saved, and extracting it carries that flag onto the binary inside. Gatekeeper then blocks
+> it. Opening it from Finder says Apple could not verify the file is free of malware;
+> running it from a terminal is stranger, usually an exit 127 with *"no such file or
+> directory"* for a file that is plainly there. Both mean the same thing, and neither is a
+> statement about the contents: nothing scanned it and found anything. Clear the flag on
+> the extracted binary and it runs:
+>
+> ```sh
+> tar -xzf engram_*_darwin_*.tar.gz
+> xattr -dr com.apple.quarantine ./engram
+> ./engram
+> ```
+>
+> The flag survives command-line `tar`, so extracting in a terminal does not avoid this.
+> Running `xattr -dr` on a file that was never quarantined is harmless.
+>
+> `brew install` and `go install` need none of this. The Homebrew cask clears the flag as
+> part of installing, and `go install` compiles on your own machine, so neither is ever
+> quarantined.
+
 **From source:**
 
 ```sh

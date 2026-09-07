@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- **README explains the macOS quarantine prompt on downloaded binaries.** The release
+  archives are unsigned and unnotarized, so a browser-downloaded one is quarantined and
+  Gatekeeper blocks the binary after extraction: Finder says Apple could not verify it is
+  free of malware, and a terminal usually reports a misleading "no such file or directory".
+  The install section now names the symptom and gives the one command that clears it.
+  Nothing changed about the binaries; the gap was that the README pointed people at the
+  download without mentioning any of this. `brew install` and `go install` were never
+  affected.
+
 ## [0.5.1] - 2026-09-06
 
 ### Added
