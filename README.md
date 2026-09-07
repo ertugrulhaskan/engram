@@ -36,7 +36,7 @@ proper UI.
 brew install ertugrulhaskan/tap/engram
 ```
 
-**Go** (requires [Go](https://go.dev/dl/) 1.23+; Linux too):
+**Go** (requires [Go](https://go.dev/dl/) 1.25+; Linux too):
 
 ```sh
 go install github.com/ertugrulhaskan/engram@latest

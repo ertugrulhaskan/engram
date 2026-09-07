@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The minimum Go version is now 1.25** (was 1.23); CI and the release workflow build with
+  1.27. The floor is not a preference — every `golang.org/x/net` release carrying the fixes
+  below declares `go 1.25.0`. A current `go install` downloads the newer toolchain by
+  itself, but distro-packaged Go commonly sets `GOTOOLCHAIN=local`, where it does not, so
+  README, CONTRIBUTING and SPEC now say 1.25.
+
+### Security
+- **`golang.org/x/net` moved to `v0.58.0` and `x/sys` to `v0.47.0`**, clearing eleven
+  advisories accumulated since the last sweep. **None of them was exploitable through
+  engram, and this entry should not be read as an incident:** `govulncheck` reports zero
+  *called* symbols both before and after. Seven sit in `x/net/html`'s tree-construction
+  parser, which engram never enters — markdown rendering goes `internal/tui` → glamour →
+  bluemonday, whose only entry point into that package is `html.NewTokenizer`. The
+  remaining four are module-level. This is defence in depth and alert hygiene. Two details
+  worth stating rather than filing under "transitive": `GO-2026-5024` is an integer
+  overflow in `x/sys/windows`, and the project publishes Windows archives; and the bump
+  goes past the `v0.55.0` the alert named because `GO-2026-5942` is only fixed in
+  `v0.56.0`. `x/sync`, `x/term` and `x/text` moved as transitive requirements. Rendering is
+  unaffected — recapturing the README screenshot against the new build produces a
+  byte-identical PNG.
+
 ### Documentation
 - **The README screenshot is a fresh capture, over simpler demo data.** The old one was
   stamped `v0.5.0` and showed six of its nine memory titles truncated with an ellipsis,

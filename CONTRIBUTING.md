@@ -8,7 +8,7 @@ and the decisions behind it.
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) 1.23 or newer
+- [Go](https://go.dev/dl/) 1.25 or newer
 - `git`
 
 ## Build, run, test

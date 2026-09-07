@@ -252,9 +252,10 @@ func TestScanRootDocsHaveNoIndexRow(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(wd, "MEMORY.md"), []byte("# stray index\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// os.Chdir + restore rather than t.Chdir: this module targets go1.23, and
-	// t.Chdir landed in 1.24. No test here runs in parallel, so the process-wide
-	// change is contained.
+	// os.Chdir + restore rather than t.Chdir, which would be simpler and restores
+	// automatically. Kept only because it works; the go1.23 floor that forced it is
+	// gone. No test here runs in parallel, so the process-wide change is contained —
+	// that invariant is what this hand-rolled form depends on and t.Chdir enforces.
 	prev, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)

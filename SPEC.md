@@ -31,7 +31,7 @@ cross-project memories, personal-vs-team layering, and a real UI.
 
 | Concern            | Choice                                            |
 |--------------------|---------------------------------------------------|
-| Language           | Go 1.23+                                           |
+| Language           | Go 1.25+                                           |
 | TUI framework      | Bubble Tea (Charm)                                |
 | List / viewport    | Bubbles (Charm)                                   |
 | Styling            | Lip Gloss (Charm)                                 |
