@@ -11,7 +11,7 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-**Latest release: `v0.5.0`** · open source ([MIT](LICENSE)) · website:
+**Latest release: `v0.5.1`** · open source ([MIT](LICENSE)) · website:
 [engram.im](https://engram.im) · what's next: [ROADMAP.md](ROADMAP.md) ·
 design: [SPEC.md](SPEC.md)
 

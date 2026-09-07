@@ -94,7 +94,7 @@ Goal: share the team-useful memories across people and projects, no servers.
       A global memory you hold nowhere is still never *placed*: it belongs to no
       project, so the store stays its home until you promote it into one
 
-## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.5.0` released, [engram.im](https://engram.im) live; one packaging deprecation open)*
+## Phase 3 — Release / go public *(shipped — repo public, `v0.2.0` through `v0.5.1` released, [engram.im](https://engram.im) live; one packaging deprecation open)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 

@@ -11,7 +11,7 @@ cd docs/demo
 # Stamp the version you are shipping. A plain `go build` leaves it empty, and
 # the header then shows a long VCS pseudo-version (v0.2.2-0.2026…) that gets
 # clipped mid-string in the capture.
-go build -ldflags "-s -w -X main.version=v0.5.0" -o engram ../..
+go build -ldflags "-s -w -X main.version=v0.5.1" -o engram ../..
 bash setup.sh              # stage the fictional demo home
 find home -name "*.md" -exec touch -A -000400 {} +   # see the stamp note below
 vhs tui.tape               # drive the TUI, write tui.png

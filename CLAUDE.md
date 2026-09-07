@@ -85,7 +85,7 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-Phase 3 (going public) is **done**: the repo is public, `v0.2.0` through `v0.5.0` are released
+Phase 3 (going public) is **done**: the repo is public, `v0.2.0` through `v0.5.1` are released
 (binaries + Homebrew tap live), and the site is **live at engram.im on Cloudflare Pages** (SSL).
 **For any future release, don't run the publish steps unprompted** — pushing a `v*` tag
 fires the GoReleaser workflow and cuts a public release (push the *specific* tag, never

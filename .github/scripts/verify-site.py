@@ -135,13 +135,24 @@ if index.is_file():
         if data.get("@type") == "FAQPage":
             faq = data
 
-    if faq is not None:
-        section = src[src.index('id="faq"'):] if 'id="faq"' in src else ""
-        cards = re.findall(
-            r"<details\b.*?<h3[^>]*>(.*?)</h3>.*?</summary>\s*(.*?)\s*</details>",
-            section,
-            re.S,
+    # Read the cards FIRST, so a schema that is missing entirely is caught. Gating
+    # the whole comparison on `faq is not None` meant deleting the JSON-LD block, or
+    # renaming its @type, silently passed: six visible cards with no schema at all is
+    # exactly the drift this exists to stop, and it is the easiest one to cause.
+    section = src[src.index('id="faq"'):] if 'id="faq"' in src else ""
+    cards = re.findall(
+        r"<details\b.*?<h3[^>]*>(.*?)</h3>.*?</summary>\s*(.*?)\s*</details>",
+        section,
+        re.S,
+    )
+
+    if cards and faq is None:
+        failures.append(
+            f"index.html: {len(cards)} visible FAQ cards but no FAQPage JSON-LD block.\n"
+            "    the schema is either missing or its \"@type\" is no longer \"FAQPage\".\n"
+            "    fix: restore the FAQPage block so the cards stay machine-readable."
         )
+    elif faq is not None:
         entries = faq.get("mainEntity", [])
         if not cards:
             failures.append(

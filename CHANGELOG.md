@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-06
+
 ### Added
 - **A real not-found page.** An unknown URL on engram.im used to answer with the full home
   page and a `200`, so a mistyped or stale link looked like the front door and a crawler
@@ -1198,7 +1200,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/ertugrulhaskan/engram/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/ertugrulhaskan/engram/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ertugrulhaskan/engram/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ertugrulhaskan/engram/compare/v0.2.1...v0.3.0
