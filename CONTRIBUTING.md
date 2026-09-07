@@ -177,7 +177,10 @@ value, so a field nobody set can't decide what the UI offers.
    or the Phase 2 refinements still listed as open — check
    [ROADMAP.md](ROADMAP.md) first).
 2. Fork, branch, and make your change with tests.
-3. Ensure `go test ./...` and `go vet ./...` pass and the tree is `gofmt`-clean.
+3. Ensure `go test ./...` and `go vet ./...` pass and the tree is `gofmt`-clean. CI also
+   runs `govulncheck -scan module`, which fails on any advisory in the dependency tree
+   even where engram never calls the affected code, and rebuilds on the Go version
+   `go.mod` declares.
 4. Open a pull request that explains the what and the why, and note anything you
    couldn't verify.
 

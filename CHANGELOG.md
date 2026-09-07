@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   below declares `go 1.25.0`. A current `go install` downloads the newer toolchain by
   itself, but distro-packaged Go commonly sets `GOTOOLCHAIN=local`, where it does not, so
   README, CONTRIBUTING and SPEC now say 1.25.
+- **CI scans for vulnerabilities, and builds on the floor as well as the ceiling.**
+  `govulncheck -scan module` runs in the `build` job, so an advisory anywhere in the
+  dependency tree fails the build the day it lands rather than waiting to be found by hand
+  — which is how eleven accumulated. Module scanning rather than the default symbol scan
+  is the whole point: all eleven were imported but never called, and the default mode
+  lists those as informational and still exits 0. The trade is a red build for an advisory
+  engram may never reach. A separate `floor` job rebuilds and retests on the Go version
+  `go.mod` declares, with `GOTOOLCHAIN=local` so it cannot quietly download a newer
+  toolchain and pass anyway; what it catches is a dependency raising its own Go floor,
+  which is exactly what forced 1.23 → 1.25 above. It is a separate job rather than a
+  matrix leg because a matrix renames the check to `build (1.25)` while branch protection
+  requires one named exactly `build`. CI and the release workflow now pin the same Go
+  patch version, so the toolchain that builds published binaries is the one CI exercises.
 
 ### Security
 - **`golang.org/x/net` moved to `v0.58.0` and `x/sys` to `v0.47.0`**, clearing eleven

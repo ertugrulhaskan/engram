@@ -22,10 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Pinned to the same patch version release.yml builds with, so CI exercises exactly
+      # the toolchain that produces the published binaries. Bump both together.
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27"
+          go-version: "1.27.1"
 
       - name: Check formatting
         run: |
@@ -38,6 +40,63 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      # Nothing was watching before this. goldmark and x/net each sat on published
+      # advisories until someone looked by hand — first 0d79d78, then again in b84366a,
+      # by which point eleven had accumulated across x/net and x/sys. Dependabot does not
+      # close the gap on its own: its gomod group runs monthly and security alerts are a
+      # repository toggle, not this file.
+      #
+      # `-scan module`, not the default symbol scan, and that is the whole point. Every
+      # one of those eleven was imported but never called, so the default mode lists them
+      # as informational and still exits 0 — measured on a tree with x/net v0.38.0
+      # restored: default exits 0 with ten advisories present, `-scan module` exits
+      # non-zero. Module granularity is what Dependabot alerts on, and the cost is a red
+      # build for an advisory engram may never reach. That is the intended trade.
+      # (`-scan module` reads go.mod and takes no package pattern.)
+      #
+      # The scanner version is pinned for reproducibility, but unlike the action SHAs
+      # above nothing updates it: Dependabot's gomod group only covers modules in go.mod,
+      # and this is not one. Bump it by hand. The vulnerability database is fetched at run
+      # time, so a pinned scanner still learns about new advisories.
+      - name: Vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -scan module
+
+  # `build` runs 1.27, so nothing there proves the project still works with the toolchain
+  # README, CONTRIBUTING and SPEC tell users to install. The failure this catches is a
+  # *dependency* raising its own Go floor — precisely what x/net did in b84366a, dragging
+  # the module from 1.23 to 1.25. It is NOT about too-new stdlib symbols in our own code:
+  # `go vet` already reports those through its stdversion analyzer on either toolchain
+  # (verified: "fips140.Enforced requires go1.26 or later"), so `build` covers that.
+  #
+  # GOTOOLCHAIN=local is load-bearing, not tidiness. Go's default is `auto`, which
+  # silently downloads and runs a newer toolchain whenever go.mod asks for one — so
+  # without this the job would go green at the exact moment the floor moved, which is the
+  # one moment it exists for.
+  #
+  # A separate job rather than a matrix leg on `build`, deliberately: a matrix renames the
+  # check to "build (1.25)", and branch protection requires one named exactly `build`,
+  # which would then never report and would block every PR.
+  floor:
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # go-version-file reads go.mod's `go` directive, so the floor is stated once, in
+      # go.mod, rather than restated here where the next floor move would leave it behind.
+      - name: Set up Go at the floor go.mod declares
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
 
       - name: Test
         run: go test ./...

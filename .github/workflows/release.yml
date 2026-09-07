@@ -18,10 +18,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Pinned to a full patch version, for the same reason the actions above are pinned
+      # by SHA: this workflow only ever runs on a real tag, so a Go patch release that
+      # changes codegen or breaks the GoReleaser build would first execute during an
+      # actual publish — after the GitHub release exists and before the cask is pushed.
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27"
+          go-version: "1.27.1"
 
       # Fail before anything is published. GoReleaser creates the GitHub release
       # first and pushes the cask last, so a tap token without write access leaves a

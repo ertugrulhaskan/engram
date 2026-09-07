@@ -33,8 +33,10 @@ points after each step** (don't fold them into one silent summary):
 
 This is in addition to the formatting/vet/test gate in "Code rules". **That half is the
 only machine-enforced part:** on every push to `main` and every PR,
-`.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...` and `go test ./...` in its
-`build` job, and in its `site` job rebuilds `www/css/styles.css` to fail on a stale commit
+`.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...`, `go test ./...` and
+`govulncheck -scan module` in its `build` job, builds and tests again on the Go version
+`go.mod` declares in its `floor` job (pinned with `GOTOOLCHAIN=local`, or it would
+silently upgrade past the floor it is checking), and in its `site` job rebuilds `www/css/styles.css` to fail on a stale commit
 of it, then runs `.github/scripts/verify-site.py` for the CSP hashes, the Tailwind
 `@source` lines and FAQ/JSON-LD parity. Steps 1–4 have no enforcement at all —
 `.git/hooks/` holds only the stock samples — so the discipline lives here.
