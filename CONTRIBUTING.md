@@ -228,7 +228,8 @@ To cut a release:
 
    The workflow then runs GoReleaser, which builds cross-platform binaries
    (macOS / Linux / Windows × amd64/arm64), creates the GitHub Release with
-   archives + checksums, and pushes an updated formula to the Homebrew tap.
+   archives + checksums, and pushes an updated cask (`Casks/engram.rb`) to the Homebrew
+   tap.
 5. Deploy the site, so the version strings from step 2 actually reach visitors —
    deploys are manual and are *not* triggered by `git push` or by the release
    workflow:
@@ -237,27 +238,6 @@ To cut a release:
    ```
    Until this runs, engram.im keeps advertising the previous version next to an
    install command that now installs the new one.
-6. **Verify the cask's quarantine hook on the first release that generates it.**
-   [`.goreleaser.yaml`](.goreleaser.yaml) emits the `postflight_steps` block itself
-   through `install_steps`, so the tap no longer needs the hand-patch every earlier
-   release reverted. The first release built this way has to prove it, because nothing
-   else would notice a broken hook: the release succeeds and the cask installs either
-   way. In the tap repo, `Casks/engram.rb` must contain this block and no
-   `postflight do`:
-   ```ruby
-   postflight_steps do
-     on_macos do
-       run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{staged_path}}/engram"]
-     end
-   end
-   ```
-   Then run `brew reinstall --cask ertugrulhaskan/tap/engram`, check that `xattr -l` on
-   the Caskroom binary shows only `com.apple.provenance`, and run
-   `"$(brew --prefix)/bin/engram" --version`: a quarantined binary does not exec at all,
-   so a version print is the real evidence. Name that path rather than a bare `engram`,
-   which may resolve to a `go install` copy that was never quarantined and pass while the
-   hook is broken. That block is quarantine-clearing, not cosmetic. Once one release has
-   passed, delete this step.
 
 Validate config and do a full local dry-run (no publish) before tagging:
 

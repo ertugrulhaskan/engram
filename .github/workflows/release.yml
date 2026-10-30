@@ -41,7 +41,9 @@ jobs:
       # release rendering the quarantine hook differently would surface after publishing.
       # `install_steps` needs v2.19 or later. Nothing bumps this pin automatically —
       # Dependabot sees the action's SHA, not this input. Bump it by hand, after the
-      # `goreleaser check` and snapshot dry-run from CONTRIBUTING's "Releasing".
+      # `goreleaser check` and snapshot dry-run from CONTRIBUTING's "Releasing", and on
+      # the first release after a bump re-run the cask check described beside the hook
+      # in .goreleaser.yaml (brew reinstall, xattr -l, then run the installed binary).
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
@@ -49,5 +51,5 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # PAT with write access to ertugrulhaskan/homebrew-tap, for the formula push.
+          # PAT with write access to ertugrulhaskan/homebrew-tap, for the cask push.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
