@@ -43,9 +43,8 @@ Plain · precise · unhurried. Write like a good README, not like a launch post.
 mechanism instead of the adjective: "promote a memory; teammates pull it" over "seamless team
 collaboration". Confidence comes from being specific, never from intensifiers.
 
-Two rules that can be measured, both given while reviewing the landing page. They bind the
-site and `llms.txt` today; README and the TUI's own strings follow as they are touched, so a
-dash already there is not yet a defect:
+Two rules that can be measured. They bind the site and `llms.txt` today; README and the TUI's
+own strings follow as they are touched, so a dash already there is not yet a defect:
 
 - **No em dashes.** Rewrite rather than swapping the glyph: a colon when the clause introduces
   a list, a semicolon when two statements balance, or two sentences. En dashes in numeric
@@ -74,9 +73,9 @@ a server, or a subscription.
 ## Claims we must not make
 
 - **No platform we haven't verified.** macOS and Linux only. Native Windows is unverified
-  and, as of 2026-09-06, not planned (SPEC §10), so treat this as settled rather than
-  temporary: the site and README must not list it. The Windows archives that ship are
-  labelled untested and must never be worded as support.
+  and not planned (SPEC §10), so treat this as settled rather than temporary: the site
+  and README must not list it. The Windows archives that ship are labelled untested and
+  must never be worded as support.
 - **No invented proof.** No user counts, no testimonials, no logos, no ratings, no "trusted by".
 - **No blurring of shipped vs planned.** If ROADMAP says in progress, the page says in progress.
 - **No promise beyond what the tool does.** engram never modifies a user's memory files except
