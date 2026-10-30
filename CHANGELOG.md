@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matrix leg because a matrix renames the check to `build (1.26)` while branch protection
   requires one named exactly `build`. CI and the release workflow now pin the same Go
   patch version, so the toolchain that builds published binaries is the one CI exercises.
+- **The Homebrew cask is generated with `postflight_steps`, not the deprecated
+  `postflight`.** Homebrew 6.0 deprecated the old stanza, and every release regenerated
+  it, so `brew` printed "Calling `postflight` is deprecated!" until the tap was
+  hand-patched again, which happened after each release. GoReleaser v2.19 can emit the
+  replacement, and `.goreleaser.yaml` now uses it through `install_steps`; a snapshot
+  cask matches the tap's hand-patch line for line apart from the version and checksums.
+  The hook itself is unchanged: it clears macOS's quarantine flag from the unsigned
+  binary, without which macOS refuses to run it. The first release built this way is
+  verified with a `brew reinstall` before the old re-apply step is retired.
 
 ### Fixed
 - **A plan's preview meta no longer doubles its directory.** It read
