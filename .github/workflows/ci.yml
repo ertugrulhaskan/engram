@@ -27,7 +27,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.27.1"
+          go-version: "1.27.3"
 
       - name: Check formatting
         run: |
@@ -67,8 +67,9 @@ jobs:
 
   # `build` runs 1.27, so nothing there proves the project still works with the toolchain
   # README, CONTRIBUTING and SPEC tell users to install. The failure this catches is a
-  # *dependency* raising its own Go floor — precisely what x/net did in b84366a, dragging
-  # the module from 1.23 to 1.25. It is NOT about too-new stdlib symbols in our own code:
+  # *dependency* raising its own Go floor — precisely what x/net has done twice, dragging
+  # the module from 1.23 to 1.25 in b84366a and then to 1.26 when v0.60.0 carried the next
+  # round of fixes. It is NOT about too-new stdlib symbols in our own code:
   # `go vet` already reports those through its stdversion analyzer on either toolchain
   # (verified: "fips140.Enforced requires go1.26 or later"), so `build` covers that.
   #
@@ -78,7 +79,7 @@ jobs:
   # one moment it exists for.
   #
   # A separate job rather than a matrix leg on `build`, deliberately: a matrix renames the
-  # check to "build (1.25)", and branch protection requires one named exactly `build`,
+  # check to "build (1.26)", and branch protection requires one named exactly `build`,
   # which would then never report and would block every PR.
   floor:
     runs-on: ubuntu-latest

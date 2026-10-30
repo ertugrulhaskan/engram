@@ -174,7 +174,7 @@ func (m *Model) assistantCmd(provider string) tea.Cmd {
 		return m.setDanger(a.bin + " CLI not found on PATH — install it: " + a.install)
 	}
 	cwd, memDir, projDir, unresolved := m.assistantContext()
-	prompt := m.buildSeedPrompt(a, projDir, memDir, unresolved)
+	prompt := m.buildSeedPrompt(a, cwd, projDir, memDir, unresolved)
 	// Only grant the memory dir explicitly when it isn't already under cwd (the
 	// project-dir launch); in the ~/.claude/projects fallback it's already inside.
 	addDir := memDir

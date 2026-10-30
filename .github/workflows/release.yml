@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.27.1"
+          go-version: "1.27.3"
 
       # Fail before anything is published. GoReleaser creates the GitHub release
       # first and pushes the cask last, so a tap token without write access leaves a
@@ -36,10 +36,16 @@ jobs:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: .github/scripts/verify-tap-token.sh
 
+      # GoReleaser is pinned to the exact version the cask's `install_steps` hook was
+      # verified on, for the same reason Go is: this only runs on a real tag, so a new
+      # release rendering the quarantine hook differently would surface after publishing.
+      # `install_steps` needs v2.19 or later. Nothing bumps this pin automatically —
+      # Dependabot sees the action's SHA, not this input. Bump it by hand, after the
+      # `goreleaser check` and snapshot dry-run from CONTRIBUTING's "Releasing".
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: "~> v2"
+          version: "v2.19.0"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,35 +1,36 @@
 # engram — working rules
 
-engram is a single-binary Go TUI for browsing (and, in Phase 2, sharing) Claude Code
-memories. Design source of truth: [SPEC.md](SPEC.md). Phases: [ROADMAP.md](ROADMAP.md).
-Build/test rules: [CONTRIBUTING.md](CONTRIBUTING.md). Read SPEC.md before changing
-behavior.
+engram is a single-binary Go TUI for browsing Claude Code memories and sharing them with
+a team over plain git. Design source of truth: [SPEC.md](SPEC.md). Phases:
+[ROADMAP.md](ROADMAP.md). Build/test rules: [CONTRIBUTING.md](CONTRIBUTING.md). Read
+SPEC.md before changing behavior.
 
 ## Before you commit — review gate
 
 Before every commit, run these in order and **share findings + highlight the important
 points after each step** (don't fold them into one silent summary):
 
-1. **Review the code** with `context7` (verify Bubble Tea / lipgloss / glamour and any
-   other library APIs against current docs — don't trust memory) and `sequential-thinking`
-   (reason through correctness, edge cases, and the `internal/*` layering rules below).
+1. **Check library APIs and layering.** Verify Bubble Tea / lipgloss / glamour and any
+   other library APIs against current docs with `context7` — don't trust memory — and
+   check the change against the `internal/*` layering rules below.
    **The repo ships no MCP config** — there's no `.mcp.json`, because a project-scoped one
-   can only pass the context7 key as `${CONTEXT7_API_KEY}`, which isn't expanded at
-   MCP-launch time and reaches the server as a literal string. Register both servers
-   yourself instead, with your own key:
-   `claude mcp add context7 -s user -e CONTEXT7_API_KEY=… -- npx -y @upstash/context7-mcp@latest`
-   and `claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking`.
-2. **Review the working diff with `/code-review`.** This *is* agent-runnable —
-   verified 2026-08-23, when it ran on `002786d` and returned five findings, three
-   of which a careful manual pass had already missed. (This file previously claimed
-   an agent couldn't run it; that was wrong.) Run the real skill. If it ever refuses,
-   fall back to a manual diff pass and **say so explicitly**, never wording it as
-   though the skill ran. `/code-review ultra` is the exception — that one is
-   user-triggered and billed, so ask the maintainer rather than attempting it.
-3. **`/security-review`** over the pending branch changes. This one *is* agent-runnable —
-   run the real skill, never a folded-in inline assessment.
+   can only pass the context7 key as `${CONTEXT7_API_KEY}`, and Claude Code expands that
+   from its own environment at launch: an editor started without the variable set hands
+   the server the literal placeholder, which it rejects as an invalid key. Register the
+   server yourself instead, with your own key:
+   `claude mcp add context7 -s user -e CONTEXT7_API_KEY=… -- npx -y @upstash/context7-mcp@latest`.
+2. **Review the working diff with `/code-review high`.** The skill is agent-runnable:
+   invoke the real skill yourself — it has caught defects a careful manual pass missed.
+   Name the level every time, because a bare `/code-review` reuses whichever level was
+   typed last. `/code-review max` is the exception — it is the costliest level and starts
+   many reviewer subagents, so ask the maintainer rather than running it.
+3. **`/security-review`** over the pending branch changes. Also agent-runnable: run the
+   real skill, never a folded-in inline assessment.
 4. **Sync the docs** — see "Keep the docs in sync" below (CHANGELOG, ROADMAP, SPEC,
    README, this file, memories, plans).
+
+If either review skill refuses or is unavailable, fall back to a manual pass and **say so
+explicitly**, never wording it as though the skill ran.
 
 This is in addition to the formatting/vet/test gate in "Code rules". **That half is the
 only machine-enforced part:** on every push to `main` and every PR,
@@ -60,7 +61,7 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
   the two `application/ld+json` blocks in `www/index.html`) — these restate what's on the
   landing page, so a pitch/install/platform change must update them too. The `FAQPage`
   answers must stay word-for-word identical to the visible FAQ cards —
-  `.github/scripts/verify-site.py` now enforces that one, so it fails in CI rather than
+  `.github/scripts/verify-site.py` enforces that one, so it fails in CI rather than
   reaching a crawler.
 - **`www/_headers`** — its CSP pins a SHA-256 hash of each inline `<script>`, so editing
   one of those scripts without recomputing the hash breaks the page in production only.
@@ -69,8 +70,7 @@ the *same* change. Before committing, ask: "did this make any of these wrong?"
 - **Memories** (the project's `~/.claude/.../memory/` files) — when a project decision
   changes, update the relevant memory and its `MEMORY.md` line.
 
-This list exists because docs drift silently otherwise — that's how ROADMAP fell
-behind the shipped index-sync and release work.
+This list exists because docs drift silently otherwise.
 
 ## Code rules (detail in CONTRIBUTING.md)
 
@@ -88,8 +88,8 @@ behind the shipped index-sync and release work.
 
 ## Release / publishing
 
-Phase 3 (going public) is **done**: the repo is public, `v0.2.0` through `v0.5.1` are released
-(binaries + Homebrew tap live), and the site is **live at engram.im on Cloudflare Pages** (SSL).
+Phase 3 (going public) is **done**: the repo is public, tagged releases ship binaries and the
+Homebrew tap, and the site is **live at engram.im on Cloudflare Pages** (SSL).
 **For any future release, don't run the publish steps unprompted** — pushing a `v*` tag
 fires the GoReleaser workflow and cuts a public release (push the *specific* tag, never
 `git push --tags`), so do it only when the maintainer explicitly asks. Mechanics: SPEC §9
