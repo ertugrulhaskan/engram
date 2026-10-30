@@ -11,11 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **The minimum Go version is now 1.25** (was 1.23); CI and the release workflow build with
-  1.27. The floor is not a preference — every `golang.org/x/net` release carrying the fixes
-  below declares `go 1.25.0`. A current `go install` downloads the newer toolchain by
-  itself, but distro-packaged Go commonly sets `GOTOOLCHAIN=local`, where it does not, so
-  README, CONTRIBUTING and SPEC now say 1.25.
+- **The minimum Go version is now 1.26** (was 1.23); CI and the release workflow build with
+  1.27.3. The floor is not a preference — `golang.org/x/net` `v0.62.0`, the first release
+  carrying all the fixes below, declares `go 1.26.0`, as does every release from
+  `v0.60.0` — and 1.25 has left Go's support window anyway, since only the two newest
+  releases get security fixes. A current
+  `go install` downloads the newer toolchain by itself, but distro-packaged Go commonly
+  sets `GOTOOLCHAIN=local`, where it does not, so README, CONTRIBUTING and SPEC now say
+  1.26.
 - **CI scans for vulnerabilities, and builds on the floor as well as the ceiling.**
   `govulncheck -scan module` runs in the `build` job, so an advisory anywhere in the
   dependency tree fails the build the day it lands rather than waiting to be found by hand
@@ -25,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   engram may never reach. A separate `floor` job rebuilds and retests on the Go version
   `go.mod` declares, with `GOTOOLCHAIN=local` so it cannot quietly download a newer
   toolchain and pass anyway; what it catches is a dependency raising its own Go floor,
-  which is exactly what forced 1.23 → 1.25 above. It is a separate job rather than a
-  matrix leg because a matrix renames the check to `build (1.25)` while branch protection
+  which is exactly what moved it from 1.23 above. It is a separate job rather than a
+  matrix leg because a matrix renames the check to `build (1.26)` while branch protection
   requires one named exactly `build`. CI and the release workflow now pin the same Go
   patch version, so the toolchain that builds published binaries is the one CI exercises.
 
@@ -43,6 +46,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   doubling in a new spelling. Nothing else depended on the value — the drift banner and
   the reconcile dialog are gated to the memories source, and the list filter is a
   substring match, so searching `plan` still finds plans.
+- **An assistant opened from `/files` is now allowed to edit the file it was opened
+  for.** `/files` is read-only, and pressing `e` or `d` there says to edit with an
+  assistant instead, but the seed prompt that assistant received said to work only on
+  memory files and plans: the opposite of what the hint sent you there to do. From
+  `/files` the scope now includes the file you had selected and the prompt names it. A
+  non-Claude assistant is no longer told "these are Claude Code's files, not your own
+  `GEMINI.md`" there, since `/files` lists that very `GEMINI.md`; the note now names
+  Claude Code's own files instead. engram adds no folder to reach the global
+  `~/.gemini/GEMINI.md` or `~/.codex/AGENTS.md`, because theirs hold each CLI's own
+  settings, approval and sandbox rules included: for those the prompt says the CLI may
+  ask permission or refuse, rather than promising an edit. Launches from
+  memories and plans are unchanged.
+- **An assistant opened on a never-opened project's file no longer gets another
+  project's memories.** In `/files`, a rule file such as `AGENTS.md` in a project Claude
+  Code has never opened has no memory directory. The handoff filled the gap with the
+  first project in the memory list, so the session was granted that unrelated
+  project's memory directory and shown its index drift as if it were this one's. It now
+  launches in the project with no memory directory.
 
 ### Security
 - **`golang.org/x/net` moved to `v0.58.0` and `x/sys` to `v0.47.0`**, clearing eleven
@@ -58,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v0.56.0`. `x/sync`, `x/term` and `x/text` moved as transitive requirements. Rendering is
   unaffected — recapturing the README screenshot against the new build produces a
   byte-identical PNG.
+- **`golang.org/x/net` moved on to `v0.62.0` and binaries build with Go 1.27.3**, clearing
+  sixteen more advisories published after that sweep, in the standard library (fixed from
+  Go 1.27.2) and in `x/net` (the newest two fixed only in `v0.62.0`), several in both.
+  The new `vulnerability scan` step caught them the day they landed, by failing the build.
+  As before, **none is reachable from engram**: `govulncheck`'s symbol scan of the
+  previous tree on Go 1.27.1 reports zero called, with three in packages engram imports
+  and thirteen in modules it requires. `x/sync`, `x/sys`, `x/term` and `x/text` moved as
+  transitive requirements.
 
 ### Documentation
 - **The README screenshot is a fresh capture, over simpler demo data.** The old one was
@@ -83,6 +112,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nothing changed about the binaries; the gap was that the README pointed people at the
   download without mentioning any of this. `brew install` and `go install` were never
   affected.
+- **The contributor review gate needs only `context7`.** Step 1 in `CLAUDE.md` no longer
+  asks for the `sequential-thinking` MCP server: current Claude models reason without a
+  separate thinking tool, and the general correctness pass it carried duplicated
+  `/code-review`. Step 1 is now the context7 API check and the layering check. The gate also
+  pins a `/code-review` level, since a bare run reuses whichever level was typed last, and
+  names `max` as the level to ask about first. It corrects the reason the repo ships no
+  `.mcp.json`: Claude Code does expand `${CONTEXT7_API_KEY}` there, but from its own
+  environment, so an editor launched without the variable passes the literal placeholder.
 
 ## [0.5.1] - 2026-09-06
 
