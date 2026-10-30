@@ -11,11 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **The minimum Go version is now 1.25** (was 1.23); CI and the release workflow build with
-  1.27. The floor is not a preference — every `golang.org/x/net` release carrying the fixes
-  below declares `go 1.25.0`. A current `go install` downloads the newer toolchain by
-  itself, but distro-packaged Go commonly sets `GOTOOLCHAIN=local`, where it does not, so
-  README, CONTRIBUTING and SPEC now say 1.25.
+- **The minimum Go version is now 1.26** (was 1.23); CI and the release workflow build with
+  1.27.3. The floor is not a preference — `golang.org/x/net` `v0.62.0`, the first release
+  carrying all the fixes below, declares `go 1.26.0`, as does every release from
+  `v0.60.0` — and 1.25 has left Go's support window anyway, since only the two newest
+  releases get security fixes. A current
+  `go install` downloads the newer toolchain by itself, but distro-packaged Go commonly
+  sets `GOTOOLCHAIN=local`, where it does not, so README, CONTRIBUTING and SPEC now say
+  1.26.
 - **CI scans for vulnerabilities, and builds on the floor as well as the ceiling.**
   `govulncheck -scan module` runs in the `build` job, so an advisory anywhere in the
   dependency tree fails the build the day it lands rather than waiting to be found by hand
@@ -25,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   engram may never reach. A separate `floor` job rebuilds and retests on the Go version
   `go.mod` declares, with `GOTOOLCHAIN=local` so it cannot quietly download a newer
   toolchain and pass anyway; what it catches is a dependency raising its own Go floor,
-  which is exactly what forced 1.23 → 1.25 above. It is a separate job rather than a
-  matrix leg because a matrix renames the check to `build (1.25)` while branch protection
+  which is exactly what moved it from 1.23 above. It is a separate job rather than a
+  matrix leg because a matrix renames the check to `build (1.26)` while branch protection
   requires one named exactly `build`. CI and the release workflow now pin the same Go
   patch version, so the toolchain that builds published binaries is the one CI exercises.
 
@@ -76,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v0.56.0`. `x/sync`, `x/term` and `x/text` moved as transitive requirements. Rendering is
   unaffected — recapturing the README screenshot against the new build produces a
   byte-identical PNG.
+- **`golang.org/x/net` moved on to `v0.62.0` and binaries build with Go 1.27.3**, clearing
+  sixteen more advisories published after that sweep, in the standard library (fixed from
+  Go 1.27.2) and in `x/net` (the newest two fixed only in `v0.62.0`), several in both.
+  The new `vulnerability scan` step caught them the day they landed, by failing the build.
+  As before, **none is reachable from engram**: `govulncheck`'s symbol scan of the
+  previous tree on Go 1.27.1 reports zero called, with three in packages engram imports
+  and thirteen in modules it requires. `x/sync`, `x/sys`, `x/term` and `x/text` moved as
+  transitive requirements.
 
 ### Documentation
 - **The README screenshot is a fresh capture, over simpler demo data.** The old one was
