@@ -237,12 +237,13 @@ To cut a release:
    ```
    Until this runs, engram.im keeps advertising the previous version next to an
    install command that now installs the new one.
-6. **Re-apply the tap's `postflight_steps` patch.** GoReleaser regenerates
-   `Casks/engram.rb` on every release and overwrites it, so this silently reverts each
-   time — until the migration described in [`.goreleaser.yaml`](.goreleaser.yaml)
-   lands. Nothing detects the revert: the release succeeds and the cask installs
-   cleanly; the only symptom is `brew` printing "Calling `postflight` is deprecated!"
-   at users. In the tap repo, swap the generated `postflight do … end` block for:
+6. **Verify the cask's quarantine hook on the first release that generates it.**
+   [`.goreleaser.yaml`](.goreleaser.yaml) emits the `postflight_steps` block itself
+   through `install_steps`, so the tap no longer needs the hand-patch every earlier
+   release reverted. The first release built this way has to prove it, because nothing
+   else would notice a broken hook: the release succeeds and the cask installs either
+   way. In the tap repo, `Casks/engram.rb` must contain this block and no
+   `postflight do`:
    ```ruby
    postflight_steps do
      on_macos do
@@ -250,9 +251,13 @@ To cut a release:
      end
    end
    ```
-   Then confirm with `brew reinstall engram` that `xattr -l` on the Caskroom binary
-   shows no `com.apple.quarantine`. That block is quarantine-clearing, not cosmetic —
-   without it macOS refuses to exec the binary at all.
+   Then run `brew reinstall --cask ertugrulhaskan/tap/engram`, check that `xattr -l` on
+   the Caskroom binary shows only `com.apple.provenance`, and run
+   `"$(brew --prefix)/bin/engram" --version`: a quarantined binary does not exec at all,
+   so a version print is the real evidence. Name that path rather than a bare `engram`,
+   which may resolve to a `go install` copy that was never quarantined and pass while the
+   hook is broken. That block is quarantine-clearing, not cosmetic. Once one release has
+   passed, delete this step.
 
 Validate config and do a full local dry-run (no publish) before tagging:
 
@@ -261,10 +266,10 @@ goreleaser check
 goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
 ```
 
-Once GoReleaser ships the cask `install_steps` support, `goreleaser check` will start
-reporting `hooks.post.install` as deprecated. That notice is expected and is the cue to
-do the swap documented in [`.goreleaser.yaml`](.goreleaser.yaml) — after which step 6
-above is no longer needed and should be deleted.
+`goreleaser check` should report the configuration as validated with no deprecations.
+The cask's `install_steps` needs GoReleaser v2.19 or later; run the version
+`release.yml` pins. CI does not run GoReleaser, so this dry run is the only check
+before a tag.
 
 **Tap + token (already configured):** the `ertugrulhaskan/homebrew-tap` repo exists
 and the engram repo carries a `HOMEBREW_TAP_TOKEN` Actions secret with write access

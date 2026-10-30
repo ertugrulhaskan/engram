@@ -85,47 +85,33 @@ homebrew_casks:
     # binary "is free of malware"). Clearing the flag was the only variable changed,
     # and with it cleared the binary runs.
     #
-    # Homebrew 6.0 deprecated the `postflight` stanza this generates, so every `brew`
-    # command touching the tap prints "Calling `postflight` is deprecated! Use
-    # `postflight_steps` instead". GoReleaser v2.18 cannot emit the replacement —
-    # HomebrewCaskHook carries only `install`/`uninstall`. Tracked in
-    # goreleaser/goreleaser#6870; PR #6873 is open and unmerged, and the maintainer
-    # aimed it at v2.19 — a target, not a commitment, so confirm it actually shipped
-    # rather than assuming. When it does, replace `install:` below with:
-    #
-    #     install_steps: |
-    #       on_macos do
-    #         run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/engram"]
-    #       end
+    # `install_steps` emits Homebrew's declarative `postflight_steps` block. It needs
+    # GoReleaser v2.19 or later (goreleaser/goreleaser#6873); release.yml pins the exact
+    # version it was verified on. The raw-Ruby `install:` hook it replaces generated the
+    # `postflight` stanza Homebrew 6.0 deprecated, so every `brew` command touching the
+    # tap printed "Calling `postflight` is deprecated!", and the tap's cask had to be
+    # hand-patched to `postflight_steps` after every release.
     #
     # Mind the two spellings — they are NOT interchangeable. `.StagedPath` is a
     # GoReleaser template field, valid only here; it renders to Homebrew's own
-    # `{{staged_path}}` token, which is what raw Ruby inside the generated .rb needs.
-    # (GoReleaser runs a second template pass over the finished cask, which is why the
-    # Homebrew token cannot simply be written literally in this file.) Putting the
-    # `.StagedPath` form into a .rb hands xattr a path that does not exist and stops
-    # clearing quarantine.
+    # `{{staged_path}}` token, which is what the generated .rb needs. (GoReleaser runs a
+    # second template pass over the finished cask, which is why the Homebrew token
+    # cannot simply be written literally in this file.) Putting the `.StagedPath` form
+    # into a .rb hands xattr a path that does not exist and stops clearing quarantine.
     #
-    # Because release.yml floats on "~> v2", that GoReleaser version arrives on its own
-    # — meaning the first tag after it lands is also the first time it ever runs here.
-    # Do the `goreleaser check` + snapshot dry-run from CONTRIBUTING.md before tagging.
-    # Expect `goreleaser check` to start reporting `hooks.post.install` as deprecated
-    # once #6873 is in; that notice is this comment, not a new problem.
-    #
-    # Verify after switching: `brew reinstall engram`, then `xattr -l` the Caskroom
-    # binary and confirm no com.apple.quarantine. Nothing detects a regression here —
-    # the release still succeeds and the cask still installs, so the failure surfaces
-    # only on other people's machines, never in CI.
-    #
-    # Until then the tap's cask carries a hand-patched `postflight_steps` block
-    # (ertugrulhaskan/homebrew-tap 25d1794, 2026-09-05). Every release regenerates that
-    # file and silently reverts the patch — see the re-apply step in CONTRIBUTING.md's
-    # "Releasing".
+    # Verify after any change here, on a real release: `brew reinstall --cask
+    # ertugrulhaskan/tap/engram`, then `xattr -l` the Caskroom binary (only
+    # com.apple.provenance should remain), then run `"$(brew --prefix)/bin/engram"
+    # --version` — a quarantined binary does not exec at all, so a version print is the
+    # real evidence. Name that path: a bare `engram` may resolve to a `go install` copy
+    # that was never quarantined, and pass while the cask's hook is broken. Nothing
+    # else detects a regression: the release still succeeds and the cask still
+    # installs, so the failure surfaces only on other people's machines, never in CI.
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/engram"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/engram"]
           end
 
 release:

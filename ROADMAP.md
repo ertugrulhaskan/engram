@@ -105,11 +105,13 @@ Goal: ship engram publicly — flip the repo public and make it installable.
       current, and the push has been automatic since `v0.4.0`; only `v0.3.0` was bumped
       by hand (see the cask note under Phase 1)*
 - [ ] Migrate the cask off Homebrew's deprecated `postflight` stanza to
-      `postflight_steps`, once GoReleaser can emit it (goreleaser/goreleaser#6870, PR
-      #6873 open). The quarantine-clearing hook is load-bearing — without it macOS
-      refuses to exec the binary — so the swap has to be verified, not assumed. Until
-      then the tap carries a hand-patch that every release reverts; see step 6 of
-      "Releasing" in CONTRIBUTING.md
+      `postflight_steps`. `.goreleaser.yaml` emits it through `install_steps`
+      (GoReleaser v2.19+, goreleaser/goreleaser#6873), and a snapshot cask matches the
+      tap's hand-patch line for line apart from the version and checksums. Left unticked
+      until a real release proves it: the
+      quarantine-clearing hook is load-bearing — without it macOS refuses to exec the
+      binary — so the swap has to be verified, not assumed. See step 6 of "Releasing" in
+      CONTRIBUTING.md
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Harden the deployed site: security response headers (`www/_headers` — HSTS,
       `Permissions-Policy`, and a CSP with hashed inline scripts rather than
