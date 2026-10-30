@@ -101,6 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nothing changed about the binaries; the gap was that the README pointed people at the
   download without mentioning any of this. `brew install` and `go install` were never
   affected.
+- **The contributor review gate needs only `context7`.** Step 1 in `CLAUDE.md` no longer
+  asks for the `sequential-thinking` MCP server: current Claude models reason without a
+  separate thinking tool, and the general correctness pass it carried duplicated
+  `/code-review`. Step 1 is now the context7 API check and the layering check. The gate also
+  pins a `/code-review` level, since a bare run reuses whichever level was typed last, and
+  names `max` as the level to ask about first. It corrects the reason the repo ships no
+  `.mcp.json`: Claude Code does expand `${CONTEXT7_API_KEY}` there, but from its own
+  environment, so an editor launched without the variable passes the literal placeholder.
 
 ## [0.5.1] - 2026-09-06
 
