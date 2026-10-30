@@ -53,10 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/files` the scope now includes the file you had selected and the prompt names it. A
   non-Claude assistant is no longer told "these are Claude Code's files, not your own
   `GEMINI.md`" there, since `/files` lists that very `GEMINI.md`; the note now names
-  Claude Code's own files instead. The global `~/.gemini/GEMINI.md` and
-  `~/.codex/AGENTS.md` stay outside the session on purpose, because their folders hold
-  each CLI's own settings, approval and sandbox rules included: for those the prompt says
-  the CLI may ask permission or refuse, rather than promising an edit. Launches from
+  Claude Code's own files instead. engram adds no folder to reach the global
+  `~/.gemini/GEMINI.md` or `~/.codex/AGENTS.md`, because theirs hold each CLI's own
+  settings, approval and sandbox rules included: for those the prompt says the CLI may
+  ask permission or refuse, rather than promising an edit. Launches from
   memories and plans are unchanged.
 - **An assistant opened on a never-opened project's file no longer gets another
   project's memories.** In `/files`, a rule file such as `AGENTS.md` in a project Claude

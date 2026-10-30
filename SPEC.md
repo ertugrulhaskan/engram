@@ -735,10 +735,12 @@ and routes their edits here (§8.2); the provider note then names Claude Code's 
 (`CLAUDE.md`, `MEMORY.md`, memories, plans), since calling every listed file Claude
 Code's would be false of the assistant's own `GEMINI.md` or `AGENTS.md`. Editing is
 promised only for a file inside the launch dir or memory dir. The global
-`~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` sit outside both, and engram deliberately
-does not grant their directories: those hold each CLI's own config, approval and sandbox
-settings included, which an agent must not be able to loosen. For them the prompt says
-the CLI may ask or refuse, and to hand that back to the user. The cwd is the selected memory's **project dir** when it
+`~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` sit outside both, and engram adds no
+directory to reach them, since theirs hold each CLI's own config, approval and sandbox
+settings included. For them the prompt says the CLI may ask or refuse, and to hand that
+back to the user. That rule covers what engram adds, not the launch dir: a global or plan
+launch opens in `~/.claude`, Claude Code's own config dir, and a project rooted at
+`$HOME` contains all three. The cwd is the selected memory's **project dir** when it
 resolves and exists (so the assistant reads the right instruction file and, for Claude,
 recalls the right memories); the memory dir lives under `~/.claude`, outside the
 project, so it's passed as the add-dir for edit access. When the project

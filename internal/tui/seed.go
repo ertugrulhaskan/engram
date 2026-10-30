@@ -134,19 +134,21 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 	// included, so "these are Claude Code's files" would be false of them.
 	//
 	// The session can write only cwd and the memory dir (its add-dir). The global
-	// ~/.gemini/GEMINI.md and ~/.codex/AGENTS.md sit outside both, and engram does
-	// not grant their directories: those hold each CLI's own config, approval
-	// and sandbox settings included, which an agent must not be able to loosen.
+	// ~/.gemini/GEMINI.md and ~/.codex/AGENTS.md sit outside both, and engram adds
+	// no directory to reach them: theirs hold each CLI's own config, approval and
+	// sandbox settings included. That rule covers what engram adds, not the
+	// launch dir itself — a global or plan launch opens in ~/.claude, Claude
+	// Code's own config dir, and a project rooted at $HOME contains all three.
 	// So editing is only promised for a file inside the session; otherwise the
 	// prompt says the CLI may ask or refuse, and to hand that back to the user.
 	sel, ok := m.selected()
 	fileSel := ok && m.srcKind == srcFiles
 	canEdit := fileSel && (within(sel.Path, cwd) || within(sel.Path, memDir))
+	scope := "Claude Code memory files and plan-mode plans"
 	if fileSel {
-		b.WriteString("Scope: work only on Claude Code memory files, plan-mode plans, and the instruction or index file selected in engram (named below). Ask before editing any file, and don't touch unrelated project source code.\n\n")
-	} else {
-		b.WriteString("Scope: work only on Claude Code memory files and plan-mode plans. Ask before editing any file, and don't touch unrelated project source code.\n\n")
+		scope = "Claude Code memory files, plan-mode plans, and the instruction or index file selected in engram (named below)"
 	}
+	fmt.Fprintf(&b, "Scope: work only on %s. Ask before editing any file, and don't touch unrelated project source code.\n\n", scope)
 	if a.rules != "" && a.rules != "CLAUDE.md" {
 		name := strings.TrimPrefix(a.label, "@")
 		if fileSel {
@@ -198,11 +200,11 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 		fmt.Fprintf(&b, "The memory files are at %s; they may already be in the right place. Only if they are genuinely misfiled (Claude Code recalls them for the wrong project, or not at all), offer to relocate them — with their MEMORY.md — to the correct ~/.claude/projects/<encoded-path>/memory key.\n\n", memDir)
 	}
 
+	can := "You can"
 	if canEdit {
-		b.WriteString("You can edit the selected file, repair index drift, fix malformed frontmatter or broken [[links]], and also create, rewrite, merge, or reorganize memories and plans on request.\n")
-	} else {
-		b.WriteString("You can repair index drift, fix malformed frontmatter or broken [[links]], and also create, rewrite, merge, or reorganize memories and plans on request.\n")
+		can = "You can edit the selected file,"
 	}
+	fmt.Fprintf(&b, "%s repair index drift, fix malformed frontmatter or broken [[links]], and also create, rewrite, merge, or reorganize memories and plans on request.\n", can)
 	return b.String()
 }
 
