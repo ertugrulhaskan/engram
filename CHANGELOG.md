@@ -41,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The hook itself is unchanged: it clears macOS's quarantine flag from the unsigned
   binary, without which macOS refuses to run it. The first release built this way is
   verified with a `brew reinstall` before the old re-apply step is retired.
+- **The landing page builds with Tailwind 4.3.3, which changes its default sans font
+  list.** Tailwind replaced `system-ui` and `ui-sans-serif` with explicit platform fonts
+  (`-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, `Roboto`, `Helvetica Neue`,
+  `Noto Sans`, `Arial`) so CJK text respects the page's `lang` on Windows. On macOS the
+  page is pixel-identical (full-page screenshots at two widths, light and dark); on
+  Linux and Android, body text can move from the desktop's own font to Roboto, Noto Sans
+  or Arial. Headings and the terminal mockups use the monospace stack, which did not
+  change. The build also writes the neutral greys as `oklch(L 0 none)` rather than
+  `oklch(L 0 0)`, the same colour in newer syntax, and stops Firefox drawing its focus
+  ring on iframes, which the site has none of.
 
 ### Fixed
 - **A plan's preview meta no longer doubles its directory.** It read
