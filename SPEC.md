@@ -729,7 +729,16 @@ snapshot, and a soft scope ("memory/plan files only; ask before editing"). When 
 assistant reads an instruction file of its own (`GEMINI.md`, `AGENTS.md`,
 `.github/copilot-instructions.md`), the prompt names it and says these are Claude
 Code's files — otherwise a non-Claude session can mistake the memories it was opened
-to maintain for its own rules. The cwd is the selected memory's **project dir** when it
+to maintain for its own rules. Launched from `/files`, the scope adds the selected
+instruction or index file, which the prompt names, because engram keeps those read-only
+and routes their edits here (§8.2); the provider note then names Claude Code's own files
+(`CLAUDE.md`, `MEMORY.md`, memories, plans), since calling every listed file Claude
+Code's would be false of the assistant's own `GEMINI.md` or `AGENTS.md`. Editing is
+promised only for a file inside the launch dir or memory dir. The global
+`~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` sit outside both, and engram deliberately
+does not grant their directories: those hold each CLI's own config, approval and sandbox
+settings included, which an agent must not be able to loosen. For them the prompt says
+the CLI may ask or refuse, and to hand that back to the user. The cwd is the selected memory's **project dir** when it
 resolves and exists (so the assistant reads the right instruction file and, for Claude,
 recalls the right memories); the memory dir lives under `~/.claude`, outside the
 project, so it's passed as the add-dir for edit access. When the project
@@ -767,6 +776,8 @@ dir in tests. A global doc belongs to no project, so it carries empty
 `ProjectName`/`ProjectDir`/`MemoryDir`, exactly as `~/.claude/CLAUDE.md` always has. The
 TUI reads that as "no repo to open": `assistantContext` returns `claudeHome()` when both
 dirs are empty, so the `@` handoff launches in `~/.claude` rather than in an unrelated project.
+A project row with no memory dir (a scan-root project Claude Code has never opened) launches in
+its project with none, for the same reason: it never borrows another project's memory dir.
 
 Two vendor limits are deliberate. Copilot has no home-dir equivalent — VS Code keeps
 user-level instructions in profile settings, not a file at a fixed path — and Codex's

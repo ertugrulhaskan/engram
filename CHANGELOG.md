@@ -43,6 +43,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   doubling in a new spelling. Nothing else depended on the value — the drift banner and
   the reconcile dialog are gated to the memories source, and the list filter is a
   substring match, so searching `plan` still finds plans.
+- **An assistant opened from `/files` is now allowed to edit the file it was opened
+  for.** `/files` is read-only, and pressing `e` or `d` there says to edit with an
+  assistant instead, but the seed prompt that assistant received said to work only on
+  memory files and plans: the opposite of what the hint sent you there to do. From
+  `/files` the scope now includes the file you had selected and the prompt names it. A
+  non-Claude assistant is no longer told "these are Claude Code's files, not your own
+  `GEMINI.md`" there, since `/files` lists that very `GEMINI.md`; the note now names
+  Claude Code's own files instead. The global `~/.gemini/GEMINI.md` and
+  `~/.codex/AGENTS.md` stay outside the session on purpose, because their folders hold
+  each CLI's own settings, approval and sandbox rules included: for those the prompt says
+  the CLI may ask permission or refuse, rather than promising an edit. Launches from
+  memories and plans are unchanged.
+- **An assistant opened on a never-opened project's file no longer gets another
+  project's memories.** In `/files`, a rule file such as `AGENTS.md` in a project Claude
+  Code has never opened has no memory directory. The handoff filled the gap with the
+  first project in the memory list, so the session was granted that unrelated
+  project's memory directory and shown its index drift as if it were this one's. It now
+  launches in the project with no memory directory.
 
 ### Security
 - **`golang.org/x/net` moved to `v0.58.0` and `x/sys` to `v0.47.0`**, clearing eleven
