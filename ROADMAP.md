@@ -94,7 +94,7 @@ Goal: share the team-useful memories across people and projects, no servers.
       A global memory you hold nowhere is still never *placed*: it belongs to no
       project, so the store stays its home until you promote it into one
 
-## Phase 3 — Release / go public *(shipped — repo public, tagged releases on GitHub and the Homebrew tap since `v0.2.0` (see [CHANGELOG.md](CHANGELOG.md)), [engram.im](https://engram.im) live; one packaging deprecation open)*
+## Phase 3 — Release / go public *(shipped — repo public, tagged releases on GitHub and the Homebrew tap since `v0.2.0` (see [CHANGELOG.md](CHANGELOG.md)), [engram.im](https://engram.im) live)*
 
 Goal: ship engram publicly — flip the repo public and make it installable.
 
@@ -104,14 +104,12 @@ Goal: ship engram publicly — flip the repo public and make it installable.
 - [x] Publish the Homebrew tap (`ertugrulhaskan/tap/engram`) — *the published cask is
       current, and the push has been automatic since `v0.4.0`; only `v0.3.0` was bumped
       by hand (see the cask note under Phase 1)*
-- [ ] Migrate the cask off Homebrew's deprecated `postflight` stanza to
-      `postflight_steps`. `.goreleaser.yaml` emits it through `install_steps`
-      (GoReleaser v2.19+, goreleaser/goreleaser#6873), and a snapshot cask matches the
-      tap's hand-patch line for line apart from the version and checksums. Left unticked
-      until a real release proves it: the
-      quarantine-clearing hook is load-bearing — without it macOS refuses to exec the
-      binary — so the swap has to be verified, not assumed. See step 6 of "Releasing" in
-      CONTRIBUTING.md
+- [x] Migrate the cask off Homebrew's deprecated `postflight` stanza to
+      `postflight_steps` — `.goreleaser.yaml` emits it through `install_steps`
+      (GoReleaser v2.19+, goreleaser/goreleaser#6873). Verified on the `v0.5.2` release:
+      the regenerated cask carries `postflight_steps` and no `postflight do`, and after
+      `brew reinstall` the Caskroom binary has no `com.apple.quarantine` and runs. The
+      tap no longer needs a hand-patch after each release
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Harden the deployed site: security response headers (`www/_headers` — HSTS,
       `Permissions-Policy`, and a CSP with hashed inline scripts rather than

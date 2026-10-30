@@ -99,7 +99,8 @@ homebrew_casks:
     # cannot simply be written literally in this file.) Putting the `.StagedPath` form
     # into a .rb hands xattr a path that does not exist and stops clearing quarantine.
     #
-    # Verify after any change here, on a real release: `brew reinstall --cask
+    # Verify after any change here, or after bumping the GoReleaser version release.yml
+    # pins, on the first real release that follows: `brew reinstall --cask
     # ertugrulhaskan/tap/engram`, then `xattr -l` the Caskroom binary (only
     # com.apple.provenance should remain), then run `"$(brew --prefix)/bin/engram"
     # --version` — a quarantined binary does not exec at all, so a version print is the

@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- **"Releasing" drops its Homebrew cask step.** v0.5.2 was the first release whose cask
+  GoReleaser generated with `postflight_steps` itself, and it held up: the tap's
+  regenerated `Casks/engram.rb` carries the block and no `postflight do`, and after
+  `brew reinstall` the installed binary has no quarantine flag and runs. The one-time
+  verification step that replaced the old per-release hand-patch is therefore gone, and
+  the ROADMAP's last open Phase 3 item is ticked. How to re-verify after a change to the
+  hook stays in the comment beside it in `.goreleaser.yaml`.
+
 ## [0.5.2] - 2026-10-30
 
 ### Changed
