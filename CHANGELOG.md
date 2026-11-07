@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The landing page builds with Tailwind 4.3.4.** A patch release with no intended visual
+  change: the `group-open:` selectors behind the FAQ cards' rotating `+` and open padding
+  are written in a new form, and on all six cards the computed styles match the 4.3.3 build
+  open and closed. Newer Safari also stops getting the `@property` fallback block it no
+  longer needs. `package.json` now asks for `^4.3.4` for both Tailwind packages instead of
+  leaving `tailwindcss` at `^4.3.3`.
+
 ## [0.6.1] - 2026-11-07
 
 ### Fixed
