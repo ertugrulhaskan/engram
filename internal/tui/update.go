@@ -345,28 +345,28 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "up", "k":
 		if m.focus == focusPreview {
-			m.viewport.LineUp(1)
+			m.viewport.ScrollUp(1)
 		} else {
 			m.move(-1)
 		}
 		return m, nil
 	case "down", "j":
 		if m.focus == focusPreview {
-			m.viewport.LineDown(1)
+			m.viewport.ScrollDown(1)
 		} else {
 			m.move(1)
 		}
 		return m, nil
 	case "pgup":
 		if m.focus == focusPreview {
-			m.viewport.HalfViewUp()
+			m.viewport.HalfPageUp()
 		} else {
 			m.page(-1)
 		}
 		return m, nil
 	case "pgdown":
 		if m.focus == focusPreview {
-			m.viewport.HalfViewDown()
+			m.viewport.HalfPageDown()
 		} else {
 			m.page(1)
 		}
