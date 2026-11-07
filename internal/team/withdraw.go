@@ -1,6 +1,7 @@
 package team
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,48 +59,78 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		return false, fmt.Errorf("can't withdraw — this memory's frontmatter can't be safely updated: %v", err)
 	}
 
-	// Find the store copy by engram.id within its scope dir (robust to a local
-	// rename, since the store filename could differ from the current local one).
-	scopeDir := filepath.Join(dir, "global")
-	if meta.Project != "global" {
-		rel, err := placementPath(meta.Project, "_") // reuse placementPath's traversal guard
-		if err != nil {
-			return false, err
-		}
-		scopeDir = filepath.Join(dir, filepath.Dir(rel))
+	// Sync first so every copy a teammate added since the last pull is found and
+	// removed too (best-effort offline; a real divergence stops it).
+	if err := syncStore(dir); errors.Is(err, ErrStoreDiverged) {
+		return false, err
+	}
+	// The tombstone is what makes the withdrawal reach teammates' machines, and a
+	// symlinked ledger is never written (ledgerIsSymlink). Refuse before removing
+	// anything, rather than report success for a withdrawal that would leave every
+	// teammate's copy in place.
+	if ledgerIsSymlink(dir) {
+		return false, fmt.Errorf("can't withdraw — the team store's %s is a symlink; fix the store first", withdrawnLedger)
 	}
 
-	// Delete the store copy (if present) and tombstone the id. Both are staged and
-	// committed together, so pull sees the removal + the tombstone atomically.
-	if storePath := indexByID(scopeDir)[meta.ID]; storePath != "" {
+	// Delete EVERY store copy of the id and tombstone it, staged and committed
+	// together so pull sees the removals and the tombstone atomically. One id can
+	// live at more than one store path — a rename then re-promote, or a re-promote
+	// under another placement (see storeIndexByID) — and removing only the copy
+	// under the memory's current placement left the others readable by the team
+	// while reporting success. Matching is by engram.id, so a local rename is fine.
+	// Every path this withdraw touches is restored if it fails before its commit
+	// lands, so nothing it staged waits for the next commit to sweep in.
+	var touched []string
+	fail := func(format string, a ...any) (bool, error) {
+		restorePaths(dir, touched)
+		return false, fmt.Errorf(format, a...)
+	}
+	for _, storePath := range storePathsByID(dir, meta.ID) {
 		relPath, err := filepath.Rel(dir, storePath)
 		if err != nil {
-			return false, err
+			return fail("%v", err)
 		}
+		touched = append(touched, relPath)
 		if err := os.Remove(storePath); err != nil {
-			return false, fmt.Errorf("removing team copy: %v", err)
+			return fail("removing team copy: %v", err)
 		}
 		if _, err := runGitCapture(dir, "add", "-A", "--", relPath); err != nil {
-			return false, fmt.Errorf("staging removal: %v", err)
+			return fail("staging removal: %v", err)
 		}
 	}
 	if ledgerRel := addWithdrawn(dir, meta.ID, filepath.Base(memPath)); ledgerRel != "" {
+		touched = append(touched, ledgerRel)
 		if _, err := runGitCapture(dir, "add", "--", ledgerRel); err != nil {
-			return false, fmt.Errorf("staging tombstone: %v", err)
+			return fail("staging tombstone: %v", err)
 		}
 	}
-
-	// Commit + push only when something changed; a memory that was already
-	// withdrawn leaves nothing to do.
+	committed := false
 	if _, err := runGitCapture(dir, "diff", "--cached", "--quiet"); err != nil {
 		if _, err := runGitCapture(dir, "commit", "-m", "Withdraw "+filepath.Base(memPath)); err != nil {
-			return false, fmt.Errorf("committing withdrawal: %v", err)
+			return fail("committing withdrawal: %v", err)
 		}
-		if _, err := runGitCapture(dir, "push"); err == nil {
-			pushed = true
+		committed = true
+	}
+
+	// Always push, even with nothing new staged: a retry after a failed push has
+	// already committed its removal and only needs the push. Until the push lands,
+	// the team can still read the memory, so the local copy stays team-scoped —
+	// flipping it to personal first made the retry refuse ("isn't shared") and left
+	// the shared copy on the remote indefinitely.
+	pushed, err = pushStore(dir)
+	if err != nil || !pushed {
+		// Withdraw is all-or-nothing. Refused, diverged or offline, undo this
+		// withdraw's commit: left in the clone, its tombstone would let a later
+		// pull demote the owner's copy to personal before the removal reached
+		// the remote — and the retry would then refuse ("isn't shared"). The
+		// local copy is still team-scoped, so running withdraw again redoes it.
+		if rerr := rollbackCommit(dir, committed); rerr != nil {
+			if err == nil {
+				return false, rerr
+			}
+			return false, fmt.Errorf("%v; %v", err, rerr)
 		}
-	} else {
-		pushed = true // nothing staged — already withdrawn
+		return false, err
 	}
 
 	// Reset the local memory to personal, keeping its id for a possible re-promote.
@@ -118,6 +149,17 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		return pushed, fmt.Errorf("updating local memory: %v", err)
 	}
 	return pushed, nil
+}
+
+// storePathsByID returns every store file whose engram.id is id (walkStore).
+func storePathsByID(storeDir, id string) []string {
+	var out []string
+	walkStore(storeDir, func(path, _, got string) {
+		if got == id {
+			out = append(out, path)
+		}
+	})
+	return out
 }
 
 // OwnerStatus reports the two inputs to withdraw's owner guardrail, so a caller can

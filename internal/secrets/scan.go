@@ -54,7 +54,18 @@ var rules = []rule{
 	{"url-credentials", regexp.MustCompile(`[a-z][a-z0-9+.-]*://[^\s:/@]*:[^\s/@]+@`), false},
 	{"private-key-block", regexp.MustCompile(`-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----`), false},
 	{"jwt", regexp.MustCompile(`eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}`), false},
-	{"generic-secret-assignment", regexp.MustCompile(`(?i)[\w.-]*(?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)[\w.-]*["']?\s*[:=]\s*["']?[A-Za-z0-9/+=_-]{12,}`), false},
+	// Prefixed provider tokens. The prefix is what makes each high-confidence, and
+	// it is why a BARE 32- or 64-hex value gets no rule: with no prefix it cannot be
+	// told from a git SHA or a file hash, which memories are full of. A named one
+	// (TWILIO_AUTH_TOKEN=…) is caught by the assignment rules below.
+	{"gitlab-token", regexp.MustCompile(`glpat-[0-9A-Za-z_-]{20,}`), false},
+	{"shopify-token", regexp.MustCompile(`shp(?:at|ss|ca|pa)_[a-fA-F0-9]{32}`), false},
+	{"digitalocean-token", regexp.MustCompile(`do[opr]_v1_[a-f0-9]{64}`), false},
+	{"mailgun-api-key", regexp.MustCompile(`\bkey-[0-9a-f]{32}\b`), false},
+	{"twilio-api-key", regexp.MustCompile(`\bSK[0-9a-fA-F]{32}\b`), false},
+	{"huggingface-token", regexp.MustCompile(`\bhf_[A-Za-z0-9]{30,}\b`), false},
+	{"npm-token", regexp.MustCompile(`\bnpm_[A-Za-z0-9]{36}\b`), false},
+	{genericRule, regexp.MustCompile(`(?i)([\w.-]*(?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)[\w.-]*)["']?\s*[:=]\s*["']?([A-Za-z0-9/+=_-]{12,})`), false},
 	{"email-address", regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`), true},
 	{"card-number", regexp.MustCompile(`\b(?:\d[ -]?){13,16}\b`), true},
 }
@@ -132,17 +143,43 @@ func scanSegments(segs []segment, scope Scope) []Finding {
 			if r.pii && scope != ScopeSecretsAndPII {
 				continue
 			}
-			if r.name == "generic-secret-assignment" && providerHit {
-				continue // the precise provider rule already named this secret
+			if r.name == genericRule {
+				if providerHit {
+					continue // the precise provider rule already named this secret
+				}
+				// Report the first match whose value is not a reference or a
+				// placeholder. Every match is checked, not just the first: a line
+				// that opens with DB_PASSWORD=DB_PASSWORD_FROM_VAULT must not hide a
+				// real ADMIN_SECRET=… after it.
+				// A value directly followed by "(" is a function call
+				// (password: fetchPassword()), not a value.
+				for _, ix := range r.re.FindAllStringSubmatchIndex(seg.text, -1) {
+					value, end := seg.text[ix[4]:ix[5]], ix[5]
+					if referenceValue(value) || (end < len(seg.text) && seg.text[end] == '(') {
+						continue
+					}
+					out = append(out, Finding{Rule: r.name, Line: seg.line, Match: redact(seg.text[ix[0]:ix[1]])})
+					namedHit = true
+					break
+				}
+				continue
 			}
 			if m := r.re.FindString(seg.text); m != "" {
 				out = append(out, Finding{Rule: r.name, Line: seg.line, Match: redact(m)})
 				if !r.pii {
 					namedHit = true
-					if r.name != "generic-secret-assignment" {
+					if r.name != genericRule {
 						providerHit = true
 					}
 				}
+			}
+		}
+		// The second assignment rule, for what the first's base64-only 12+ value
+		// class structurally misses: passwords with symbols or under 12 characters.
+		if !namedHit {
+			if m := mixedSecretAssignment(seg.text); m != "" {
+				out = append(out, Finding{Rule: genericRule, Line: seg.line, Match: redact(m)})
+				namedHit = true
 			}
 		}
 		// The entropy layer is the last resort: it only speaks when no rule named

@@ -11,7 +11,7 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-**Latest release: `v0.6.0`** · open source ([MIT](LICENSE)) · website:
+**Latest release: `v0.6.1`** · open source ([MIT](LICENSE)) · website:
 [engram.im](https://engram.im) · what's next: [ROADMAP.md](ROADMAP.md) ·
 design: [SPEC.md](SPEC.md)
 
@@ -296,8 +296,9 @@ up yet:
   "take theirs" reads as synced. If only the sync anchor differs it says so
   instead. Cancelling touches nothing.
 - **`>withdraw`** — takes a shared memory back (after a confirm), if you're its
-  owner: it removes the copy from the store, resets your memory to personal,
-  and, via a tombstone, removes it from teammates on their next pull.
+  owner: it removes every copy from the store, resets your memory to personal
+  once the push lands (offline, it stays shared until you retry), and, via a
+  tombstone, removes it from teammates on their next pull.
   `>promote` again puts it back.
 - **`>alias <name>`** — keys a project that has **no git remote**. Identity
   normally comes from the remote, so such a project could only promote globally;

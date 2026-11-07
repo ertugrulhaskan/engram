@@ -1,4 +1,4 @@
-# Regenerates the README screenshot (../tui.png) — see README.md in this directory.
+# Writes tui.png here; README.md in this directory copies it up to ../tui.png.
 # $PWD expands at runtime inside the recorded shell, so the tape stays portable.
 Output demo.gif
 

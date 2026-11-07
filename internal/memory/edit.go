@@ -1,7 +1,9 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,15 +26,37 @@ func Create(memDir, title string) (string, error) {
 	if slug == "" {
 		slug = "memory"
 	}
-	path := filepath.Join(memDir, slug+".md")
-	for i := 2; pathExists(path); i++ {
-		path = filepath.Join(memDir, fmt.Sprintf("%s-%d.md", slug, i))
-	}
 	content := fmt.Sprintf("---\nname: %s\ndescription: \nmetadata:\n  type: project\n---\n# %s\n\n", slug, title)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return "", err
+	// Claim the name with O_CREATE|O_EXCL rather than check-then-write. The old
+	// "does it exist?" check used os.Stat, which calls a dangling symlink absent,
+	// and os.WriteFile then followed that link and created the file wherever it
+	// pointed — outside the memory dir. O_EXCL refuses any existing entry at the
+	// path, a symlink included, and also closes the race between the check and
+	// the write, so the loop just moves on to the next suffix.
+	for i := 1; ; i++ {
+		name := slug + ".md"
+		if i > 1 {
+			name = fmt.Sprintf("%s-%d.md", slug, i)
+		}
+		path := filepath.Join(memDir, name)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		if _, err := f.WriteString(content); err != nil {
+			f.Close()
+			os.Remove(path) // don't leave an empty memory behind
+			return "", err
+		}
+		if err := f.Close(); err != nil {
+			os.Remove(path)
+			return "", err
+		}
+		return path, nil
 	}
-	return path, nil
 }
 
 // Delete removes a memory file from disk.

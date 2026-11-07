@@ -132,7 +132,7 @@ func TestThemeSwitchKeepsScanSettings(t *testing.T) {
 	}
 	var m tea.Model = New(sampleMemories(), nil, nil, loadCfg())
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
 	got := loadCfg()
 	if got.Theme != "paperback" {
 		t.Fatalf("persisted theme = %q, want paperback", got.Theme)

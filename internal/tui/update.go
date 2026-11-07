@@ -129,7 +129,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.err != nil:
 			return m, tea.Batch(m.setDanger("withdraw failed: "+msg.err.Error()), reloadCmd())
 		case !msg.pushed:
-			return m, tea.Batch(m.setDanger("withdrawn locally; push failed — check your git remote/creds"), reloadCmd())
+			// Withdraw keeps the memory team-scoped until the removal reaches the
+			// remote, so it is still readable by the team and the same withdraw
+			// retries cleanly — say exactly that, not "withdrawn".
+			return m, tea.Batch(m.setDanger("not withdrawn yet — couldn't reach the git remote, so the team can still read it; withdraw again when online"), reloadCmd())
 		default:
 			return m, tea.Batch(m.setStatus("withdrawn · tombstone pushed"), reloadCmd())
 		}
@@ -212,7 +215,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Capture the selection before rebuilding (rebuildRows re-clamps the
 		// cursor by index), then restore it by path so a background reload
 		// doesn't make the selection jump.
-		prevPath := ""
+		prevPath, prevCursor := "", m.cursor
 		if mm, ok := m.selected(); ok {
 			prevPath = mm.Path
 		}
@@ -244,7 +247,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.storeTimes, m.storeTimeAsked = nil, nil
 		m.rebuildRows()
 		if prevPath != "" {
-			m.selectByPath(prevPath)
+			if m.hasRow(prevPath) {
+				m.selectByPath(prevPath)
+			} else {
+				// The selected memory is gone (deleted, here or elsewhere): land
+				// on the memory just above where it was, not the top of the list.
+				// Only here — a search or a source switch keeps "first match".
+				// Start one row up: after the delete, the old index usually holds
+				// the NEXT memory, and the place to land is the one above.
+				m.cursor = m.nearestMemRow(clampIdx(prevCursor-1, len(m.rows)))
+				m.ensureVisible()
+				m.syncPreview()
+			}
 		}
 		return withStoreTimeFetch(m, markCmd)
 
@@ -464,6 +478,15 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !m.caps().Create {
 			return m.denyWrite()
 		}
+		// A new memory goes into the selected memory's project ("in this
+		// project", the dialog says), so with nothing selected there is no
+		// project to name — say so instead of guessing one.
+		if m.currentMemDir() == "" {
+			if m.search.Value() != "" || m.typeIdx != 0 {
+				return m, m.setDanger("nothing selected — clear the filter, then select a memory in the project to add to")
+			}
+			return m, m.setDanger("select a memory in the project to add to")
+		}
 		m.mode = modeNew
 		m.input.SetValue("")
 		// boxWidth minus: 2 indent + 2 prompt ("› ") + 1 cursor cell, so the input
@@ -560,8 +583,9 @@ func (m Model) updateNew(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		// Only the memories source has a create routine, and the Create gate
 		// lets no other source open this prompt — so any other source here is
-		// a wiring gap. Refuse: currentMemDir falls back to the first project's
-		// memory dir, which would otherwise plant a memory somewhere unrelated.
+		// a wiring gap. Refuse it, and refuse an empty currentMemDir (nothing
+		// selected): there is no project to name, and guessing one used to plant
+		// the memory somewhere unrelated.
 		if m.srcKind != srcMemories {
 			return m, m.setDanger("can't create from this source")
 		}

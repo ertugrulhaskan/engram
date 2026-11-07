@@ -50,15 +50,20 @@ Claude Code stores memories per-project:
     <slug>.md          # one memory per file
 ```
 
-`<encoded-project-path>` is the project's absolute path with a leading `-` and
-both `/` and `.` replaced by `-`, e.g. `/Users/me/code/app` → `-Users-me-code-app`
-and `/Users/me/code/engram.im` → `-Users-me-code-engram-im`.
+`<encoded-project-path>` is the project's absolute path with **every character
+outside ASCII letters and digits** replaced by `-` — `/`, `.`, `_`, a space, an
+accent, `@`, `+`, `~` (Claude Code's own rule, `path.replace(/[^a-zA-Z0-9]/g, "-")`,
+read from its 2.1.x binary; it works on UTF-16 units, so an emoji becomes `--`) —
+e.g. `/Users/me/code/app` → `-Users-me-code-app`, `/Users/me/code/engram.im` →
+`-Users-me-code-engram-im`, `/Users/me/My Projects/app` → `-Users-me-My-Projects-app`.
+Past a length cap Claude truncates the name and appends a hash.
 
 > ⚠️ **Decoding is lossy.** A `-` in the encoded name may have been a `/`, a `.`,
-> or a literal `-` (`acme-site`, `work-bigco`, `engram.im`), so the
+> a space or a literal `-` (`acme-site`, `work-bigco`, `engram.im`), so the
 > mapping back is ambiguous. engram decodes by walking the filesystem, matching
-> each path component against a real folder on disk (with its dots flattened), so
-> multi-separator names like `app.engram.im` resolve in full. When no real path
+> each path component against a real folder on disk put through the same
+> flattening, so names like `app.engram.im` or `My Projects` resolve in full. A
+> project folder that is itself a symlink is followed. When no real path
 > resolves — e.g. the project was deleted — it falls back to a best-effort
 > slash-joined path (`-Users-ghost-engram-im` → `/Users/ghost/engram/im`). Decoding
 > is never guaranteed, but it always yields a usable project identity.
@@ -402,6 +407,14 @@ filename. The id is assigned once, on the first promote.
   Marks survive a filter: a memory hidden by a search still promotes, since dropping
   it would quietly promote less than was marked.
 
+  **Promote never reverts a newer team version.** It first syncs the clone with the
+  remote when it can reach it (so it judges the team's current copy, not the last
+  pull's), then, before overwriting a store copy of the same id, applies the badges'
+  direction rule (`relationOf`): only `synced` (a
+  no-op) and `ahead` go through; `behind` asks for a pull, `conflict` and `unknown`
+  for a `>resolve`. Without this, promoting a stale copy replaced the teammate's edit
+  and re-stamped the anchor, so the badges hid what was lost.
+
   **Every memory in a batch is scanned**, not just the first — a batch must not become
   a way to walk a credential past the guard. Flagged memories are decided one at a
   time: `y` includes, `n` skips (leaving that one personal), `esc` abandons the batch.
@@ -409,10 +422,17 @@ filename. The id is assigned once, on the first promote.
   accepted memories still land as a single commit, and the toast reports both what
   was skipped and what was included past a finding — an override is a real decision
   and is never left unsaid.
-- **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove the
-  memory's copy from the store (matched by `engram.id`), record its id in a
+- **withdraw** *(the reverse of promote; `>withdraw`, owner-only)* — remove **every**
+  copy of the memory from the store (matched by `engram.id` across `global/` and
+  `projects/**`; one id can sit at two paths after a rename or a re-promote under
+  another placement, and removing only one left the other readable), record its id in a
   `.engram-withdrawn` **tombstone ledger**, and reset the local `engram.scope` to
-  personal (keeping the id). It **pre-checks that the local reset can be written before
+  personal (keeping the id) **only once the push lands**. Withdraw is all-or-nothing:
+  if the remote can't be reached, refuses the push or has diverged, its own commit is
+  undone and the memory stays team-scoped — the team can still read it, the toast says
+  so, and running withdraw again redoes it. (A pending tombstone left in the clone would
+  let a later pull demote the owner's copy before the removal reached the remote.)
+  It **pre-checks that the local reset can be written before
   touching the store** — if the frontmatter can't be safely rewritten, withdraw refuses
   up front and leaves the memory fully shared, rather than removing the store copy and
   then failing the reset (which would strand the memory as `! missing`). Commit + push
@@ -501,8 +521,34 @@ filename. The id is assigned once, on the first promote.
   and engram never auto-pulls. On launch it does a cheap check against the team
   repo and badges memories that have updates (a `[behind]` pill); files are only
   placed when you run `pull`.
-- **Rejected push** (non-fast-forward) → engram runs `git pull --rebase` and
-  retries once; if that conflicts, it hands off to the user.
+- **Rejected push** (non-fast-forward) → engram rebases its local commits onto the
+  remote and retries once (`team.pushStore`); if that conflicts, it aborts the rebase,
+  leaves the clone clean with the commit kept, and hands off to the user with the store
+  path — never a "check your creds" message. An unreachable remote keeps the commit
+  locally; a reachable remote that refuses the push anyway (a server hook, branch
+  protection, no write access) is reported as such, with git's own reason, since
+  retrying can't help — and, like a diverged rebase, it **rolls back** that promote's or
+  withdraw's own commit (`git reset --keep HEAD~1`) and restores the local file, so
+  nothing claims to be shared, and no tombstone is left for a later pull to apply,
+  when the team never received the change. Withdraw also syncs first, so copies a teammate added since the
+  last pull are removed too. Pull rebases too (not `--ff-only`, with `--autostash` so a half-staged
+  leftover can't block it), so a commit a failed push left behind can't wedge the store;
+  the **plan never pushes** — the commit is flushed only by a confirmed pull. A rebase
+  stop whose only conflict is the tombstone ledger is resolved by a **three-way merge by
+  id** (`mergeLedger`: an id stays if both sides keep it or either added it, and goes if
+  either removed it), so two people withdrawing at once, or a re-promote racing a
+  withdraw, don't conflict. Git's `union` driver was rejected for this: it keeps every
+  line from both sides, so a tombstone a re-promote removed would come back and the next
+  pull would delete the re-shared memory from teammates. Withdraw refuses up front when
+  the ledger is a symlink, since no tombstone could be written.
+  The team package's background git calls (fetch, pull, push from inside the TUI) run
+  with `GIT_TERMINAL_PROMPT=0`, and the network ones (push, fetch, pull) also in their
+  own session with no controlling terminal (`setsid`), so neither an HTTPS credential
+  prompt nor an ssh passphrase or host-key prompt can land on the screen the TUI owns;
+  they fail fast (read as unreachable) instead, while ssh-agent keys keep working. Local
+  commands keep the terminal, so a gpg pinentry for signed commits still works. A promote or withdraw that fails before
+  its commit restores every store path it touched (and un-stamps the local files), so
+  nothing it staged is swept into the next, unrelated commit.
 
 ### Secret-scan guard (promote)
 
@@ -530,8 +576,22 @@ locatable in the file, and four characters do not narrow a search for the rest. 
 key formats, JWTs, `scheme://user:pass@` URLs) regardless of the variable name;
 **by name** — any identifier containing `secret`/`token`/`password`/`api_key`/
 `access_key`/`private_key`/`client_secret` before a `=`/`:`, so framework env vars
-(`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix;
-and **by entropy** (below), for the value neither of those can see. All three run
+(`REACT_APP_…`, `VITE_…`, `NEXT_PUBLIC_…`, `NUXT_…`) are caught whatever the prefix.
+The name layer has two value rules: a base64-shaped value of 12+ characters, and
+(`assign.go`) a value of 8+ characters running to the next space or quote that mixes a
+letter with a digit or symbol — the password shape the first rule's alphabet cannot
+see — under a key that also counts `credential` or a `pass`/`pwd` segment (`DB_PASS`,
+not `bypass`). Both skip references and placeholders (`${VAR}`, `process.env.X`,
+`config.apiKey`, `<your-token>`, `xxxx`, and an identifier-shaped value — CONSTANT_CASE
+or dotted — that names the secret word with no digit, like `DB_PASSWORD_FROM_VAULT`),
+each matched by its whole shape rather than a substring, so config and code that merely
+mention a secret stay clean while a value that happens to contain the word
+(`mysecretpassword`, `MySecretPassword`, `Yourbaby123!`) is still reported. A Markdown
+bold key (`**Password:** …`) counts as a key. Prefix-only
+token formats (GitLab, Shopify, DigitalOcean, Mailgun, Twilio API key, Hugging Face,
+npm) sit with the value-shape rules; a bare 32- or 64-hex value gets none, since it
+is indistinguishable from a git SHA or file hash. And **by entropy** (below), for the
+value neither of those can see. All three run
 **twice**: once over physical lines, and once over *logical* ones,
 with the line breaks that merely wrap a value removed — so a credential split by a
 soft wrap, a YAML block scalar, or a backslash continuation is still seen whole. A
@@ -625,14 +685,14 @@ engram/
     internal/
         memory/              # NO UI here
             memory.go        # types; Caps — what the TUI may offer on memories (everything)
-            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature
+            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature; IsDir (the TUI asks instead of stat-ing)
             parse.go         # frontmatter + index parsing, fallbacks
-            index.go         # MEMORY.md index upsert / remove / reconcile
+            index.go         # MEMORY.md index upsert / remove / reconcile (bullet = the first `](…)`; only a bare .md target, taken literally, is a memory bullet); atomic temp+rename write that keeps a symlinked index, refuses a read-only one, and writes a hard-linked one in place
             docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source); DocsCaps (zero: read-only)
-            edit.go          # create / delete / open-in-$EDITOR
+            edit.go          # create (O_EXCL, never through a symlink) / delete / open-in-$EDITOR
             frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
-        config/              # settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse), Save is atomic (temp file + rename); Dir() base-path helper
+        config/              # settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse) and keeps keys Config has no field for; Exists (for the TUI), Save is atomic (temp file + rename); Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
             team.go          # package doc + Dir() (managed clone path) + IsInitialized()
             remote.go        # NormalizeRemote: git remote URL → canonical host/path key
@@ -644,11 +704,13 @@ engram/
             pull.go          # Pull project team memories; anchor-driven fast-forward vs conflict (decidePull)
             status.go        # SyncStates + relationOf: read-only direction-aware sync state (synced/behind/ahead/conflict/unknown/missing)
             storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
-            withdraw.go      # Withdraw: owner-only removal + .engram-withdrawn tombstone
+            withdraw.go      # Withdraw: owner-only removal of every same-id store copy + .engram-withdrawn tombstone; local reset only once pushed
+            push.go          # pushStore (rejected push → rebase + retry once; ErrStoreDiverged) / syncStore (pull --rebase --autostash, never pushes) / flushStore (confirmed pull only); ledger three-way merge by id
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve (returns a ResolveSession: the merge file + the two sides) / FinishConflictResolve: git-style $EDITOR merge (>resolve)
         secrets/             # NO UI here — pure credential scanning for the promote guard
             scan.go          # Scan: curated regexes + entropy layer over content → redacted findings (Scope: secrets / secrets+pii)
+            assign.go        # the mixed-value assignment rule (passwords with symbols / under 12) + reference/placeholder filters
         source/              # NO UI, NO IO — the per-source capability model (§8.3)
             source.go        # Caps{Edit, Create, Delete, Share}: what a source lets the user do; zero value grants nothing
         tui/                 # NO file logic here

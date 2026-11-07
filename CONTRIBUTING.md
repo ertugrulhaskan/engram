@@ -200,7 +200,9 @@ To cut a release:
    the one `**Latest release:**` line (`grep -n 'Latest release' README.md`; missed once,
    at `v0.6.0`, until review caught it) — its roadmap lines name past versions on
    purpose and stay as they are. Nothing generates these, so they only stay honest by
-   hand. (Match the whole `vX.Y.Z` shape, not a
+   hand. Since the home page's content changed, bump its `<lastmod>` in
+   `www/sitemap.xml` to the release date too (missed at `v0.6.0`). (Match the whole
+   `vX.Y.Z` shape, not a
    `v0.`-prefixed one — a `v0.` pattern silently finds nothing the day the project
    reaches 1.0.0 and reads as "nothing to bump".)
 

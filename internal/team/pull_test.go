@@ -2,6 +2,7 @@ package team
 
 import (
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -262,7 +263,9 @@ func TestPullPlanMatchesPull(t *testing.T) {
 	if plan.Placed != 1 {
 		t.Errorf("plan = %+v, want Placed=1", plan)
 	}
-	if after := snapshotDir(t, localMem); len(after) != len(before) {
+	// Compare names and contents, not just the file count: a plan that rewrote
+	// an existing file would leave the count alone.
+	if after := snapshotDir(t, localMem); !maps.Equal(after, before) {
 		t.Errorf("PullPlan wrote files: before=%v after=%v", before, after)
 	}
 	applied, err := PullApply(targets)
@@ -282,12 +285,18 @@ func TestPullPlanMatchesPull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PullPlan 2: %v", err)
 	}
+	if after := snapshotDir(t, localMem); !maps.Equal(after, before) {
+		t.Errorf("PullPlan 2 wrote files: before=%v after=%v", before, after)
+	}
 	res2, err := Pull(targets)
 	if err != nil {
 		t.Fatalf("Pull 2: %v", err)
 	}
 	if plan2 != res2 || plan2.UpToDate != 1 {
 		t.Errorf("plan %+v vs pull %+v, want equal with UpToDate=1", plan2, res2)
+	}
+	if after := snapshotDir(t, localMem); !maps.Equal(after, before) {
+		t.Errorf("up-to-date Pull wrote files: before=%v after=%v", before, after)
 	}
 
 	// Stage 3 — local edit: both classify it a conflict; the plan leaves the
@@ -296,9 +305,13 @@ func TestPullPlanMatchesPull(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(localMem, "shared.md"), []byte(edited), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	before = snapshotDir(t, localMem)
 	plan3, err := PullPlan(targets)
 	if err != nil {
 		t.Fatalf("PullPlan 3: %v", err)
+	}
+	if after := snapshotDir(t, localMem); !maps.Equal(after, before) {
+		t.Errorf("PullPlan 3 wrote files: before=%v after=%v", before, after)
 	}
 	res3, err := Pull(targets)
 	if err != nil {

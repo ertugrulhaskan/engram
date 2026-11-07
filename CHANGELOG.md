@@ -10,6 +10,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-07
+
+### Fixed
+- **Wrapped blockquotes keep their `│` bar again.** v0.6.0's Glamour 1.0 wraps quote text
+  without counting the bar's own two cells and then wraps it a second time, so a single
+  word drops onto a line with no bar — in the Paperback and CRT themes, at about a third of
+  all widths (29 such lines across wraps 30–88 for one ordinary one-paragraph quote, against
+  0 on Glamour 0.8). Plain paragraphs and the Midnight theme were unaffected. Glamour goes
+  back to **0.8.0**; Bubbles, Bubble Tea and Lip Gloss stay on the 1.0 line, so the palette
+  placeholder fix and the viewport changes from v0.6.0 are kept. Going back also restores
+  v0.5.2's wrapping width (about four columns wider than v0.6.0) and brings back one old
+  Glamour 0.8 quirk: a long URL inside a blockquote is printed twice. That is rarer and
+  less visible than the missing bars. A new test renders three plain-prose quotes through
+  engram's own renderer, in every theme, at each wrap width from the narrowest that fits
+  the longest word beside the bar up to the 88-column reading cap, and fails if a line
+  loses its bar or its indent. On Glamour 1.0 it fails in Paperback and CRT, so the next
+  1.0 bump fails CI instead of passing it. The Charm v2 upgrade, which must clear
+  this test, is still planned separately.
+- **Release binaries now report their version with the `v`** — `engram v0.6.1`, not
+  `engram 0.6.1` — in `engram --version` and in the TUI header. GoReleaser stamped the bare
+  number, so a Homebrew or archive install showed a different string from a `go install`
+  build (which reads `v0.6.1` from the module), the README screenshot and the landing
+  page. The Homebrew cask and archive names are unchanged.
+
+### Fixed — team sharing
+- **A withdrawal whose push fails no longer leaves the memory shared for good.** Withdraw
+  reset the local copy to personal even when the push failed, after which its own guard
+  refused a retry ("this memory isn't shared"), and nothing else re-pushed the removal — so
+  the team could keep reading a memory its owner had taken back. The local copy now stays
+  team-scoped until the removal reaches the remote — offline, withdraw undoes itself
+  completely and the toast says the team can still read it — and running withdraw again
+  redoes it.
+- **Withdraw removes every copy from the store.** One memory can sit at two store paths
+  (after renaming it and promoting again, or promoting it under another placement).
+  Withdraw removed only the copy under the current placement and reported success; the
+  other stayed readable, and teammates' pulls kept their copies. It now removes every
+  store file with that memory's id.
+- **One rejected push no longer jams the team store.** If a teammate pushed first, the
+  promote's or withdraw's push was rejected, the toast blamed credentials, and every later
+  pull failed because the store had diverged — fixable only with git by hand. engram now
+  rebases its commit onto the remote and retries once, as SPEC always described; pull
+  rebases too, and a confirmed pull sends out a commit an offline push left behind (the
+  pull preview never pushes). A real conflict (two people changing the same memory at
+  once) aborts cleanly and names the store folder to resolve in. Two people withdrawing
+  at the same time, or one re-sharing a memory while another withdraws, no longer
+  conflict over the tombstone list — it is merged by memory, keeping what either side
+  added and dropping what either side removed.
+- **Promote no longer reverts a teammate's newer version.** Promoting a copy the team had
+  moved past overwrote the teammate's edit and re-stamped the sync anchor, which hid the
+  loss from the badges. Promote now checks the team's current copy first (when the remote
+  is reachable) and refuses with "pull it first" (behind) or "resolve it first"
+  (conflict, unknown).
+- **A failed promote or withdraw leaves nothing half-done.** One that failed partway —
+  a commit hook, a file it couldn't write — left its changes staged in the team store,
+  where the next promote or withdraw committed and pushed them along with its own. It
+  now puts everything it touched back, including the local memory.
+- **A push the server refuses says why.** A branch protection rule or server hook that
+  rejects the push used to read as "check your git remote/creds" or "couldn't reach the
+  git remote"; the message now carries the server's own reason, and the promote or
+  withdraw is undone locally, so nothing is left claiming to be shared (or withdrawn)
+  when the team never got the change.
+
+### Fixed — secret scan before promote
+- **Passwords with symbols, and short ones, are now caught.** The name rule accepted only
+  a base64-shaped value of 12 or more characters, so `DB_PASSWORD=P@ssw0rd!2024xyz`,
+  `PASSWORD=Summer2024!` or `password: "P@ssw0rd123"` scanned clean and promote pushed
+  them. A second rule now reads a value up to the next space or quote and reports one that
+  mixes letters with digits or symbols, and the key list counts `credential`, `DB_PASS`
+  and `pwd` (but not `bypass` or `passport`). A Markdown bold key (`**Password:** …`),
+  the way memories often write a credential, counts too.
+- **More token formats are recognised:** GitLab (`glpat-`), Shopify (`shpat_` and
+  siblings), DigitalOcean (`dop_v1_`), Mailgun (`key-`), Twilio API keys (`SK…`), Hugging
+  Face (`hf_`) and npm (`npm_`). A bare 32- or 64-character hex value still gets no rule
+  of its own: it can't be told from a git SHA or a file hash.
+- **Fewer false alarms on memories that talk about secrets.** A value that points at a
+  secret instead of holding one (`${DB_PASSWORD}`, `process.env.TOKEN`,
+  `config.apiKey`, `DB_PASSWORD_FROM_VAULT`) or is a placeholder (`xxxxxxxx`,
+  `<your-token>`) no longer triggers the guard. Measured on 422 real memory, plan and
+  instruction files, the change adds no new findings and drops none of the old ones.
+
+### Fixed — memory files and settings
+- **MEMORY.md lines are read correctly when a hook contains a link.** A line like
+  `- [A](a.md) — see also [B](b.md)` was read as pointing at `b.md`, so refreshing B's
+  line overwrote A's. Filenames with parentheses (`notes (1).md`) no longer pile up
+  duplicate lines, `./a.md` and `a.md#section` count as the file they name, and a file
+  whose name contains `#` or `%` keeps a single line.
+- **Pull no longer deletes MEMORY.md lines that aren't memories.** The index tidy-up that
+  runs after every pull treated a link to a website or to a file in a subfolder as a
+  missing memory and removed it. Those lines are now left alone.
+- **MEMORY.md is written safely.** engram replaces it in one step (a temp file, then a
+  rename) instead of truncating it first, so a crash or a full disk can't leave Claude an
+  empty index. A symlinked MEMORY.md stays a symlink, a hard-linked one is updated in
+  place, and one you made read-only is still left alone.
+- **Edits through symlinks show up.** A memory or plan file that is a symlink (into a
+  dotfiles repo, say) is now watched by its target, so editing it reloads the view; before,
+  only a restart did. A project folder that is itself a symlink is found too.
+- **Projects with spaces or accents in their path are recognised.** Claude Code turns every
+  character that isn't a plain letter or digit into `-` (checked against its own code);
+  engram only reversed `.` and `_`, so a project under `My Projects/` or `café/` got a
+  made-up path, the wrong name, and no instruction files.
+- **New memories are never written outside the memory folder.** Creating one whose name
+  matched a broken symlink wrote the file wherever the link pointed. It now picks the next
+  free name.
+- **Settings engram doesn't know are kept.** A key from a newer engram, or one added by
+  hand to `config.json`, was dropped the next time a theme key was pressed. Now it stays.
+
+### Fixed — the TUI
+- **`>init <git-url>` takes a long URL.** The palette held 64 characters, so a long https
+  or GitLab-subgroup URL was cut short without a word and init-team ran on the cut URL.
+- **`n` no longer creates a memory in a random project.** With nothing selected (a filter
+  that matches nothing), the new memory went into whichever project came first. It now
+  asks you to select a memory in the project you mean. `R` had the same fallback and no
+  longer guesses either.
+- **Palette jumps work under a type filter.** Jumping to a memory the `t` filter hid did
+  nothing at all; the filter is now reset so the jump lands.
+- **The list no longer hides rows above empty space** after the window grows or a filter
+  shortens the list.
+- **Deleting a memory keeps your place.** The cursor moves to the memory just above it
+  instead of jumping to the top of the list.
+- **The preview keeps its scroll position** across the background reload (every couple of
+  seconds while files change), a theme switch and a resize. It goes back to the top only
+  when you select a different memory.
+- **Two small hardening fixes:** the index-drift banner sanitizes the project name like
+  every other line on screen, and the team store's tombstone file is never followed
+  through a symlink.
+
 ## [0.6.0] - 2026-11-07
 
 ### Changed
@@ -22,18 +148,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   columns, found the earlier objections smaller than they looked. Both versions sometimes
   leave a wrapped word of a blockquote without its `│` bar, an open upstream Glamour
   issue, on different lines. The Charm v2 upgrade is still planned separately.
+  **Correction (v0.6.1): the blockquote claim above is wrong.** Those samples mixed links
+  and bold text into the quotes, which trip Glamour 0.8 too. On an ordinary prose quote,
+  0.8 keeps the bar at every width tested (30–88) and 1.0 loses it at about a third of
+  them — the original objection was right. v0.6.1 returns Glamour to 0.8.
 - **CI uses `actions/setup-node` 7.1.0 and `goreleaser-action` 7.3.0** (from 7.0.0 and
   7.2.3). GoReleaser itself stays pinned at `v2.19.0`.
 
 ### Fixed
 - **A long link inside a blockquote is no longer printed twice.** Glamour 0.8 repeated a
-  wrapped URL in a quote; 1.0 renders it once.
+  wrapped URL in a quote; 1.0 renders it once. (Undone in v0.6.1, which returns to
+  Glamour 0.8.)
 - **The palette's placeholder is no longer cut short on 76- and 77-column terminals.** The
   header hint appeared from a fixed box width, which left the input 18–19 cells, and
   Bubbles 1.0 truncates a placeholder wider than its field, so it read
   "type to jump or r…". The hint now appears only when the input keeps room for the whole
   placeholder, a threshold derived from the two strings rather than a fixed number, and a
-  test sweeps every terminal width from 43 to 140 columns. Under 43 columns the
+  test sweeps every terminal width from 20 to 140 columns (corrected in v0.6.1; this
+  first read "43 to 140", from before review widened the sweep). Under 43 columns the
   placeholder still loses its last character, because every dialog shares a 30-cell
   minimum width.
 
@@ -1368,7 +1500,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/ertugrulhaskan/engram/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ertugrulhaskan/engram/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/ertugrulhaskan/engram/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/ertugrulhaskan/engram/compare/v0.5.0...v0.5.1

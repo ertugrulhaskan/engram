@@ -19,6 +19,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
 )
 
 // Config is engram's persisted settings.
@@ -100,6 +103,19 @@ func Path() (string, error) {
 	return filepath.Join(dir, "config.json"), nil
 }
 
+// Exists reports whether the config file is present. It answers false only when
+// the file is positively absent, so a caller seeding a fresh config never
+// overwrites one it merely failed to stat. It lives here so the TUI can ask
+// without touching the filesystem itself (the layering rule).
+func Exists() bool {
+	p, err := Path()
+	if err != nil {
+		return true
+	}
+	_, err = os.Stat(p)
+	return !os.IsNotExist(err)
+}
+
 // ErrUnparseable is what Read returns (wrapped, naming the file and the JSON
 // error) for a config that exists but does not parse — so a caller can tell
 // it from every other failure and say what to do about it.
@@ -114,25 +130,46 @@ var ErrUnparseable = errors.New("the config doesn't parse")
 // to decide what an unreadable file means for what it is about to do. A writer
 // goes through Update.
 func Read() (Config, error) {
+	c, _, err := readFile()
+	return c, err
+}
+
+// readFile is Read plus the keys Config has no field for (see Update), from one
+// read of the file — so a theme keypress parses the config once, not twice.
+func readFile() (Config, map[string]json.RawMessage, error) {
 	var c Config
 	p, err := Path()
 	if err != nil {
-		return c, err
+		return c, nil, err
 	}
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return c, nil
+			return c, nil, nil
 		}
-		return c, err
+		return c, nil, err
 	}
 	if len(bytes.TrimSpace(data)) == 0 {
-		return c, nil
+		return c, nil, nil
 	}
 	if err := json.Unmarshal(data, &c); err != nil {
-		return c, fmt.Errorf("%w (%s: %v)", ErrUnparseable, p, err)
+		return c, nil, fmt.Errorf("%w (%s: %v)", ErrUnparseable, p, err)
 	}
-	return c, nil
+	var unknown map[string]json.RawMessage
+	if json.Unmarshal(data, &unknown) == nil {
+		// encoding/json matches field names case-insensitively, so "Theme" was
+		// decoded into Config too; keeping it as "unknown" as well would write it
+		// back beside "theme" and later resurrect a stale value.
+		for k := range unknown {
+			for kk := range knownKeySet {
+				if strings.EqualFold(k, kk) {
+					delete(unknown, k)
+					break
+				}
+			}
+		}
+	}
+	return c, unknown, nil
 }
 
 // Update applies mutate to the config on disk and saves the result. It reads
@@ -140,15 +177,70 @@ func Read() (Config, error) {
 // with defaults, and every setting the mutation doesn't touch survives the
 // round trip — the invariant lives here, in the one function that can break
 // it, not at each writer. mutate may refuse too; its error comes back unsaved.
+//
+// "Every setting" includes keys this version doesn't know — one from a newer
+// engram, or added by hand. The typed Config can't hold them, so Update keeps
+// them aside and merges them back on save; before it did, the next theme
+// keypress silently dropped them.
 func Update(mutate func(*Config) error) error {
-	c, err := Read()
+	c, unknown, err := readFile()
 	if err != nil {
 		return err
 	}
 	if err := mutate(&c); err != nil {
 		return err
 	}
-	return Save(c)
+	return save(c, unknown)
+}
+
+// appendUnknown adds the unknown keys to the end of the struct-ordered JSON
+// object, sorted, so the settings engram knows keep their usual order instead of
+// the whole file being re-sorted alphabetically the first time a stray key exists.
+func appendUnknown(obj []byte, unknown map[string]json.RawMessage) ([]byte, error) {
+	keys := make([]string, 0, len(unknown))
+	for k := range unknown {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b bytes.Buffer
+	body := bytes.TrimSpace(obj)
+	body = bytes.TrimSpace(body[:len(body)-1]) // drop the closing brace
+	b.Write(body)
+	for i, k := range keys {
+		if i > 0 || len(body) > 1 { // len(body)==1 is just "{": no prior member
+			b.WriteByte(',')
+		}
+		b.WriteString("\n  ")
+		name, err := json.Marshal(k)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(name)
+		b.WriteString(": ")
+		var v bytes.Buffer
+		if err := json.Indent(&v, unknown[k], "  ", "  "); err != nil {
+			return nil, err
+		}
+		b.Write(v.Bytes())
+	}
+	b.WriteString("\n}")
+	return b.Bytes(), nil
+}
+
+// knownKeySet is the set of JSON names Config's fields use, read once from the
+// struct tags so it can't drift when a setting is added.
+var knownKeySet = knownKeys()
+
+func knownKeys() map[string]bool {
+	out := map[string]bool{}
+	t := reflect.TypeOf(Config{})
+	for i := 0; i < t.NumField(); i++ {
+		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
+		if name != "" && name != "-" {
+			out[name] = true
+		}
+	}
+	return out
 }
 
 // Save writes the config, creating the directory if needed. The write is
@@ -175,6 +267,14 @@ func Update(mutate func(*Config) error) error {
 // config dir holding a writable config.json now fails to save rather than
 // saving non-atomically — the rarer situation, and the better failure.
 func Save(c Config) error {
+	// Keep keys Config has no field for, exactly as Update does — a Save after a
+	// Read must not be the one path that still drops them.
+	_, unknown, _ := readFile()
+	return save(c, unknown)
+}
+
+// save is Save with unknown keys (see Update) merged back into the written JSON.
+func save(c Config, unknown map[string]json.RawMessage) error {
 	p, err := Path()
 	if err != nil {
 		return err
@@ -190,6 +290,11 @@ func Save(c Config) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
+	}
+	if len(unknown) > 0 {
+		if data, err = appendUnknown(data, unknown); err != nil {
+			return err
+		}
 	}
 	// Decide the mode before creating anything, so the temp is never wider than
 	// the file it will become — not even for the moment between the write and a

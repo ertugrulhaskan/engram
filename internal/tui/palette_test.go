@@ -223,7 +223,7 @@ func TestPlanDeleteAndGating(t *testing.T) {
 	if m.(Model).mode != modeConfirm {
 		t.Fatalf("d did not open confirm (mode=%v)", m.(Model).mode)
 	}
-	m = typeRunes(m, "y")
+	typeRunes(m, "y")
 	if _, err := os.Stat(pp); !os.IsNotExist(err) {
 		t.Errorf("plan file not deleted: stat err=%v", err)
 	}

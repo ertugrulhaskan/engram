@@ -35,6 +35,9 @@ const withdrawnLedger = ".engram-withdrawn"
 // readWithdrawn returns the set of withdrawn ids recorded in the store.
 func readWithdrawn(dir string) map[string]bool {
 	out := map[string]bool{}
+	if ledgerIsSymlink(dir) {
+		return out
+	}
 	data, err := os.ReadFile(filepath.Join(dir, withdrawnLedger))
 	if err != nil {
 		return out
@@ -53,7 +56,7 @@ func readWithdrawn(dir string) map[string]bool {
 // already there. It returns the ledger's store-relative path when the file
 // changed (so the caller can stage it), or "" when nothing changed.
 func addWithdrawn(dir, id, slug string) string {
-	if readWithdrawn(dir)[id] {
+	if ledgerIsSymlink(dir) || readWithdrawn(dir)[id] {
 		return ""
 	}
 	p := filepath.Join(dir, withdrawnLedger)
@@ -76,6 +79,9 @@ func addWithdrawn(dir, id, slug string) string {
 // removeWithdrawn drops id from the ledger (used when an id is re-promoted). It
 // returns the ledger's store-relative path when the file changed, or "".
 func removeWithdrawn(dir, id string) string {
+	if ledgerIsSymlink(dir) {
+		return ""
+	}
 	p := filepath.Join(dir, withdrawnLedger)
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -98,4 +104,13 @@ func removeWithdrawn(dir, id string) string {
 		return ""
 	}
 	return withdrawnLedger
+}
+
+// ledgerIsSymlink reports whether the ledger is a symlink. Like every other
+// store read and write (containsSymlink), the ledger is never followed through
+// one: a teammate could commit a symlink named .engram-withdrawn pointing
+// outside the store, and appending to it would write wherever it pointed.
+func ledgerIsSymlink(dir string) bool {
+	fi, err := os.Lstat(filepath.Join(dir, withdrawnLedger))
+	return err == nil && fi.Mode()&os.ModeSymlink != 0
 }

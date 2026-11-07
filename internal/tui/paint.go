@@ -76,18 +76,6 @@ func paintBlock(block string, w int, bg string) string {
 // sgrSeq matches one SGR escape sequence.
 var sgrSeq = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-// blendHex mixes hex color c toward base by amount (0 keeps c, 1 becomes
-// base), returning c unchanged when either fails to parse as #rrggbb.
-func blendHex(c, base string, amount float64) string {
-	cr, cg, cb, ok1 := hexRGB(c)
-	br, bg2, bb, ok2 := hexRGB(base)
-	if !ok1 || !ok2 {
-		return c
-	}
-	mix := func(a, b int) int { return int(float64(a)*(1-amount) + float64(b)*amount + 0.5) }
-	return fmt.Sprintf("#%02x%02x%02x", mix(cr, br), mix(cg, bg2), mix(cb, bb))
-}
-
 func hexRGB(c string) (r, g, b int, ok bool) {
 	if len(c) != 7 || c[0] != '#' {
 		return 0, 0, 0, false

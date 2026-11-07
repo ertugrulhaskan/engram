@@ -123,6 +123,50 @@ func runGitCapture(dir string, args ...string) (string, error) {
 	if dir != "" {
 		args = append([]string{"-C", dir}, args...)
 	}
-	out, err := exec.Command("git", args...).Output()
+	out, err := quietGit(args...).Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+// quietGit builds a git command that can never stop to ask for credentials.
+// The captured helpers run inside the TUI — promote and withdraw now pull,
+// fetch and push from there — and a git that prompted for an HTTPS username on
+// the terminal the TUI owns would corrupt the screen or hang the command.
+// GIT_TERMINAL_PROMPT=0 makes it fail instead, which reads as "unreachable" and
+// keeps the commit for later. (runGit, for interactive commands like
+// init-team, keeps prompting on purpose.)
+func quietGit(args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	// Network commands also run with no terminal at all, so ssh can't prompt
+	// either. Only those: a local commit may need the terminal for a gpg
+	// pinentry when the user signs commits.
+	switch gitSubcommand(args) {
+	case "push", "fetch", "pull", "clone", "ls-remote":
+		detach(cmd)
+	}
+	return cmd
+}
+
+// gitSubcommand returns the git subcommand in args, skipping -C <dir> and
+// -c <key=value> global options.
+func gitSubcommand(args []string) string {
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-C", "-c":
+			i++
+		default:
+			return args[i]
+		}
+	}
+	return ""
+}
+
+// runGitCombined runs a git subcommand and returns stdout and stderr together,
+// for failures whose message has to reach the user (git explains in stderr).
+func runGitCombined(dir string, args ...string) (string, error) {
+	if dir != "" {
+		args = append([]string{"-C", dir}, args...)
+	}
+	out, err := quietGit(args...).CombinedOutput()
+	return string(out), err
 }

@@ -90,7 +90,7 @@ func TestDriftBannerAndRebuild(t *testing.T) {
 			t.Errorf("reconcile confirm missing %q:\n%s", want, conf)
 		}
 	}
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
 	un, dang, err := memory.IndexDrift(dir)
 	if err != nil {
 		t.Fatal(err)

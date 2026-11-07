@@ -98,6 +98,12 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.search.SetValue("")
 				m.rebuildRows()
 			}
+			// Jump rows ignore the type filter, so the target can still be hidden
+			// by it; reset the filter rather than drop the jump without a word.
+			if !m.hasRow(sel.path) && m.typeIdx != 0 {
+				m.typeIdx = 0
+				m.rebuildRows()
+			}
 			m.selectByPath(sel.path)
 		case palSettings:
 			return m, m.openSettingsFile()
