@@ -421,12 +421,13 @@ func (m Model) paletteBox() string {
 	pst := func(col string) lipgloss.Style { return fg(col).Background(lipgloss.Color(panel)) }
 
 	// Pad the header with the input's own background (Sel) so the field reads as
-	// a full-width box reaching the border; the right-side hint appears when the
-	// box is wide enough to share the line with the input (see resize).
+	// a full-width box reaching the border; the right-side hint appears only when
+	// the input keeps room for its whole placeholder (palShowsHint, which resize
+	// also uses to size the input).
 	left := fg(t.Accent).Background(lipgloss.Color(t.Sel)).Bold(true).Render("engram") +
 		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + m.palette.View()
 	right := ""
-	if cw >= palHintMinWidth {
+	if palShowsHint(cw) {
 		right = fg(t.Faint).Background(lipgloss.Color(t.Sel)).Render(palHint + " ")
 	}
 	header := padBG(bandLine(left, right, cw, t.Sel), cw, t.Sel)
@@ -457,12 +458,45 @@ func (m Model) paletteBox() string {
 	return m.frameLines(lines, cw, t.Accent, bleed)
 }
 
-// palHint is the header's right-side nudge; it renders only when the box can
-// fit it beside the input (palHintMinWidth, mirrored by resize's input budget).
+// palHint is the header's right-side nudge; palPlaceholder is the empty input's
+// prompt. The hint renders only when it leaves the input room for the whole
+// placeholder (palShowsHint), so the two never compete for the same cells.
 const (
-	palHint         = "type anything — prefixes optional"
-	palHintMinWidth = 64
+	palHint        = "type anything — prefixes optional"
+	palPlaceholder = "type to jump or run…"
+	// palInputChrome is what the header spends besides the input: the
+	// "engram:  " prefix (9), the cursor cell textinput.View adds (1), and 1
+	// cell of slack so the header can never overflow the frame.
+	palInputChrome = 11
+	palHintGap     = 2 // cells between the input and the hint
 )
+
+// palHintedWidth is the input width a palette box cw cells wide would leave if
+// it showed palHint: the one place the header's budget is computed, so the
+// hint decision and the input width cannot drift apart. Widths are measured
+// with lipgloss.Width — the same ruler textinput truncates the placeholder
+// with and the header is drawn with — not runewidth, whose East Asian locale
+// mode counts "—" and "…" as two cells.
+func palHintedWidth(cw int) int {
+	return cw - palInputChrome - lipgloss.Width(palHint) - palHintGap
+}
+
+// palShowsHint reports whether a palette box cw cells wide shows palHint: only
+// when the input keeps room for the whole placeholder. Bubbles 1.0's textinput
+// truncates a wider placeholder with "…", so the old fixed cutoff left 76- and
+// 77-column terminals reading "type to jump or r…".
+func palShowsHint(cw int) bool {
+	return palHintedWidth(cw) >= lipgloss.Width(palPlaceholder)
+}
+
+// palInputWidth is the palette input's visible width in a box cw cells wide.
+func palInputWidth(cw int) int {
+	w := cw - palInputChrome
+	if palShowsHint(cw) {
+		w = palHintedWidth(cw)
+	}
+	return max(w, 1)
+}
 
 // openPalette opens the command palette seeded with a query — "" for the plain
 // opener, "@" for the assistant key.

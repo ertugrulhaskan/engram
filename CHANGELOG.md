@@ -10,6 +10,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
+### Changed
+- **The TUI now runs on Bubbles 1.0 and Glamour 1.0** (from 0.20 and 0.8), with Bubble Tea
+  1.3.10, Lip Gloss 1.1 and their transitive dependencies. The visible difference is in the
+  preview pane: Glamour 1.0 wraps prose about four columns earlier, so long paragraphs and
+  list items can take an extra line. This upgrade was turned down once (it was closed in
+  favour of waiting for Charm v2); a side-by-side render of the same long paragraphs,
+  lists, links and blockquotes through both versions, in all three themes at 36, 56 and 88
+  columns, found the earlier objections smaller than they looked. Both versions sometimes
+  leave a wrapped word of a blockquote without its `│` bar, an open upstream Glamour
+  issue, on different lines. The Charm v2 upgrade is still planned separately.
+- **CI uses `actions/setup-node` 7.1.0 and `goreleaser-action` 7.3.0** (from 7.0.0 and
+  7.2.3). GoReleaser itself stays pinned at `v2.19.0`.
+
+### Fixed
+- **A long link inside a blockquote is no longer printed twice.** Glamour 0.8 repeated a
+  wrapped URL in a quote; 1.0 renders it once.
+- **The palette's placeholder is no longer cut short on 76- and 77-column terminals.** The
+  header hint appeared from a fixed box width, which left the input 18–19 cells, and
+  Bubbles 1.0 truncates a placeholder wider than its field, so it read
+  "type to jump or r…". The hint now appears only when the input keeps room for the whole
+  placeholder, a threshold derived from the two strings rather than a fixed number, and a
+  test sweeps every terminal width from 43 to 140 columns. Under 43 columns the
+  placeholder still loses its last character, because every dialog shares a 30-cell
+  minimum width.
+
 ### Documentation
 - **"Releasing" drops its Homebrew cask step.** v0.5.2 was the first release whose cask
   GoReleaser generated with `postflight_steps` itself, and it held up: the tap's
@@ -1341,7 +1368,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ertugrulhaskan/engram/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/ertugrulhaskan/engram/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/ertugrulhaskan/engram/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/ertugrulhaskan/engram/compare/v0.4.0...v0.5.0

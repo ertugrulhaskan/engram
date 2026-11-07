@@ -194,10 +194,13 @@ To cut a release:
 
 1. Update [`CHANGELOG.md`](CHANGELOG.md): move `[Unreleased]` items into a new
    dated version section and refresh the compare/tag links.
-2. Bump the hardcoded version strings on the site —
-   `grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+' www/index.html` finds them all: the hero release
-   pill and the `engram vX.Y.Z` in each terminal mockup's header. Nothing generates
-   these, so they only stay honest by hand. (Match the whole `vX.Y.Z` shape, not a
+2. Bump the hardcoded version strings on the site and in the README —
+   `grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+' www/index.html` finds the site's: the hero release
+   pill and the `engram vX.Y.Z` in each terminal mockup's header. In the README it is
+   the one `**Latest release:**` line (`grep -n 'Latest release' README.md`; missed once,
+   at `v0.6.0`, until review caught it) — its roadmap lines name past versions on
+   purpose and stay as they are. Nothing generates these, so they only stay honest by
+   hand. (Match the whole `vX.Y.Z` shape, not a
    `v0.`-prefixed one — a `v0.` pattern silently finds nothing the day the project
    reaches 1.0.0 and reads as "nothing to bump".)
 
