@@ -93,7 +93,9 @@ func (m Model) driftBanner(it Item) string {
 	t := m.theme()
 	w := m.listW
 	cause := driftCause(len(m.driftUnindexed), len(m.driftDangling))
-	full := it.Context + ": " + cause
+	// Context is a project name off disk; every other untrusted line goes through
+	// sanitizeLine (or clip), and this one reached the frame raw when it fit.
+	full := sanitizeLine(it.Context) + ": " + cause
 	avail := w - 3 - 1 // " △ " lead and a trailing cell
 	chipW := runewidth.StringWidth("[R reconcile]") + 2
 	chipTxt := "[R reconcile]"

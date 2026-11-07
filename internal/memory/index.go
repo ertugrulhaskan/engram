@@ -1,7 +1,9 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,10 +29,12 @@ func indexLineFor(memDir, file string) (string, error) {
 	return line, nil
 }
 
-// lineFile returns the file referenced by a MEMORY.md bullet line, or "".
+// lineFile returns the memory file a MEMORY.md bullet line names, or "" when
+// the line is not a bullet or its link names no memory in this folder (see
+// indexTarget).
 func lineFile(line string) string {
-	if mt := indexLineRe.FindStringSubmatch(line); mt != nil {
-		return strings.TrimSpace(mt[2])
+	if _, target, _, ok := parseIndexLine(line); ok {
+		return indexTarget(target)
 	}
 	return ""
 }
@@ -48,7 +52,7 @@ func UpsertIndex(memDir, file string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return os.WriteFile(path, []byte(indexHeader+"\n\n"+newLine+"\n"), 0o644)
+			return writeIndexFile(path, []byte(indexHeader+"\n\n"+newLine+"\n"))
 		}
 		return err
 	}
@@ -171,5 +175,68 @@ func ReconcileIndex(memDir string) (added, removed int, err error) {
 }
 
 func writeLines(path string, lines []string) error {
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	return writeIndexFile(path, []byte(strings.Join(lines, "\n")+"\n"))
+}
+
+// writeIndexFile replaces MEMORY.md atomically: a temp file beside it, then a
+// rename. os.WriteFile truncates before it writes, so a crash, a full disk or a
+// kill in between left Claude Code a truncated or empty index — the file it
+// loads every session. A symlinked MEMORY.md is followed first, so the rename
+// replaces the target and the link survives, and the file's mode is kept. (The
+// read-modify-write is still not a lock: an edit Claude makes between engram's
+// read and its rename is lost, as before — but never half-written.)
+func writeIndexFile(path string, data []byte) error {
+	target := path
+	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if r, err := filepath.EvalSymlinks(path); err == nil {
+			target = r
+		} else if l, err := os.Readlink(path); err == nil { // dangling: write where it points
+			if !filepath.IsAbs(l) {
+				l = filepath.Join(filepath.Dir(path), l)
+			}
+			target = l
+		}
+	}
+	mode := os.FileMode(0o644)
+	if fi, err := os.Stat(target); err == nil {
+		mode = fi.Mode().Perm()
+		// A rename needs only the directory, so it would silently replace a
+		// MEMORY.md the user made read-only (chmod 444, a read-only dotfiles
+		// deploy). Ask the file itself for write access first — no truncate —
+		// and refuse as os.WriteFile always did. Same rule as config.openTarget.
+		w, err := os.OpenFile(target, os.O_WRONLY, 0)
+		if err != nil {
+			return err
+		}
+		w.Close()
+		// A rename gives the name a new inode, so every other hard link to
+		// MEMORY.md would keep the old content. Write such a file in place.
+		if hardLinked(fi) {
+			return os.WriteFile(target, data, mode)
+		}
+	}
+	f, err := os.CreateTemp(filepath.Dir(target), ".MEMORY-*.tmp")
+	if errors.Is(err, fs.ErrPermission) {
+		// A writable MEMORY.md in a directory engram may not create files in
+		// (a symlink into a read-only dotfiles checkout): the rename can't
+		// happen, so write in place as os.WriteFile always did, rather than
+		// fail a write that used to work.
+		return os.WriteFile(target, data, mode)
+	}
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp) // a no-op once the rename has consumed it
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, mode); err != nil {
+		return err
+	}
+	return os.Rename(tmp, target)
 }

@@ -23,6 +23,13 @@ version: 2
 updates:
   # The binary's own dependencies. This is the one that matters: it is what ships to
   # users through the release archives, the Homebrew cask and `go install`.
+  #
+  # GLAMOUR STAYS ON 0.8 until the Charm v2 upgrade (ENGR-43). Glamour 1.0 drops the
+  # blockquote `│` bar on wrapped lines; #12 merged it anyway because the suite passed,
+  # it shipped in v0.6.0, and v0.6.1 went back to 0.8. A grouped PR here will offer
+  # Glamour 1.0 again. Take the rest of that group, not the Glamour bump:
+  # TestBlockquoteKeepsBarWhenWrapped (internal/tui/quote_wrap_test.go) fails on 1.0,
+  # and that red CI is the reason, not noise. (Still no `ignore:`, for the reason above.)
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:

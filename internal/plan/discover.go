@@ -78,7 +78,9 @@ func Signature(dir string) (string, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
-		info, err := e.Info()
+		// os.Stat, not DirEntry.Info (an lstat): a symlinked plan must be
+		// fingerprinted by its target, or an edit to it never reloads.
+		info, err := os.Stat(filepath.Join(d, e.Name()))
 		if err != nil {
 			continue
 		}

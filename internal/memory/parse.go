@@ -3,20 +3,120 @@ package memory
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// indexLineRe matches a MEMORY.md index line:
+// parseIndexLine parses one MEMORY.md index line:
 //
 //   - [Title](file.md) — hook
 //
-// The separator may be an em-dash, en-dash, or hyphen, and is optional. The
-// title group is greedy so a title containing "]" still round-trips (it
-// backtracks to the final "](file)"), keeping the file identity reliable.
-var indexLineRe = regexp.MustCompile(`^\s*-\s*\[(.+)\]\(([^)]+)\)\s*(?:[—–-]+\s*)?(.*)$`)
+// The separator may be an em-dash, en-dash, or hyphen, and is optional.
+//
+// The link that names the file is the first "](…)" whose target names a memory
+// (a bare .md file — see indexTarget), its target read up to the matching ")"
+// so balanced parentheses survive ("notes (1).md"). Scanning left to right keeps
+// a hook that itself contains a link ("see also [B](b.md)") from stealing the
+// line — the old greedy regex read that as b.md, so an upsert of b.md overwrote
+// it — while skipping non-memory targets keeps a title that contains a "](" of
+// its own ("Fix handlers[i](ctx) call") working, as the greedy regex did. When
+// no target names a memory (a URL bullet), the first link is returned.
+func parseIndexLine(line string) (title, target, hook string, ok bool) {
+	t := strings.TrimLeft(line, " \t")
+	if !strings.HasPrefix(t, "-") {
+		return "", "", "", false
+	}
+	t = strings.TrimLeft(t[1:], " \t")
+	if !strings.HasPrefix(t, "[") {
+		return "", "", "", false
+	}
+	body := t[1:]
+	// First, the title's own closing "]" found by bracket balancing: it handles
+	// a title holding brackets ("[x]"), a "](" ("handlers[i](ctx)") or a whole
+	// link ("see [B](b.md)"), and a hook holding a link, in one rule. Only when
+	// the brackets don't balance does the scan below take over.
+	if close := balancedClose(body); close >= 0 && close+1 < len(body) && body[close+1] == '(' {
+		for end := close + 2; end < len(body); end++ {
+			if body[end] == ')' && indexTarget(strings.TrimSpace(body[close+2:end])) != "" {
+				return body[:close], strings.TrimSpace(body[close+2 : end]),
+					trimHookSeparator(strings.TrimLeft(body[end+1:], " \t")), true
+			}
+		}
+	}
+	found := false
+	for i := 0; i+1 < len(body); i++ {
+		if body[i] != ']' || body[i+1] != '(' {
+			continue
+		}
+		// Try each ")" after the "(" in turn, so a filename's own parentheses —
+		// balanced ("notes (1).md") or not ("notes (draft.md", "a).md") — stay
+		// part of the target: the first close that leaves a memory name wins.
+		for end := i + 2; end < len(body); end++ {
+			if body[end] != ')' {
+				continue
+			}
+			cTarget := strings.TrimSpace(body[i+2 : end])
+			cTitle := body[:i]
+			cHook := trimHookSeparator(strings.TrimLeft(body[end+1:], " \t"))
+			if indexTarget(cTarget) != "" {
+				return cTitle, cTarget, cHook, true
+			}
+			if !found {
+				found, title, target, hook = true, cTitle, cTarget, cHook
+			}
+		}
+	}
+	return title, target, hook, found
+}
+
+// balancedClose returns the index of the "]" that closes a title starting just
+// before s (the opening "[" already consumed), or -1 when it never closes.
+func balancedClose(s string) int {
+	depth := 1
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func trimHookSeparator(rest string) string {
+	return strings.TrimSpace(strings.TrimLeft(rest, "—–- \t"))
+}
+
+// indexTarget maps a bullet's link target to the memory file it names, or ""
+// when it names no memory in this folder: a URL, a link into a subfolder, or a
+// non-.md file. Memory folders are flat, so only a bare filename can be one.
+// "./a.md" names a.md. The target is taken literally when it is already a bare
+// .md name — engram writes bullets with the literal filename, so a file named
+// "a#b.md" or "a%20b.md" must round-trip as itself, or every reconcile would
+// append another bullet for it — and a "#section" is stripped only when that is
+// what keeps it from being one ("a.md#section"). A "" target is not a bullet to
+// index drift, so reconcile, which runs after every pull without a confirm,
+// leaves such lines alone instead of deleting them as dangling.
+func indexTarget(target string) string {
+	t := strings.TrimPrefix(strings.TrimSpace(target), "./")
+	if bareMemoryName(t) {
+		return t
+	}
+	if i := strings.IndexByte(t, '#'); i >= 0 && bareMemoryName(t[:i]) {
+		return t[:i]
+	}
+	return ""
+}
+
+func bareMemoryName(t string) bool {
+	return strings.HasSuffix(t, ".md") && len(t) > len(".md") &&
+		!strings.Contains(t, "://") && !strings.ContainsAny(t, `/\`) && !strings.Contains(t, "](")
+}
 
 // parseFile reads one memory file, supporting both the YAML-frontmatter shape
 // and the plain-markdown shape (where metadata comes from the MEMORY.md index).
@@ -105,12 +205,13 @@ func parseIndex(memoryDir string) map[string]indexEntry {
 		return out
 	}
 	for _, line := range strings.Split(string(data), "\n") {
-		mt := indexLineRe.FindStringSubmatch(line)
-		if mt == nil {
+		title, target, hook, ok := parseIndexLine(line)
+		if !ok {
 			continue
 		}
-		file := strings.TrimSpace(mt[2])
-		out[file] = indexEntry{Title: mt[1], Hook: strings.TrimSpace(mt[3])}
+		if file := indexTarget(target); file != "" {
+			out[file] = indexEntry{Title: title, Hook: hook}
+		}
 	}
 	return out
 }

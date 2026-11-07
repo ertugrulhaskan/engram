@@ -1,6 +1,7 @@
 package team
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,14 +58,23 @@ func PromoteBatch(items []PromoteItem) (pushed bool, err error) {
 		return false, fmt.Errorf("team store not initialized — run `engram init-team <git-url>` first")
 	}
 
+	// Bring the clone up to the remote first, so the overwrite guard below
+	// judges the team's CURRENT copy, not the one the last pull saw. Offline,
+	// this fails and promote goes on with what the clone has (the push then keeps
+	// the commit for later); only a real divergence stops it.
+	if err := syncStore(dir); errors.Is(err, ErrStoreDiverged) {
+		return false, err
+	}
+
 	// One identity lookup for the whole batch: every copy is promoted by the same
 	// person in the same act, and it saves a git shell-out per memory.
 	owner, _ := runGitCapture(dir, "config", "user.email") // best-effort
+	store := storeIndexByID(dir)                           // one walk for the whole batch's overwrite guard
 
 	prepared := make([]preparedPromotion, 0, len(items))
 	claimed := make(map[string]string, len(items)) // folded store path -> the memory taking it
 	for _, it := range items {
-		p, err := preparePromotion(dir, it, owner)
+		p, err := preparePromotion(dir, it, owner, store)
 		if err != nil {
 			return false, err
 		}
@@ -88,58 +98,83 @@ func PromoteBatch(items []PromoteItem) (pushed bool, err error) {
 		prepared = append(prepared, p)
 	}
 
+	// A failure before the commit restores every store path this call touched,
+	// so nothing it staged waits for the next commit to sweep in and push.
+	var touched []string
+	fail := func(err error) (bool, error) {
+		restorePaths(dir, touched)
+		return false, restoreLocal(prepared, err) // and un-stamp the local files
+	}
 	for _, p := range prepared {
 		// Stamp the local file first so its engram.id is pinned and reused on any
 		// retry (keeping identity stable), then write the team copy.
-		if err := os.WriteFile(p.memPath, []byte(p.stamped), 0o644); err != nil {
-			return false, fmt.Errorf("updating local memory: %v", err)
+		if err := os.WriteFile(p.memPath, []byte(p.stamped), p.mode); err != nil {
+			return fail(fmt.Errorf("updating local memory: %v", err))
 		}
 		if err := os.MkdirAll(filepath.Dir(p.dest), 0o755); err != nil {
-			return false, err
+			return fail(err)
 		}
+		touched = append(touched, p.rel)
 		if err := os.WriteFile(p.dest, []byte(p.stamped), 0o644); err != nil {
-			return false, fmt.Errorf("writing team copy: %v", err)
+			return fail(fmt.Errorf("writing team copy: %v", err))
 		}
 		if _, err := runGitCapture(dir, "add", "--", p.rel); err != nil {
-			return false, fmt.Errorf("staging team copy: %v", err)
+			return fail(fmt.Errorf("staging team copy: %v", err))
 		}
 		// Re-promoting a previously-withdrawn id clears its tombstone, so a teammate's
 		// pull won't delete the re-shared copy.
 		if ledgerRel := removeWithdrawn(dir, p.id); ledgerRel != "" {
+			touched = append(touched, ledgerRel)
 			if _, err := runGitCapture(dir, "add", "--", ledgerRel); err != nil {
-				return false, fmt.Errorf("staging tombstone update: %v", err)
+				return fail(fmt.Errorf("staging tombstone update: %v", err))
 			}
 		}
 	}
 
 	// Commit only when something changed; then always push, which flushes this
 	// commit and any earlier commit a prior push left behind.
+	committed := false
 	if _, err := runGitCapture(dir, "diff", "--cached", "--quiet"); err != nil {
 		// non-zero exit ⇒ staged changes present ⇒ commit them
 		if _, err := runGitCapture(dir, "commit", "-m", promoteMessage(prepared)); err != nil {
-			return false, fmt.Errorf("committing team copy: %v", err)
+			return fail(fmt.Errorf("committing team copy: %v", err))
 		}
+		committed = true
 	}
-	if _, err := runGitCapture(dir, "push"); err != nil {
-		return false, nil // commit kept locally; push failed (non-fatal)
+	// A rejected push is rebased and retried once; an unreachable remote keeps the
+	// commit locally (pushed=false) for the next push or pull to flush.
+	pushed, err = pushStore(dir)
+	if err != nil {
+		// Refused or diverged: retrying won't help, so don't leave the memory
+		// claiming to be shared. Undo this promote's own commit and restore each
+		// local file as it was; anything else the clone holds is untouched.
+		if rerr := rollbackCommit(dir, committed); rerr != nil {
+			// The clone still holds the commit, so keep the local stamps that
+			// match it rather than make the two disagree; say what to fix.
+			return false, fmt.Errorf("%v; %v", err, rerr)
+		}
+		return false, restoreLocal(prepared, err)
 	}
-	return true, nil
+	return pushed, nil
 }
 
 // preparedPromotion is one item resolved and stamped, ready to be written. The
 // preparation pass does every check that can fail before the first byte is
 // written, which is what lets a rejected batch leave nothing behind.
 type preparedPromotion struct {
-	memPath string // the local memory
-	rel     string // its path inside the store, relative to the clone root
-	dest    string // that same path, absolute
-	id      string // the memory's engram id (freshly minted when it had none)
-	stamped string // the content both copies receive
+	orig    []byte      // the local memory's bytes before stamping, for a rollback
+	mode    os.FileMode // its permissions, kept across the stamp and a rollback
+	memPath string      // the local memory
+	rel     string      // its path inside the store, relative to the clone root
+	dest    string      // that same path, absolute
+	id      string      // the memory's engram id (freshly minted when it had none)
+	stamped string      // the content both copies receive
 }
 
 // preparePromotion resolves one item's destination and computes its stamped
 // content. It writes nothing — every refusal here costs the caller no cleanup.
-func preparePromotion(dir string, it PromoteItem, owner string) (preparedPromotion, error) {
+// store is storeIndexByID of the clone, for the overwrite guard.
+func preparePromotion(dir string, it PromoteItem, owner string, store map[string][]string) (preparedPromotion, error) {
 	var p preparedPromotion
 
 	rel, err := placementPath(it.Placement, filepath.Base(it.Path))
@@ -186,6 +221,24 @@ func preparePromotion(dir string, it PromoteItem, owner string) (preparedPromoti
 	if err != nil {
 		return p, fmt.Errorf("hashing memory content: %v", err)
 	}
+
+	// Never revert a newer team version. Promote overwrites the store copy and
+	// re-stamps the anchor to the local digest, so promoting a copy the team has
+	// moved past silently replaced the teammate's edit and then hid the
+	// divergence from the badges. relationOf is the same direction rule the
+	// badges and pull use; only "synced" (a no-op) and "local ahead" may promote.
+	if copies := store[id]; len(copies) > 0 {
+		name := filepath.Base(it.Path)
+		switch relationOf(digest, existing.SyncedHash, digestSet(copies)) {
+		case StateIncoming:
+			return p, fmt.Errorf("the team has a newer version of %s — pull it first", name)
+		case StateDiverged:
+			return p, fmt.Errorf("%s changed both here and in the team store — resolve it first", name)
+		case StateDiffers:
+			return p, fmt.Errorf("%s differs from the team copy and engram can't tell which side changed — resolve it first", name)
+		}
+	}
+
 	stamped, err := memory.WriteEngram(string(raw), memory.EngramMeta{
 		ID:         id,
 		Scope:      "team",
@@ -196,7 +249,11 @@ func preparePromotion(dir string, it PromoteItem, owner string) (preparedPromoti
 	if err != nil {
 		return p, err
 	}
-	return preparedPromotion{memPath: it.Path, rel: rel, dest: dest, id: id, stamped: stamped}, nil
+	mode := os.FileMode(0o644)
+	if fi, err := os.Stat(it.Path); err == nil {
+		mode = fi.Mode().Perm()
+	}
+	return preparedPromotion{orig: raw, mode: mode, memPath: it.Path, rel: rel, dest: dest, id: id, stamped: stamped}, nil
 }
 
 // promoteMessage names the commit. A single promote keeps its filename, which is
@@ -232,4 +289,31 @@ func placementPath(placement, filename string) (string, error) {
 		return "", fmt.Errorf("unsafe project key: %q", placement)
 	}
 	return filepath.Join("projects", clean, filename), nil
+}
+
+// restoreLocal undoes the stamps a refused promote wrote, but only on files
+// still exactly as stamped: an edit made while the push ran (by the user or
+// Claude Code) is kept, and named in the error, rather than reverted to the
+// pre-promote bytes. Each file keeps its permissions.
+func restoreLocal(prepared []preparedPromotion, cause error) error {
+	var kept []string
+	for _, p := range prepared {
+		cur, err := os.ReadFile(p.memPath)
+		if err != nil {
+			continue
+		}
+		if string(cur) == string(p.orig) {
+			continue // never stamped (the batch failed before reaching it)
+		}
+		if string(cur) != p.stamped {
+			kept = append(kept, filepath.Base(p.memPath))
+			continue
+		}
+		_ = os.WriteFile(p.memPath, p.orig, p.mode)
+	}
+	if len(kept) > 0 {
+		return fmt.Errorf("%v (kept your edits to %s, which still carry the team stamp — promote again once the push can land)",
+			cause, strings.Join(kept, ", "))
+	}
+	return cause
 }

@@ -38,6 +38,7 @@ type Model struct {
 	input        textinput.Model // new-memory title
 	renderer     *glamour.TermRenderer
 	previewCache map[string]string         // rendered body keyed by path; cleared on resize/theme/reload
+	previewPath  string                    // path the preview viewport is showing; its scroll resets only when this changes
 	syncStates   map[string]team.SyncState // memory path -> team sync state; recomputed on load/reload
 
 	// Store-timestamp cache for the sync strip's "store advanced …" stamp:
@@ -176,7 +177,9 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 	pal := textinput.New()
 	pal.Prompt = "" // the box header renders the "engram:" label
 	pal.Placeholder = palPlaceholder
-	pal.CharLimit = 64
+	// Room for a real command line: ">init <git-url>" takes the URL from here,
+	// and at 64 a long https or subgroup URL was cut silently and then run.
+	pal.CharLimit = 1024
 
 	ti := textinput.New()
 	ti.Prompt = "› "

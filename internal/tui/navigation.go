@@ -20,6 +20,19 @@ func (m *Model) switchSource(k srcKind) {
 	m.rebuildRows() // clamps the remembered cursor if it's now out of range
 }
 
+// nearestMemRow is the memory row at or above i, for the reload handler when
+// the selected memory vanished: its old index now holds the next group's
+// spacer or header, or is past the end, and the top of the list would throw the
+// user's place away. (Search narrowing deliberately keeps "first match".)
+func (m *Model) nearestMemRow(i int) int {
+	for j := min(i, len(m.rows)-1); j >= 0; j-- {
+		if m.rows[j].kind == rowMemory {
+			return j
+		}
+	}
+	return m.firstMemRow()
+}
+
 func (m *Model) firstMemRow() int {
 	for i, r := range m.rows {
 		if r.kind == rowMemory {
@@ -105,6 +118,12 @@ func (m *Model) ensureVisible() {
 	if m.cursor > 0 && m.rows[m.cursor-1].kind == rowHeader && m.cursor-1 < m.top {
 		m.top = m.cursor - 1
 	}
+	// Never scroll past the last full page. The checks above only move top
+	// toward the cursor, so a list that grew a taller window or shrank under a
+	// filter kept its old offset and hid rows above blank space.
+	if mx := len(m.rows) - h; m.top > mx {
+		m.top = mx
+	}
 	if m.top < 0 {
 		m.top = 0
 	}
@@ -117,25 +136,36 @@ func (m Model) selected() (Item, bool) {
 	return Item{}, false
 }
 
+// rowOf returns the index of the memory row with the given path, or -1.
+func (m Model) rowOf(path string) int {
+	for i, r := range m.rows {
+		if r.kind == rowMemory && r.item.Path == path {
+			return i
+		}
+	}
+	return -1
+}
+
+// hasRow reports whether a memory row with the given path is in the list.
+func (m Model) hasRow(path string) bool { return m.rowOf(path) >= 0 }
+
 // selectByPath moves the cursor to the item with the given path, if it's still
 // present. If not found (e.g. it was deleted) the clamped cursor is left as-is.
 func (m *Model) selectByPath(path string) {
-	for i, r := range m.rows {
-		if r.kind == rowMemory && r.item.Path == path {
-			m.cursor = i
-			m.ensureVisible()
-			m.syncPreview()
-			return
-		}
+	if i := m.rowOf(path); i >= 0 {
+		m.cursor = i
+		m.ensureVisible()
+		m.syncPreview()
 	}
 }
 
+// currentMemDir is the memory dir of the selected memory's project, or "" when
+// nothing is selected. It used to fall back to the first project in discovery
+// order, so "n" under a filter that matched nothing created the memory in an
+// unrelated project, and "R" offered to reconcile one. Its callers handle "".
 func (m Model) currentMemDir() string {
 	if it, ok := m.selected(); ok && it.MemDir != "" {
 		return it.MemDir
-	}
-	if len(m.memories) > 0 {
-		return m.memories[0].Project.MemoryDir
 	}
 	return ""
 }
@@ -156,8 +186,15 @@ func (m *Model) syncPreview() {
 	it, ok := m.selected()
 	if !ok {
 		m.viewport.SetContent("")
+		m.previewPath = ""
 		return
 	}
+	// Scroll to the top only when a different item is shown. syncPreview also
+	// runs on every reload (the 2s poll), theme switch, resize and filter key,
+	// and resetting there threw away the reader's place in a long memory;
+	// SetContent already clamps the offset if the content got shorter.
+	newItem := it.Path != m.previewPath
+	m.previewPath = it.Path
 	// The sync strip sits between the preview header and the body, so the
 	// viewport shrinks by its rows only while a stateful memory is selected
 	// (resize sets the 3-line-header baseline; this is the sole other writer).
@@ -197,7 +234,9 @@ func (m *Model) syncPreview() {
 	}
 	if cached, ok := m.previewCache[it.Path]; ok {
 		m.viewport.SetContent(cached)
-		m.viewport.GotoTop()
+		if newItem {
+			m.viewport.GotoTop()
+		}
 		return
 	}
 	// Decide the empty-body fallback before stripping, so a body that is only a
@@ -224,7 +263,9 @@ func (m *Model) syncPreview() {
 	rendered = trimBlankLines(rendered)
 	m.previewCache[it.Path] = rendered
 	m.viewport.SetContent(rendered)
-	m.viewport.GotoTop()
+	if newItem {
+		m.viewport.GotoTop()
+	}
 }
 
 // trimBlankLines drops leading and trailing all-whitespace lines.

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -46,7 +45,11 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 	if err := fetchStore(dir); err != nil {
 		return PullResult{}, err
 	}
-	return applyPull(dir, targets, true)
+	res, err := applyPull(dir, targets, true)
+	if err == nil {
+		flushStore(dir)
+	}
+	return res, err
 }
 
 // PullPlan fetches the team store and returns the accounting a Pull would
@@ -72,7 +75,14 @@ func PullApply(targets []ProjectTarget) (PullResult, error) {
 	if err != nil {
 		return PullResult{}, err
 	}
-	return applyPull(dir, targets, true)
+	res, err := applyPull(dir, targets, true)
+	// The user confirmed a pull, so this is where a commit a failed push left
+	// behind (an offline promote) goes out — never from the plan, which only
+	// previews and must not reach the remote — and only when the apply worked.
+	if err == nil {
+		flushStore(dir)
+	}
+	return res, err
 }
 
 // storeReady resolves the store dir and errors when it isn't initialized.
@@ -87,16 +97,11 @@ func storeReady() (string, error) {
 	return dir, nil
 }
 
-// fetchStore fast-forwards the store cache repo to its remote.
+// fetchStore brings the store cache repo up to its remote. It rebases rather
+// than fast-forwarding only, so a commit a failed push left behind cannot wedge
+// every later pull (see syncStore).
 func fetchStore(dir string) error {
-	if out, err := exec.Command("git", "-C", dir, "-c", "protocol.ext.allow=never", "pull", "--ff-only").CombinedOutput(); err != nil {
-		reason := strings.TrimSpace(string(out))
-		if reason == "" {
-			reason = err.Error()
-		}
-		return fmt.Errorf("git pull failed: %s", reason)
-	}
-	return nil
+	return syncStore(dir)
 }
 
 // applyPull walks the fetched store and either applies (write=true) or only

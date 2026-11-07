@@ -217,11 +217,6 @@ func joinCapped(items []string, limit int) string {
 }
 
 // dirExists reports whether p is an existing directory. Used to decide whether
-// a selection's project dir still exists (vs. a renamed/orphaned folder).
-func dirExists(p string) bool {
-	if p == "" {
-		return false
-	}
-	info, err := os.Stat(p)
-	return err == nil && info.IsDir()
-}
+// a selection's project dir still exists (vs. a renamed/orphaned folder). The
+// check itself lives in memory, so the TUI does no file IO (the layering rule).
+func dirExists(p string) bool { return memory.IsDir(p) }

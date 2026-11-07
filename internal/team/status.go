@@ -135,6 +135,16 @@ func digestSet(copies []string) map[string]bool {
 // bad file can't blank the whole feature — badges are decorative, never fatal.
 func storeIndexByID(storeDir string) map[string][]string {
 	out := map[string][]string{}
+	walkStore(storeDir, func(_, raw, id string) { out[id] = append(out[id], raw) })
+	return out
+}
+
+// walkStore calls fn for every store memory that carries an engram.id, across
+// global/ and projects/** — the one walk storeIndexByID (badges, promote guard)
+// and storePathsByID (withdraw) share, so they can't disagree about which store
+// files count. It never reads through a symlinked store entry, and skips what it
+// cannot read rather than failing the whole walk.
+func walkStore(storeDir string, fn func(path, raw, id string)) {
 	for _, sub := range []string{"global", "projects"} {
 		root := filepath.Join(storeDir, sub)
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -152,13 +162,12 @@ func storeIndexByID(storeDir string) map[string][]string {
 			}
 			raw, err := os.ReadFile(path)
 			if err != nil {
-				return nil // skip unreadable files rather than fail the whole scan
+				return nil
 			}
 			if m, ok, _ := memory.ReadEngram(string(raw)); ok && m.ID != "" {
-				out[m.ID] = append(out[m.ID], string(raw))
+				fn(path, string(raw), m.ID)
 			}
 			return nil
 		})
 	}
-	return out
 }

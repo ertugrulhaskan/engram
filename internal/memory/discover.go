@@ -35,7 +35,10 @@ func eachProject(projectsRoot string, fn func(projectEntry)) error {
 		return err
 	}
 	for _, e := range entries {
-		if !e.IsDir() {
+		// A project folder may be a symlink (a moved project kept under its old
+		// key); DirEntry.IsDir is false for one, so let it through and let the
+		// os.Stat below, which follows links, decide.
+		if !e.IsDir() && e.Type()&os.ModeSymlink == 0 {
 			continue
 		}
 		memDir := filepath.Join(projectsRoot, e.Name(), "memory")
@@ -125,12 +128,15 @@ func Signature(root string) (string, error) {
 			if f.IsDir() || !strings.HasSuffix(f.Name(), ".md") {
 				continue
 			}
-			info, err := f.Info()
+			// os.Stat, not DirEntry.Info: Info is an lstat, so for a symlinked
+			// memory it fingerprinted the link itself and an edit to the target
+			// never triggered a reload. parseFile already follows the link.
+			full := filepath.Join(p.MemoryDir, f.Name())
+			info, err := os.Stat(full)
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(h, "%s\x00%d\x00%d\n",
-				filepath.Join(p.MemoryDir, f.Name()), info.ModTime().UnixNano(), info.Size())
+			fmt.Fprintf(h, "%s\x00%d\x00%d\n", full, info.ModTime().UnixNano(), info.Size())
 		}
 	})
 	if err != nil {
@@ -144,10 +150,11 @@ func Signature(root string) (string, error) {
 
 // decodeProjectPath turns Claude's encoded project folder name (e.g.
 // "-Users-me-code-app") back into a real path. The encoding is lossy: Claude
-// flattens "/", ".", "_" and any literal "-" all to "-", so a single "-" could
-// originally have been any of them. We recover the real path by walking the
-// filesystem — at each directory we look for a real child whose name (with its
-// own dots and underscores flattened to dashes) matches a leading run of the
+// flattens every character outside ASCII letters and digits — "/", ".", "_", a
+// space, an accent, a literal "-" — to "-" (see flattenSeparators), so a single
+// "-" could originally have been any of them. We recover the real path by walking
+// the filesystem — at each directory we look for a real child whose name (put
+// through the same flattening) matches a leading run of the
 // remaining tokens. This reconstructs multi-separator names like "engram.im", a
 // domain-style "app.engram.im", or an underscored "_clients" that a
 // token-at-a-time probe can't. The walk is still
@@ -185,8 +192,8 @@ func resolveTokens(base string, tokens []string) (string, bool) {
 	}
 	var matches []match
 	for _, e := range entries {
-		// Match a child by flattening the same characters Claude's encoding does
-		// (".", "_", "-" → "-") so names like "engram.im" or "_clients" resolve.
+		// Match a child by flattening it the way Claude's encoding does, so names
+		// like "engram.im", "_clients" or "My Projects" resolve.
 		parts := strings.Split(flattenSeparators(e.Name()), "-")
 		if tokensHavePrefix(tokens, parts) {
 			matches = append(matches, match{e.Name(), len(parts)})
@@ -201,12 +208,28 @@ func resolveTokens(base string, tokens []string) (string, bool) {
 	return "", false
 }
 
-// flattenSeparators maps the characters Claude's project-folder encoding collapses
-// to "-" (".", "_", and "-" itself already is one) so an on-disk folder name can be
-// compared against the encoded tokens.
-var separatorFlattener = strings.NewReplacer(".", "-", "_", "-")
-
-func flattenSeparators(name string) string { return separatorFlattener.Replace(name) }
+// flattenSeparators applies Claude Code's project-folder encoding to one name,
+// so an on-disk folder can be compared against the encoded tokens. The rule,
+// read from Claude Code's own binary (2.1.x), is `path.replace(/[^a-zA-Z0-9]/g,
+// "-")`: EVERY character outside ASCII letters and digits becomes "-", not just
+// "." and "_" — a space, an accent, "@", "+", "~". JavaScript's replace works on
+// UTF-16 code units, so a character outside the BMP (an emoji) becomes two
+// dashes. (Above a length cap Claude truncates the name and appends a hash; such
+// a key cannot be decoded by anyone and falls back to the slash-joined guess.)
+func flattenSeparators(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r > 0xFFFF:
+			b.WriteString("--")
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
+}
 
 // tokensHavePrefix reports whether prefix matches the leading elements of tokens.
 func tokensHavePrefix(tokens, prefix []string) bool {
@@ -338,4 +361,14 @@ func allProjects(projectsRoot string, scanRoots []string, fn func(projectEntry))
 		fn(p)
 	}
 	return err
+}
+
+// IsDir reports whether p is an existing directory (following symlinks). It is
+// exported for the TUI, which asks instead of touching the filesystem itself.
+func IsDir(p string) bool {
+	if p == "" {
+		return false
+	}
+	info, err := os.Stat(p)
+	return err == nil && info.IsDir()
 }
