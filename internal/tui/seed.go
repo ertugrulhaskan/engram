@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
+	"github.com/ertugrulhaskan/engram/internal/plan"
 )
 
 // --- the assistant handoff: launch context and seed prompt ---
@@ -93,6 +94,70 @@ func projectsRoot(memDir string) string {
 	return ""
 }
 
+// sessionAddDir is the one extra directory the launched session is granted
+// beside its launch dir: the memory dir, unless it really sits inside cwd (the
+// ~/.claude/projects fallback) or there is none. "Really" is with symlinks
+// resolved, so a memory dir that only looks nested still gets its grant.
+func sessionAddDir(cwd, memDir string) string {
+	if memDir == "" || inSession(memDir, []string{cwd}) {
+		return ""
+	}
+	return memDir
+}
+
+// sessionDirs is every folder the launched session can write: the launch dir
+// plus sessionAddDir. assistantCmd grants exactly these and buildSeedPrompt
+// promises edits only inside them, so the two can't disagree.
+func sessionDirs(cwd, memDir string) []string {
+	dirs := []string{cwd}
+	if add := sessionAddDir(cwd, memDir); add != "" {
+		dirs = append(dirs, add)
+	}
+	return dirs
+}
+
+// inSession reports whether path really lies inside one of dirs: both sides
+// with symlinks resolved, so a rule file that links out of the project is not
+// promised as editable (the CLI judges the target, not the link).
+func inSession(path string, dirs []string) bool {
+	rp := memory.RealPath(path)
+	for _, d := range dirs {
+		if within(rp, memory.RealPath(d)) {
+			return true
+		}
+	}
+	return false
+}
+
+// handoffRefusal is why @ must not launch for the current selection, or "".
+// A scan-root project deleted after discovery has neither its folder nor a
+// memory dir; launching would open ~/.claude/projects with a prompt naming a
+// project and a file that no longer exist.
+func handoffRefusal(projDir, memDir string) string {
+	if projDir != "" && memDir == "" && !dirExists(projDir) {
+		return "the project folder " + projDir + " no longer exists, so there is nothing to open an assistant in"
+	}
+	return ""
+}
+
+// filesHint is the read-only answer for the selected /files row, from the same
+// facts the launch uses: the refusal when @ won't launch at all, the outside
+// hint when the session couldn't write the file, else the files hint.
+func (m Model) filesHint() string {
+	sel, ok := m.selected()
+	if !ok {
+		return readOnlyHint[srcFiles]
+	}
+	cwd, memDir, projDir, _ := m.assistantContext()
+	if why := handoffRefusal(projDir, memDir); why != "" {
+		return why
+	}
+	if !inSession(sel.Path, sessionDirs(cwd, memDir)) {
+		return readOnlyOutsideHint
+	}
+	return readOnlyHint[srcFiles]
+}
+
 // within reports whether path is base itself or nested under it.
 func within(path, base string) bool {
 	if path == "" || base == "" {
@@ -143,12 +208,27 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 	// prompt says the CLI may ask or refuse, and to hand that back to the user.
 	sel, ok := m.selected()
 	fileSel := ok && m.srcKind == srcFiles
-	canEdit := fileSel && (within(sel.Path, cwd) || within(sel.Path, memDir))
-	scope := "Claude Code memory files and plan-mode plans"
-	if fileSel {
-		scope = "Claude Code memory files, plan-mode plans, and the instruction or index file selected in engram (named below)"
+	dirs := sessionDirs(cwd, memDir)
+	canEdit := fileSel && inSession(sel.Path, dirs)
+	// What the session reaches decides both the scope and the closing line, so
+	// neither names work the other leaves out: memories need a memory dir, and
+	// plans live in ~/.claude/plans, outside any project launch.
+	plansDir, _ := plan.Dir()
+	plans := plansDir != "" && inSession(plansDir, dirs)
+	var scope []string
+	if memDir != "" {
+		scope = append(scope, "Claude Code memory files")
 	}
-	fmt.Fprintf(&b, "Scope: work only on %s. Ask before editing any file, and don't touch unrelated project source code.\n\n", scope)
+	if plans {
+		scope = append(scope, "plan-mode plans")
+	}
+	if fileSel {
+		scope = append(scope, "the instruction or index file selected in engram (named below)")
+	}
+	if len(scope) == 0 {
+		scope = append(scope, "Claude Code memory files and plan-mode plans")
+	}
+	fmt.Fprintf(&b, "Scope: work only on %s. Ask before editing any file, and don't touch unrelated project source code.\n\n", joinAnd(scope))
 	if a.rules != "" && a.rules != "CLAUDE.md" {
 		name := strings.TrimPrefix(a.label, "@")
 		if fileSel {
@@ -192,7 +272,9 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 		}
 	}
 
-	if unresolved {
+	// The relocate-memories note is for the memory sources. A /files session
+	// was opened for one file, and the note would pull it off that file.
+	if unresolved && !fileSel {
 		b.WriteString("NOTE: engram couldn't resolve this project's working directory from its stored project key — the folder may have been renamed or moved, or its name may contain characters (like a \".\") that the key flattens to \"-\" and can't be reversed. ")
 		if projDir != "" {
 			fmt.Fprintf(&b, "Its best guess was %q, which doesn't exist on disk. ", projDir)
@@ -200,12 +282,35 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 		fmt.Fprintf(&b, "The memory files are at %s; they may already be in the right place. Only if they are genuinely misfiled (Claude Code recalls them for the wrong project, or not at all), offer to relocate them — with their MEMORY.md — to the correct ~/.claude/projects/<encoded-path>/memory key.\n\n", memDir)
 	}
 
-	can := "You can"
+	var can []string
 	if canEdit {
-		can = "You can edit the selected file,"
+		can = append(can, "edit the selected file")
 	}
-	fmt.Fprintf(&b, "%s repair index drift, fix malformed frontmatter or broken [[links]], and also create, rewrite, merge, or reorganize memories and plans on request.\n", can)
+	if memDir != "" {
+		can = append(can, "repair MEMORY.md index drift, fix malformed frontmatter or broken [[links]], and create, rewrite, merge, or reorganize memories")
+	}
+	if plans {
+		can = append(can, "create, rewrite, or reorganize plans in "+plansDir)
+	}
+	if len(can) == 0 {
+		b.WriteString("This session's folders hold no memories or plans to maintain; ask the user before working on anything else.\n")
+	} else {
+		fmt.Fprintf(&b, "You can %s, on request.\n", strings.Join(can, "; "))
+	}
 	return b.String()
+}
+
+// joinAnd joins items as a list in prose: "a", "a and b", "a, b, and c".
+func joinAnd(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return items[0] + " and " + items[1]
+	}
+	return strings.Join(items[:len(items)-1], ", ") + ", and " + items[len(items)-1]
 }
 
 // joinCapped joins items with ", ", collapsing the tail past limit into a count.

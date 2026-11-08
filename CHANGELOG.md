@@ -51,6 +51,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the shorter `jump or run…` wherever the full text would be cut, chosen by measuring both
   strings against the input's real width rather than at a fixed column. The width sweep
   test now requires a whole placeholder at every terminal width from 20 to 140 columns.
+- **The `@` assistant handoff only promises what the session can reach.** Opened from
+  `/files` or anywhere else, the seed prompt now offers memory work only when there is a
+  memory directory and plans only when `~/.claude/plans` is inside the session, instead of
+  always offering both. A rule file that is a symlink pointing out of the project is no
+  longer promised as editable, because the check now resolves symlinks rather than
+  comparing path strings, and the prompt and the command line read the folders the
+  session may write from one place. A `/files` launch no longer carries the
+  relocate-memories note, which pulled the assistant away from the file it was opened
+  for. A project deleted after engram found it now gets a status line ("no longer
+  exists") instead of a session opened on files that are gone. In `/files`, a row an
+  assistant can't write either, such as `~/.gemini/GEMINI.md`, now says so instead of
+  suggesting `@` will edit it. Both read-only hints use a colon now, not a dash.
 - **Undoing a refused promote or withdraw no longer rewinds the wrong commit.** When a
   push is rejected, engram rebases onto the remote and retries; if the retry is refused it
   undoes its own commit. If the rebase had dropped that commit because a teammate already

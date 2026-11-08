@@ -40,7 +40,7 @@ func TestCapsMatrix(t *testing.T) {
 	}
 	// The hint table is the other half of a source's policy: only the files
 	// source names an escape hatch; every other denial is silent.
-	wantHint := [srcCount]string{srcFiles: "read-only — edit with an assistant (press @)"}
+	wantHint := [srcCount]string{srcFiles: "read-only: edit with an assistant (press @)"}
 	if readOnlyHint != wantHint {
 		t.Errorf("readOnlyHint = %q, want %q", readOnlyHint, wantHint)
 	}

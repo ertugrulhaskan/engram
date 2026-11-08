@@ -363,6 +363,51 @@ func allProjects(projectsRoot string, scanRoots []string, fn func(projectEntry))
 	return err
 }
 
+// RealPath is p with every symlink resolved, for comparing where two paths
+// really are. When p itself doesn't exist (a file not written yet), its
+// nearest existing parent is resolved and the rest joined back on, so a
+// missing file under a symlinked folder (macOS's /var is /private/var) still
+// compares equal to that folder. A dangling symlink on the way is followed to
+// its target, not treated as a missing file in place: a link that points out
+// of a folder must not count as inside it. Exported for the TUI, which asks
+// instead of touching the filesystem itself.
+func RealPath(p string) string { return realPath(p, 0) }
+
+// realPathMaxLinks bounds how many dangling links realPath follows, the same
+// job ELOOP does for EvalSymlinks.
+const realPathMaxLinks = 40
+
+func realPath(p string, links int) string {
+	if p == "" {
+		return ""
+	}
+	p = filepath.Clean(p)
+	rest := ""
+	for dir := p; ; dir = filepath.Dir(dir) {
+		if r, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(r, rest)
+		}
+		if links < realPathMaxLinks {
+			if fi, err := os.Lstat(dir); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				if target, err := os.Readlink(dir); err == nil {
+					if !filepath.IsAbs(target) {
+						// Relative to where the link really sits: its parent may be
+						// a symlink too, and a lexical join would cancel a ".."
+						// against the wrong folder.
+						target = filepath.Join(realPath(filepath.Dir(dir), links+1), target)
+					}
+					return realPath(filepath.Join(target, rest), links+1)
+				}
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return p // nothing on the way up resolves
+		}
+		rest = filepath.Join(filepath.Base(dir), rest)
+	}
+}
+
 // IsDir reports whether p is an existing directory (following symlinks). It is
 // exported for the TUI, which asks instead of touching the filesystem itself.
 func IsDir(p string) bool {

@@ -22,6 +22,9 @@ func root(dir string) (string, error) {
 	return filepath.Join(home, ".claude", "plans"), nil
 }
 
+// Dir is the default plans directory, ~/.claude/plans.
+func Dir() (string, error) { return root("") }
+
 // Discover returns all plans under dir (default ~/.claude/plans), newest first.
 // A missing directory yields an empty list, not an error.
 func Discover(dir string) ([]Plan, error) {

@@ -199,7 +199,7 @@ are in scope where a fix needs them.
 - [ ] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
       visible "which store is connected". What happens to already-pulled team memories on
       disconnect is decided first, since that touches user files
-- [ ] Tighten the `@` handoff from `/files`: a deleted project, a capability line that
+- [x] Tighten the `@` handoff from `/files`: a deleted project, a capability line that
       offers work the session can't reach, one read-only hint for every row, and an
       editable check that compares path strings and is worked out in two places. Whether
       the launch directory itself should be narrower is decided, not assumed

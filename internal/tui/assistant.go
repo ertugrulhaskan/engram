@@ -169,19 +169,17 @@ func (m *Model) assistantCmd(provider string) tea.Cmd {
 	if !ok {
 		return m.setDanger("unknown assistant: " + provider)
 	}
+	cwd, memDir, projDir, unresolved := m.assistantContext()
+	if why := handoffRefusal(projDir, memDir); why != "" {
+		return m.setDanger(why)
+	}
 	bin := lookPath(a.bin)
 	if bin == "" {
 		return m.setDanger(a.bin + " CLI not found on PATH — install it: " + a.install)
 	}
-	cwd, memDir, projDir, unresolved := m.assistantContext()
 	prompt := m.buildSeedPrompt(a, cwd, projDir, memDir, unresolved)
-	// Only grant the memory dir explicitly when it isn't already under cwd (the
-	// project-dir launch); in the ~/.claude/projects fallback it's already inside.
-	addDir := memDir
-	if within(memDir, cwd) {
-		addDir = ""
-	}
-	c := exec.Command(bin, a.args(prompt, addDir)...)
+	// The grant is sessionAddDir, the same folder the prompt counts as writable.
+	c := exec.Command(bin, a.args(prompt, sessionAddDir(cwd, memDir))...)
 	c.Dir = cwd
 	// Swap-seam: a future "new window / embedded pane" run mode replaces only
 	// this line — command construction, cwd, and the seed prompt are reusable.

@@ -654,6 +654,9 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // the UI advertises.
 func (m Model) denyWrite() (tea.Model, tea.Cmd) {
 	if hint := readOnlyHint[m.srcKind]; hint != "" {
+		if m.srcKind == srcFiles {
+			hint = m.filesHint()
+		}
 		return m, m.setStatus(hint)
 	}
 	return m, nil

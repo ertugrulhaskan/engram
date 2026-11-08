@@ -689,7 +689,7 @@ engram/
     internal/
         memory/              # NO UI here
             memory.go        # types; Caps — what the TUI may offer on memories (everything)
-            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature; IsDir (the TUI asks instead of stat-ing)
+            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature; IsDir and RealPath (the TUI asks instead of stat-ing)
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile (bullet = the first `](…)`; only a bare .md target, taken literally, is a memory bullet); atomic temp+rename write that keeps a symlinked index, refuses a read-only one, and writes a hard-linked one in place
             docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source); DocsCaps (zero: read-only)
@@ -744,7 +744,7 @@ engram/
             paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             assistant.go     # the @ registry: which assistants exist, how each is invoked, $PATH detection
-            seed.go          # assistant handoff: launch cwd + add-dir choice, seed prompt, orphan detection
+            seed.go          # assistant handoff: launch cwd, sessionDirs (the add-dir grant and the writable set), seed prompt, orphan detection
             status.go        # transient footer status: kinds, flash/auto-dismiss
             layout.go        # resize geometry, glamour renderer build, listRows
             navigation.go    # cursor move/page, selection, source switch, preview sync
@@ -800,13 +800,24 @@ instruction or index file, which the prompt names, because engram keeps those re
 and routes their edits here (§8.2); the provider note then names Claude Code's own files
 (`CLAUDE.md`, `MEMORY.md`, memories, plans), since calling every listed file Claude
 Code's would be false of the assistant's own `GEMINI.md` or `AGENTS.md`. Editing is
-promised only for a file inside the launch dir or memory dir. The global
+promised only for a file that really lies inside a folder the session is opened with:
+the launch dir, plus the memory dir when it sits outside it (`sessionDirs`, the same list
+`assistantCmd` grants, so the prompt and the command line can't disagree), compared with
+symlinks resolved (`memory.RealPath`, which follows a dangling link to its target), so a
+rule file that links out of the project is not promised. The global
 `~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` sit outside both, and engram adds no
 directory to reach them, since theirs hold each CLI's own config, approval and sandbox
 settings included. For them the prompt says the CLI may ask or refuse, and to hand that
 back to the user. That rule covers what engram adds, not the launch dir: a global or plan
 launch opens in `~/.claude`, Claude Code's own config dir, and a project rooted at
-`$HOME` contains all three. The cwd is the selected memory's **project dir** when it
+`$HOME` contains all three. Narrowing that launch dir was considered and declined
+(ENGR-44, 2026-11-08): the global `CLAUDE.md` and the plans folder both live in
+`~/.claude`, so anything narrower can't reach the file the session was opened for. The
+prompt's closing line offers only what the session reaches: editing the selected file,
+memory work when there is a memory dir, and plans when `~/.claude/plans` is inside the
+session; the scope line is built from the same reach. The memory dir's grant is decided
+on real paths too, so a memory dir that only looks nested under the launch dir is still
+granted. The cwd is the selected memory's **project dir** when it
 resolves and exists (so the assistant reads the right instruction file and, for Claude,
 recalls the right memories); the memory dir lives under `~/.claude`, outside the
 project, so it's passed as the add-dir for edit access. When the project
@@ -816,7 +827,9 @@ the **`~/.claude/projects`** root instead: inside `.claude`, narrow relative to 
 broad enough that relocating memories across project keys needs no extra trust prompt
 (the add-dir is then redundant and omitted). Because that fallback can be a false positive,
 the seed prompt's wording is non-committal — it asks the assistant to relocate files only if
-they are genuinely misfiled. Every assistant CLI is an **optional** runtime dependency:
+they are genuinely misfiled. A `/files` launch leaves that note out, since it was opened for
+one file. A scan-root project deleted after discovery (no folder and no memory dir) is
+refused with a status line rather than launched (`handoffRefusal`). Every assistant CLI is an **optional** runtime dependency:
 absent, the provider is left out of the palette list, and selecting it from the
 none-installed fallback shows a hint naming where to get it. On exit engram reloads (and
 resets the drift cache), and the status line names the assistant that ran — the label
@@ -944,7 +957,10 @@ capability decision goes through one gate, `caps()`: `e`/`n`/`d` check `Edit`/`C
 `Delete`, the four team dispatchers and the batch marks check `Share`, and the controls
 row is *derived* from the same struct, so the bar can only advertise a key the handler
 will honour. A denied `e`/`n`/`d` answers with the source's `readOnlyHint` when it has
-one (files name their escape hatch) and is otherwise silent — the key is absent from the
+one (files name their escape hatch; a files row an assistant session couldn't write
+either, such as `~/.gemini/GEMINI.md`, gets `readOnlyOutsideHint` instead, from the same
+facts the seed prompt and the launch use; a row whose project folder is gone gets the
+launch's own refusal) and is otherwise silent — the key is absent from the
 controls row too, so there is nothing to explain.
 
 The gate decides *whether*; the executors decide *what runs*, and they fail closed too —

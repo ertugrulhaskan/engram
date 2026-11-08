@@ -120,8 +120,13 @@ var srcCaps = [srcCount]source.Caps{
 // files source names its escape hatch, everywhere else the denial is silent —
 // the key is absent from the controls row too, so there is nothing to explain.
 var readOnlyHint = [srcCount]string{
-	srcFiles: "read-only — edit with an assistant (press @)",
+	srcFiles: "read-only: edit with an assistant (press @)",
 }
+
+// readOnlyOutsideHint replaces the files hint on a row an assistant session
+// couldn't write either (filesHint): the vendor global files sit
+// outside every folder engram opens a session with, on purpose.
+const readOnlyOutsideHint = "read-only: outside what an assistant session can write (@ can still read it)"
 
 // caps returns the current source's capability set.
 func (m Model) caps() source.Caps { return srcCaps[m.srcKind] }
