@@ -205,7 +205,7 @@ are in scope where a fix needs them.
       the launch directory itself should be narrower is decided, not assumed
 - [ ] Harden two team-store git calls: literal pathspecs for teammate file names, and
       the rollback after a rebase that drops our commit
-- [ ] Fix the palette placeholder being cut off on terminals narrower than 43 columns
+- [x] Fix the palette placeholder being cut off on terminals narrower than 43 columns
 
 **On hold:** the Charm v2 library upgrade (Bubble Tea, Bubbles, Lip Gloss, Glamour). Glamour
 v2 still drops the blockquote `│` bar when a quote wraps, the bug that took Glamour back to

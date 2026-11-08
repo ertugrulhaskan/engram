@@ -429,9 +429,13 @@ func (m Model) paletteBox() string {
 	// Pad the header with the input's own background (Sel) so the field reads as
 	// a full-width box reaching the border; the right-side hint appears only when
 	// the input keeps room for its whole placeholder (palShowsHint, which resize
-	// also uses to size the input).
+	// also uses to size the input). The placeholder is picked here, from the box
+	// this header is drawn in, so nothing that resets the input can bring back
+	// a cut one.
+	in := m.palette
+	in.Placeholder = palPlaceholderFor(palInputWidth(cw))
 	left := fg(t.Accent).Background(lipgloss.Color(t.Sel)).Bold(true).Render("engram") +
-		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + m.palette.View()
+		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + in.View()
 	right := ""
 	if palShowsHint(cw) {
 		right = fg(t.Faint).Background(lipgloss.Color(t.Sel)).Render(palHint + " ")
@@ -470,6 +474,9 @@ func (m Model) paletteBox() string {
 const (
 	palHint        = "type anything — prefixes optional"
 	palPlaceholder = "type to jump or run…"
+	// palPlaceholderShort replaces palPlaceholder where the input is too narrow
+	// to show it whole (palPlaceholderFor).
+	palPlaceholderShort = "jump or run…"
 	// palInputChrome is what the header spends besides the input: the
 	// "engram:  " prefix (9), the cursor cell textinput.View adds (1), and 1
 	// cell of slack so the header can never overflow the frame.
@@ -502,6 +509,23 @@ func palInputWidth(cw int) int {
 		w = palHintedWidth(cw)
 	}
 	return max(w, 1)
+}
+
+// palPlaceholderFor is the placeholder for a palette input w cells wide: the
+// longest that textinput shows whole. Its placeholderView keeps the first
+// grapheme in the cursor cell and cuts the rest to w-1 cells with "…", so a
+// placeholder is whole exactly when it is at most w cells wide. Below the short
+// one it returns "": a deliberate trade of a cut placeholder for none, and
+// textinput.View draws a plain empty input with its cursor when Placeholder is
+// "". boxWidth's floor keeps the input at 19 cells today, so that case is a
+// guard, not a state anyone sees.
+func palPlaceholderFor(w int) string {
+	for _, p := range []string{palPlaceholder, palPlaceholderShort} {
+		if lipgloss.Width(p) <= w {
+			return p
+		}
+	}
+	return ""
 }
 
 // openPalette opens the command palette seeded with a query — "" for the plain

@@ -19,6 +19,9 @@ import (
 //   - wherever the box can hold the placeholder at all, it is shown whole —
 //     the cutoff is read off each box, not hardcoded, so it follows boxWidth's
 //     floor, the header chrome and the placeholder text if any of them move;
+//   - where the box cannot hold the placeholder, the short one is shown whole
+//     instead of a cut full one (boxWidth's 30-cell floor left
+//     terminals under 43 columns reading "type to jump or ru…");
 //   - a shown hint never costs the placeholder its tail;
 //   - once the hint appears it stays for every wider terminal, and it is shown
 //     on a standard 80-column terminal, so it cannot quietly switch off.
@@ -40,9 +43,14 @@ func TestPaletteHintNeverTruncatesPlaceholder(t *testing.T) {
 		}
 		header := ansi.Strip(lines[1]) // line 0 is the top border
 		whole := strings.Contains(header, palPlaceholder)
+		short := strings.Contains(header, palPlaceholderShort)
 		shown := strings.Contains(header, palHint)
 		room := cw-palInputChrome >= pw // the box fits the placeholder without the hint
 		switch {
+		case !room && !short:
+			// palPlaceholderShort is a suffix of palPlaceholder, so this only
+			// stands for "short shown" where the full one cannot fit.
+			t.Errorf("width %d (box %d): no room for the placeholder, want %q whole, header reads %q", w, cw, palPlaceholderShort, header)
 		case room && !whole:
 			t.Errorf("width %d (box %d): room for the placeholder but header reads %q", w, cw, header)
 		case shown && !whole:
@@ -53,6 +61,29 @@ func TestPaletteHintNeverTruncatesPlaceholder(t *testing.T) {
 		sawHint = sawHint || shown
 		if w == 80 && !shown {
 			t.Errorf("80 columns (box %d): hint not shown: %q", cw, header)
+		}
+	}
+}
+
+// palPlaceholderFor picks by measured width, never a cut string: the full
+// placeholder where it fits, the short one where only that fits, and none
+// below that.
+func TestPalPlaceholderFor(t *testing.T) {
+	full, short := lipgloss.Width(palPlaceholder), lipgloss.Width(palPlaceholderShort)
+	cases := []struct {
+		w    int
+		want string
+	}{
+		{full + 10, palPlaceholder},
+		{full, palPlaceholder},
+		{full - 1, palPlaceholderShort},
+		{short, palPlaceholderShort},
+		{short - 1, ""},
+		{0, ""},
+	}
+	for _, c := range cases {
+		if got := palPlaceholderFor(c.w); got != c.want {
+			t.Errorf("palPlaceholderFor(%d) = %q, want %q", c.w, got, c.want)
 		}
 	}
 }

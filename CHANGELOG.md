@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer needs. `package.json` now asks for `^4.3.4` for both Tailwind packages instead of
   leaving `tailwindcss` at `^4.3.3`.
 
+### Fixed
+- **The palette placeholder is no longer cut off on narrow terminals.** Below 43 columns
+  every dialog sits at its 30-cell minimum width, which left the palette input one cell
+  short of `type to jump or run…`, so it read `type to jump or ru…`. The input now shows
+  the shorter `jump or run…` wherever the full text would be cut, chosen by measuring both
+  strings against the input's real width rather than at a fixed column. The width sweep
+  test now requires a whole placeholder at every terminal width from 20 to 140 columns.
+
 ## [0.6.1] - 2026-11-07
 
 ### Fixed
