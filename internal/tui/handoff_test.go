@@ -274,3 +274,20 @@ func TestFilesHintOnADeletedProjectIsTheRefusal(t *testing.T) {
 		t.Errorf("hint on a deleted project's row = %q, want the refusal", got)
 	}
 }
+
+// Item 3, nothing in reach outside /files: a memory with no memory dir in a
+// project launch reaches neither memories nor plans, so the scope can't name
+// them while the closing line says there are none.
+func TestSeedPromptScopeWithNothingInReach(t *testing.T) {
+	fakeHome(t)
+	m := modelWithMemory(t, t.TempDir(), "")
+	out := seedFor(t, m)
+	if s := seedLine(out, "Scope:"); strings.Contains(s, "memory files") || strings.Contains(s, "plan") || strings.Contains(s, "only only") {
+		t.Errorf("scope %q names memories or plans the session can't reach, or reads badly:\n%s", s, out)
+	}
+	gemini, _ := findAssistant("gemini")
+	cwd, memDir, projDir, unresolved := m.assistantContext()
+	if g := m.buildSeedPrompt(gemini, cwd, projDir, memDir, unresolved); strings.Contains(g, "Claude Code's files") {
+		t.Errorf("with nothing in reach the provider note still names Claude Code's files:\n%s", g)
+	}
+}

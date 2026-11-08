@@ -14,12 +14,15 @@ import (
 // up yet, pointing at the palette command that fixes it.
 const noStoreHint = "no team store — run `>init <git-url>` first"
 
-// gitMissing returns a danger command when git isn't on PATH — team sharing shells
-// out to git for everything — or nil when git is available. Every team action
-// checks it first so a missing git reads as a clear message, not a raw exec error.
-func (m *Model) gitMissing() tea.Cmd {
+// teamBlocked is the gate every team action passes first: git must be on
+// PATH, and no disconnect may be in flight, since it is about to move the
+// store every other action reads and writes.
+func (m *Model) teamBlocked() tea.Cmd {
 	if !team.HasGit() {
 		return m.setDanger("git not found — team sharing needs git (https://git-scm.com)")
+	}
+	if m.disconnecting {
+		return m.setStatus("the team store is disconnecting; try again in a moment")
 	}
 	return nil
 }
@@ -34,7 +37,7 @@ func (m Model) actionPromote() (tea.Model, tea.Cmd) {
 	if !m.caps().Share {
 		return m.denyShare("promote")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd
 	}
 	if !team.IsInitialized() {
@@ -73,7 +76,7 @@ func (m Model) actionPull() (tea.Model, tea.Cmd) {
 	if !m.caps().Share {
 		return m.denyShare("pull")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd
 	}
 	if !team.IsInitialized() {
@@ -87,7 +90,7 @@ func (m Model) actionWithdraw() (tea.Model, tea.Cmd) {
 	if !m.caps().Share {
 		return m.denyShare("withdraw")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd
 	}
 	it, ok := m.selected()
@@ -123,7 +126,7 @@ func (m Model) actionResolve() (tea.Model, tea.Cmd) {
 	if !m.caps().Share {
 		return m.denyShare("resolve")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd
 	}
 	it, ok := m.selected()
@@ -158,7 +161,7 @@ func (m Model) actionInit(url string) (tea.Model, tea.Cmd) {
 	if url == "" {
 		return m, m.setDanger("usage: >init <git-url>")
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd
 	}
 	if team.IsInitialized() {

@@ -744,7 +744,7 @@ engram/
             dialog.go        # shared dialog anatomy: icon+title header, wrapped body, Bg2 footer action band
             confirms.go      # pre-action confirms: pull accounting, resolve inline diff, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
-            teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
+            teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + teamBlocked gate (git on PATH, no disconnect in flight)
             disconnect.go    # >disconnect: confirm modal (store URL, kept count) + background disconnect command
             alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Update, the one write path) + projectKey adapter over team.ResolveKey
             promote.go       # >promote: team scope picker modal + background promote command

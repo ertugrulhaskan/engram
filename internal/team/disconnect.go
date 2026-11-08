@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
 )
@@ -30,9 +31,11 @@ func Remote() string {
 	return displayURL(u)
 }
 
-// displayURL drops the user-info from a URL that has a scheme
-// (https://user:token@host/... becomes https://host/...). An scp-style
-// git@host:path has no scheme and no secret in it, so it is shown as is.
+// displayURL drops the user-info, query and fragment from a URL that has a
+// scheme (https://user:token@host/r.git?private_token=x becomes
+// https://host/r.git), where git hosts put credentials; a token someone puts
+// in the path itself is not recognised. An scp-style git@host:path has no
+// scheme and no password syntax, so it is shown as is.
 func displayURL(raw string) string {
 	if !strings.Contains(raw, "://") {
 		return raw
@@ -41,7 +44,7 @@ func displayURL(raw string) string {
 	if err != nil {
 		return "a team store (unreadable remote URL)"
 	}
-	u.User = nil
+	u.User, u.RawQuery, u.ForceQuery, u.Fragment, u.RawFragment = nil, "", false, "", ""
 	return u.String()
 }
 
@@ -108,7 +111,7 @@ func Disconnect(memPaths []string) (kept int, err error) {
 	// the rest, and then neither disconnect (no store) nor init (folder not
 	// empty) would touch it. After the rename the store is gone either way; a
 	// leftover copy blocks nothing.
-	aside := fmt.Sprintf("%s.disconnected-%d", dir, os.Getpid())
+	aside := fmt.Sprintf("%s.disconnected-%d", dir, time.Now().UnixNano())
 	if err := os.Rename(dir, aside); err != nil {
 		return kept, fmt.Errorf("removing the team store at %s: %v", dir, err)
 	}
@@ -120,9 +123,9 @@ func Disconnect(memPaths []string) (kept int, err error) {
 
 // storeHasNothingPending refuses a store clone holding work its remote lacks:
 // uncommitted changes, or commits a failed push left behind. Unpushed commits
-// are counted against every remote-tracking branch rather than @{u}, so a
-// clone whose first push at init failed (it has no upstream yet) is still
-// judged, not refused outright. The message points at git rather than >pull,
+// are counted over every local branch against every remote-tracking branch
+// rather than @{u}, so a clone whose first push at init failed (it has no
+// upstream yet) is still judged, and one with no commit at all passes. The message points at git rather than >pull,
 // because a pull with nothing to bring down never reaches the flush that would
 // push them.
 func storeHasNothingPending(dir string) error {
@@ -133,7 +136,14 @@ func storeHasNothingPending(dir string) error {
 	if status != "" {
 		return fmt.Errorf("the team store has uncommitted changes — commit or discard them with git in %s, then disconnect", dir)
 	}
-	ahead, err := runGitCapture(dir, "rev-list", "--count", "HEAD", "--not", "--remotes")
+	// Every local branch, plus HEAD when it resolves (a detached HEAD holds
+	// commits no branch names; an unborn one holds none and would make
+	// rev-list fail), less everything any remote has.
+	args := []string{"rev-list", "--count", "--branches"}
+	if _, err := runGitCapture(dir, "rev-parse", "--verify", "-q", "HEAD"); err == nil {
+		args = append(args, "HEAD")
+	}
+	ahead, err := runGitCapture(dir, append(args, "--not", "--remotes")...)
 	if err != nil {
 		return fmt.Errorf("can't tell whether the team store has unpushed commits — check it with git in %s", dir)
 	}

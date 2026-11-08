@@ -209,6 +209,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.setStatus(summary), reloadCmd())
 
 	case disconnectFinishedMsg:
+		m.disconnecting = false
 		m.driftDir = "" // memories were rewritten (scope flipped)
 		if msg.err != nil {
 			s := "disconnect: " + msg.err.Error()

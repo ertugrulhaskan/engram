@@ -137,6 +137,9 @@ type Model struct {
 
 	// disconnect confirm (modeDisconnectConfirm): the team memories it keeps as personal
 	disconnectPaths []string
+	// disconnecting is set from the confirm until the background disconnect
+	// reports back, so a second >disconnect can't race the first.
+	disconnecting bool
 	// storeURL is the connected team store's remote, "" when none: refreshed with
 	// the sync states, so the palette can show it without running git per keystroke.
 	storeURL string

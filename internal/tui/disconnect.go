@@ -32,7 +32,7 @@ func (m Model) teamMemoryPaths() []string {
 // from any source; whether the clone holds unpushed work is checked by
 // team.Disconnect itself, which refuses with the reason.
 func (m Model) actionDisconnect() (tea.Model, tea.Cmd) {
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil { // also turns away a second >disconnect
 		return m, cmd
 	}
 	if !team.IsInitialized() {
@@ -56,6 +56,7 @@ func (m Model) updateDisconnectConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.mode = modeNormal
 	switch msg.String() {
 	case "y", "Y":
+		m.disconnecting = true
 		return m, m.disconnectCmd(m.disconnectPaths)
 	default:
 		return m, m.setCancel("cancelled")

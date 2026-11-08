@@ -82,6 +82,29 @@ func TestDisconnectFromThePalette(t *testing.T) {
 	if got := tm.(Model); got.mode != modeNormal || !team.IsInitialized() {
 		t.Error("n must cancel and leave the store connected")
 	}
+
+	// y starts the disconnect; a second >disconnect before it reports back is
+	// turned away rather than racing it.
+	tm = switchVia(tm, ">disconnect")
+	tm, _ = tm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	if !tm.(Model).disconnecting {
+		t.Fatal("y did not mark a disconnect in flight")
+	}
+	tm = switchVia(tm, ">disconnect")
+	if got := tm.(Model); got.mode == modeDisconnectConfirm || !strings.Contains(got.status, "disconnecting") {
+		t.Errorf("a second >disconnect in flight: mode=%v status=%q", got.mode, got.status)
+	}
+	// Every other team action is turned away too: the store is about to move.
+	for _, verb := range []string{">pull", ">promote", ">withdraw"} {
+		tm = switchVia(tm, verb)
+		if got := tm.(Model); !strings.Contains(got.status, "disconnecting") {
+			t.Errorf("%s during a disconnect: status=%q, want it turned away", verb, got.status)
+		}
+	}
+	tm, _ = tm.Update(disconnectFinishedMsg{kept: 1})
+	if tm.(Model).disconnecting {
+		t.Error("the finished message did not clear the in-flight flag")
+	}
 }
 
 // With no store, >disconnect says so instead of opening a confirm.

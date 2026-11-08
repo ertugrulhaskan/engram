@@ -150,10 +150,12 @@ func TestDisconnectThenInitRepoints(t *testing.T) {
 // The URL shown on screen never carries credentials.
 func TestDisplayURLDropsCredentials(t *testing.T) {
 	cases := map[string]string{
-		"https://alice:tok3n@github.com/acme/store.git": "https://github.com/acme/store.git",
-		"https://alice@github.com/acme/store.git":       "https://github.com/acme/store.git",
-		"git@github.com:acme/store.git":                 "git@github.com:acme/store.git",
-		"file:///tmp/remote.git":                        "file:///tmp/remote.git",
+		"https://alice:tok3n@github.com/acme/store.git":         "https://github.com/acme/store.git",
+		"https://alice@github.com/acme/store.git":               "https://github.com/acme/store.git",
+		"https://gitlab.example.com/r.git?private_token=x#frag": "https://gitlab.example.com/r.git",
+		"https://host.example.com/r.git?":                       "https://host.example.com/r.git",
+		"git@github.com:acme/store.git":                         "git@github.com:acme/store.git",
+		"file:///tmp/remote.git":                                "file:///tmp/remote.git",
 	}
 	for in, want := range cases {
 		if got := displayURL(in); got != want {
@@ -197,5 +199,43 @@ func TestDisconnectLeavesNoFolderBehind(t *testing.T) {
 	matches, _ := filepath.Glob(store + ".disconnected-*")
 	if len(matches) != 0 {
 		t.Errorf("the moved-aside copy was not deleted: %v", matches)
+	}
+}
+
+// A clone with no commit yet (an init that failed before its first commit) has
+// nothing to push, so it can be disconnected rather than refused with
+// "can't tell".
+func TestDisconnectAStoreWithNoCommits(t *testing.T) {
+	root := t.TempDir()
+	hermeticGitEnv(t, root)
+	store, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, "", "init", "-q", store)
+	if !IsInitialized() {
+		t.Fatal("setup: want a store clone")
+	}
+	if _, err := Disconnect(nil); err != nil {
+		t.Errorf("Disconnect on a store with no commits = %v, want it to succeed", err)
+	}
+}
+
+// Commits on a branch HEAD no longer points at are still pending: with HEAD on
+// an empty orphan branch, the clone's other branch holds unpushed work, and a
+// disconnect must refuse rather than delete it.
+func TestDisconnectCountsEveryLocalBranch(t *testing.T) {
+	_, bare, writeMem := batchStore(t)
+	shared := writeMem("shared.md", "body")
+	restore := offline(t, bare)
+	if _, err := Promote(shared, "github.com/acme/app"); err != nil {
+		restore()
+		t.Fatal(err)
+	}
+	restore()
+	store, _ := Dir()
+	gitT(t, store, "switch", "-q", "--orphan", "elsewhere") // empties the tree; the commit stays on the old branch
+	if _, err := Disconnect(nil); err == nil || !strings.Contains(err.Error(), "hasn't received") {
+		t.Fatalf("Disconnect = %v, want a refusal for the unpushed commit on the other branch", err)
 	}
 }
