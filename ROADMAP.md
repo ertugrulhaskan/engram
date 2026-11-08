@@ -110,6 +110,11 @@ Goal: ship engram publicly — flip the repo public and make it installable.
       the regenerated cask carries `postflight_steps` and no `postflight do`, and after
       `brew reinstall` the Caskroom binary has no `com.apple.quarantine` and runs. The
       tap no longer needs a hand-patch after each release
+- [x] Rehearse the release in CI — the `snapshot` job in `ci.yml` runs `goreleaser check`,
+      a snapshot build and `.github/scripts/verify-snapshot.sh` (the rendered cask hook and
+      the `engram vX.Y.Z` stamp) on every push and PR, with the GoReleaser version pinned
+      once in `.github/goreleaser-version` for both workflows. Before this, `release.yml`
+      was the first thing to run GoReleaser, on a real tag (ENGR-42)
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Harden the deployed site: security response headers (`www/_headers` — HSTS,
       `Permissions-Policy`, and a CSP with hashed inline scripts rather than

@@ -39,15 +39,21 @@ jobs:
       # GoReleaser is pinned to the exact version the cask's `install_steps` hook was
       # verified on, for the same reason Go is: this only runs on a real tag, so a new
       # release rendering the quarantine hook differently would surface after publishing.
-      # `install_steps` needs v2.19 or later. Nothing bumps this pin automatically —
-      # Dependabot sees the action's SHA, not this input. Bump it by hand, after the
-      # `goreleaser check` and snapshot dry-run from CONTRIBUTING's "Releasing", and on
-      # the first release after a bump re-run the cask check described beside the hook
-      # in .goreleaser.yaml (brew reinstall, xattr -l, then run the installed binary).
+      # `install_steps` needs v2.19 or later. The pin lives in .github/goreleaser-version,
+      # which ci.yml's `snapshot` job reads too, so every push and PR rehearses the exact
+      # version this step will publish with. Nothing bumps the pin automatically —
+      # Dependabot sees the action's SHA, not this version. Bump it by hand in that file;
+      # the `snapshot` job then runs the check and dry-run on the bump's PR, and on the
+      # first release after a bump re-run the cask check described beside the hook in
+      # .goreleaser.yaml (brew reinstall, xattr -l, then run the installed binary).
+      - name: Read the pinned GoReleaser version
+        id: goreleaser
+        run: .github/scripts/goreleaser-version.sh >> "$GITHUB_OUTPUT"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
-          version: "v2.19.0"
+          version: ${{ steps.goreleaser.outputs.version }}
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

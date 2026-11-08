@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CI rehearses the release on every push and pull request.** A new `snapshot` job in
+  `ci.yml` runs `goreleaser check` (a deprecated property now fails the build, since the
+  command exits 2 on one), builds a full snapshot release that publishes nothing, and
+  then checks what it produced with `.github/scripts/verify-snapshot.sh`: the Homebrew
+  cask must carry a `postflight_steps` block that hands `{{staged_path}}/engram` to
+  `xattr`, with neither the deprecated `postflight do` stanza nor the raw GoReleaser
+  `StagedPath` spelling, and the built binary must print `engram vX.Y.Z` matching the
+  cask's `version` line. Until now `release.yml` was the first thing to run GoReleaser,
+  on a real tag, after the GitHub Release already existed, and a hook that rendered
+  wrong would install cleanly and leave the binary quarantined on other people's Macs.
+  The GoReleaser version is now pinned once, in `.github/goreleaser-version`, and read by
+  both workflows, so the rehearsal always runs the version that will publish. The job
+  needs no secret.
+
 ### Changed
 - **The landing page builds with Tailwind 4.3.4.** A patch release with no intended visual
   change: the `group-open:` selectors behind the FAQ cards' rotating `+` and open padding
