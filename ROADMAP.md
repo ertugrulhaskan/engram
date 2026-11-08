@@ -7,8 +7,8 @@ later ones never land.
 > name chunks of work; shipped releases follow [SemVer](https://semver.org), starting
 > at `v0.1.0`. (Phase 1 and Phase 1.5 are released together as `v0.1.0`.)
 >
-> After Phase 4, the next release finishes the current feature set, then Phase 5 and
-> Phase 6 are the planned work. Items that can't be built today, or aren't worth
+> After Phase 4, a finishing pass (`v0.7.0`) closed out the current feature set; Phase 5
+> and Phase 6 are the planned work. Items that can't be built today, or aren't worth
 > building, are listed under [Not planned](#not-planned) with the reason.
 
 ---
@@ -191,7 +191,7 @@ way to read them, so that tier is under [Not planned](#not-planned).
 
 ---
 
-## Next release — finishing the current feature set
+## Finishing pass *(shipped in `v0.7.0`)*
 
 The last pass over what engram already does, before new phases start. Small UI changes
 are in scope where a fix needs them.
