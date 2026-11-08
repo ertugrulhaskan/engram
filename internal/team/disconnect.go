@@ -3,6 +3,7 @@ package team
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -51,9 +52,20 @@ func displayURL(raw string) string {
 // ErrNoStore reports a disconnect with no team store set up.
 var ErrNoStore = errors.New("no team store is set up")
 
+// ErrStoreBusy reports a disconnect asked for while a promote, withdraw, pull
+// or resolve is still working in the store (storeMu).
+var ErrStoreBusy = errors.New("another team action is still running; try again when it finishes")
+
 // Disconnect is the inverse of InitTeam: it marks every team-scoped memory in
 // memPaths personal again and removes the store clone, so `>init` can connect
 // another one (re-pointing is disconnect, then init).
+//
+// memPaths is every memory the caller knows of, not only the ones it last saw
+// as team: each file is read again here, under storeMu, so a memory a promote
+// stamped after the caller's snapshot is kept as personal too. A file deleted
+// since is skipped, and so is one whose frontmatter fails to parse and has no
+// engram line, since it was never shared. One that fails to parse but has an
+// engram line may be a shared memory, so it stops the disconnect.
 //
 // Nothing is deleted from the memories or from the remote (ENGR-20, decided
 // 2026-11-08): each team memory keeps its body and its engram.id, so promoting
@@ -67,6 +79,10 @@ var ErrNoStore = errors.New("no team store is set up")
 // part way leaves the store in place and running it again finishes the job.
 // When Phase 6 brings several stores, this becomes "disconnect this one".
 func Disconnect(memPaths []string) (kept int, err error) {
+	if !storeMu.TryLock() {
+		return 0, ErrStoreBusy
+	}
+	defer storeMu.Unlock()
 	if !IsInitialized() {
 		return 0, ErrNoStore
 	}
@@ -82,13 +98,24 @@ func Disconnect(memPaths []string) (kept int, err error) {
 		path, stamped string
 	}
 	var plan []demotion
+	seen := make(map[string]bool, len(memPaths))
 	for _, p := range memPaths {
+		if seen[p] {
+			continue // listed twice: demote and count it once
+		}
+		seen[p] = true
 		raw, err := os.ReadFile(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue // deleted since the caller loaded it: nothing to keep
+		}
 		if err != nil {
 			return 0, fmt.Errorf("reading %s: %v", filepath.Base(p), err)
 		}
 		meta, ok, err := memory.ReadEngram(string(raw))
 		if err != nil {
+			if !memory.EngramPresent(string(raw)) && !memory.HasEngramLine(string(raw)) {
+				continue // no engram key at all: it was never shared
+			}
 			return 0, fmt.Errorf("%s: %v — fix its frontmatter, then disconnect again", filepath.Base(p), err)
 		}
 		if !ok || meta.Scope != "team" {

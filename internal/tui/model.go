@@ -135,8 +135,6 @@ type Model struct {
 	promoteState  team.RemoteState
 	promoteCursor int // 0 = this project, 1 = global
 
-	// disconnect confirm (modeDisconnectConfirm): the team memories it keeps as personal
-	disconnectPaths []string
 	// disconnecting is set from the confirm until the background disconnect
 	// reports back, so a second >disconnect can't race the first.
 	disconnecting bool

@@ -21,6 +21,8 @@ import (
 //
 // pushed reports whether the removal reached the remote.
 func Withdraw(memPath string) (pushed bool, err error) {
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := Dir()
 	if err != nil {
 		return false, err

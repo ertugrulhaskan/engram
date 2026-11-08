@@ -61,8 +61,10 @@ func TestDisconnectFromThePalette(t *testing.T) {
 	if m.mode != modeDisconnectConfirm {
 		t.Fatalf("mode = %v after >disconnect, want the confirm", m.mode)
 	}
-	if len(m.disconnectPaths) != 1 || m.disconnectPaths[0] != shared.Path {
-		t.Errorf("disconnectPaths = %v, want only the team memory", m.disconnectPaths)
+	// The confirm counts the team memories, but the disconnect is handed every
+	// memory, so team.Disconnect can re-read one a promote stamped since.
+	if got := m.memoryPaths(); len(got) != 2 || got[0] != shared.Path || got[1] != mine.Path {
+		t.Errorf("memoryPaths = %v, want every loaded memory", got)
 	}
 	box := ansi.Strip(m.disconnectModal())
 	// The temp-dir URL is longer than the dialog: its end, the repo name, must

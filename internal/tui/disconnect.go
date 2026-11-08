@@ -16,14 +16,26 @@ type disconnectFinishedMsg struct {
 	err  error
 }
 
-// teamMemoryPaths is every loaded memory whose engram block says team: the
-// ones a disconnect keeps as personal.
-func (m Model) teamMemoryPaths() []string {
-	var out []string
+// teamMemoryCount is how many loaded memories read as team: the number the
+// confirm says a disconnect keeps as personal.
+func (m Model) teamMemoryCount() int {
+	n := 0
 	for _, mm := range m.memories {
 		if mm.Shared.Scope == "team" {
-			out = append(out, mm.Path)
+			n++
 		}
+	}
+	return n
+}
+
+// memoryPaths is every loaded memory. A disconnect is handed all of them, not
+// only the ones that read as team here: team.Disconnect reads each file again
+// once no other team action holds the store, so one a promote stamped after
+// this list was loaded is kept as personal too.
+func (m Model) memoryPaths() []string {
+	out := make([]string, 0, len(m.memories))
+	for _, mm := range m.memories {
+		out = append(out, mm.Path)
 	}
 	return out
 }
@@ -38,7 +50,6 @@ func (m Model) actionDisconnect() (tea.Model, tea.Cmd) {
 	if !team.IsInitialized() {
 		return m, m.setStatus("no team store connected")
 	}
-	m.disconnectPaths = m.teamMemoryPaths()
 	m.mode = modeDisconnectConfirm
 	return m, nil
 }
@@ -57,7 +68,7 @@ func (m Model) updateDisconnectConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "y", "Y":
 		m.disconnecting = true
-		return m, m.disconnectCmd(m.disconnectPaths)
+		return m, m.disconnectCmd(m.memoryPaths())
 	default:
 		return m, m.setCancel("cancelled")
 	}
@@ -82,7 +93,7 @@ func (m Model) disconnectModal() string {
 	panel := m.panelBg()
 
 	var kept string
-	switch n := len(m.disconnectPaths); n {
+	switch n := m.teamMemoryCount(); n {
 	case 0:
 		kept = "No shared memories on this machine to change."
 	case 1:

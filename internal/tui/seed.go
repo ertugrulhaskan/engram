@@ -279,7 +279,7 @@ func (m Model) buildSeedPrompt(a assistant, cwd, projDir, memDir string, unresol
 	// The relocate-memories note is for the memory sources. A /files session
 	// was opened for one file, and the note would pull it off that file.
 	if unresolved && !fileSel {
-		b.WriteString("NOTE: engram couldn't resolve this project's working directory from its stored project key — the folder may have been renamed or moved, or its name may contain characters (like a \".\") that the key flattens to \"-\" and can't be reversed. ")
+		b.WriteString("Note: engram couldn't resolve this project's working directory from its stored project key — the folder may have been renamed or moved, or its name may contain characters (like a \".\") that the key flattens to \"-\" and can't be reversed. ")
 		if projDir != "" {
 			fmt.Fprintf(&b, "Its best guess was %q, which doesn't exist on disk. ", projDir)
 		}

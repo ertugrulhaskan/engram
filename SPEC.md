@@ -198,8 +198,16 @@ a managed local clone and shells out to git for all sync.
   was decided over removing them or asking each time, because disconnecting is not a
   request to delete files. It refuses while the clone holds uncommitted changes or
   commits not on any remote branch (counted against `--remotes`, not `@{u}`, so a clone
-  whose first push failed is still judged), naming the folder to push from, and it checks
-  every memory before writing any. The clone is renamed aside in one step and then
+  whose first push failed is still judged), naming the folder to push from. It also
+  refuses while a promote, withdraw or pull is running: those take a store lock
+  (`storeMu`) in turn, and Disconnect only tries it. (Resolve's finish runs on the event
+  loop, where waiting would freeze the screen, and its editor holds the terminal, so it
+  takes no lock.) The TUI hands it every loaded memory,
+  not just the ones it last saw as team, and it reads each again under the lock, so a
+  memory a promote stamped after the confirm opened is kept as personal too. A file
+  deleted since is skipped, and so is one whose frontmatter fails to parse with no
+  `engram:` line in it; one that fails to parse but has that line may be shared, so it
+  stops the disconnect. It checks every memory before writing any. The clone is renamed aside in one step and then
   deleted, so a delete that fails part way can't leave a half-clone that blocks `>init`.
   Re-pointing is `>disconnect`, then `>init <new-url>`. The palette's `init` row names
   the connected store (`team.Remote`, cached with the sync states), with any user-info
@@ -707,7 +715,7 @@ engram/
             index.go         # MEMORY.md index upsert / remove / reconcile (bullet = the first `](…)`; only a bare .md target, taken literally, is a memory bullet); atomic temp+rename write that keeps a symlinked index, refuses a read-only one, and writes a hard-linked one in place
             docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source); DocsCaps (zero: read-only)
             edit.go          # create (O_EXCL, never through a symlink) / delete / open-in-$EDITOR
-            frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
+            frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; EngramPresent / HasEngramLine (a block, or its line when the YAML fails); ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
         config/              # settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse) and keeps keys Config has no field for; Exists (for the TUI), Save is atomic (temp file + rename); Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
@@ -723,6 +731,7 @@ engram/
             storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
             withdraw.go      # Withdraw: owner-only removal of every same-id store copy + .engram-withdrawn tombstone; local reset only once pushed
             disconnect.go    # Remote (the connected URL) + Disconnect: refuse pending work, team memories → personal, remove the clone
+            storelock.go     # storeMu: promote / withdraw / pull take it in turn; Disconnect refuses while it is held
             push.go          # pushStore (rejected push → rebase + retry once; ErrStoreDiverged) / syncStore (pull --rebase --autostash, never pushes) / flushStore (confirmed pull only); ledger three-way merge by id
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve (returns a ResolveSession: the merge file + the two sides) / FinishConflictResolve: git-style $EDITOR merge (>resolve)

@@ -273,7 +273,8 @@ The palette's `>init` row shows which store is connected. To switch teams, run
 `>disconnect`, then `>init <new-url>`. Disconnecting asks first, then keeps every
 shared memory on your machine as a personal one (nothing is deleted, here or on the
 remote) and removes engram's local copy of the store. It refuses while that copy holds
-changes the remote hasn't received, and names the folder to push them from.
+changes the remote hasn't received, and names the folder to push them from, and while
+another team action is still running.
 
 ### The commands
 

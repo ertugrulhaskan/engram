@@ -50,6 +50,8 @@ func PromoteBatch(items []PromoteItem) (pushed bool, err error) {
 	if len(items) == 0 {
 		return false, fmt.Errorf("nothing to promote")
 	}
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := Dir()
 	if err != nil {
 		return false, err

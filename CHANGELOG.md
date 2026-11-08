@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your machine as a personal memory (body and id unchanged, so promoting it again
   re-shares it) and removes engram's local copy of the store. Nothing is deleted from
   your memories or from the remote. It refuses while that copy holds changes the remote
-  hasn't received, and names the folder to push them from. To re-point to another store, run
+  hasn't received, and names the folder to push them from, and while a promote, withdraw
+  or pull is still running. To re-point to another store, run
   `>disconnect`, then `>init <new-url>`. The palette's `init` row now names the store
   you're connected to.
 

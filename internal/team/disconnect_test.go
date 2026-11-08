@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ertugrulhaskan/engram/internal/memory"
 )
@@ -107,7 +108,9 @@ func TestDisconnectChecksEveryMemoryBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	broken := filepath.Join(filepath.Dir(shared), "broken.md")
-	if err := os.WriteFile(broken, []byte("---\nengram: [unclosed\n---\nbody\n"), 0o644); err != nil {
+	// An engram key that is there but isn't a block: it may be a shared memory
+	// with a damaged block, so it is not guessed to be personal.
+	if err := os.WriteFile(broken, []byte("---\nengram: oops\n---\nbody\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Disconnect([]string{shared, broken}); err == nil {
@@ -237,5 +240,133 @@ func TestDisconnectCountsEveryLocalBranch(t *testing.T) {
 	gitT(t, store, "switch", "-q", "--orphan", "elsewhere") // empties the tree; the commit stays on the old branch
 	if _, err := Disconnect(nil); err == nil || !strings.Contains(err.Error(), "hasn't received") {
 		t.Fatalf("Disconnect = %v, want a refusal for the unpushed commit on the other branch", err)
+	}
+}
+
+// A disconnect asked for while another team action holds the store is refused
+// with nothing changed, rather than moving the clone out from under it.
+func TestDisconnectRefusesWhileAStoreActionRuns(t *testing.T) {
+	_, _, writeMem := batchStore(t)
+	shared := writeMem("shared.md", "body")
+	if _, err := Promote(shared, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	storeMu.Lock()
+	_, err := Disconnect([]string{shared})
+	storeMu.Unlock()
+	if !errors.Is(err, ErrStoreBusy) {
+		t.Fatalf("Disconnect while the store is busy = %v, want ErrStoreBusy", err)
+	}
+	if !IsInitialized() || scopeOf(t, shared) != "team" {
+		t.Error("a refused disconnect changed something")
+	}
+}
+
+// Every store action the TUI runs in the background waits for the lock before
+// it does anything, so none of them can run while a disconnect holds it. Each
+// is called with arguments it would reject at once, so one that skipped the
+// lock returns inside the window.
+func TestStoreActionsWaitForTheStoreLock(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	calls := map[string]func(){
+		"PromoteBatch": func() { _, _ = PromoteBatch([]PromoteItem{{Path: "/nonexistent.md"}}) },
+		"Withdraw":     func() { _, _ = Withdraw("/nonexistent.md") },
+		"Pull":         func() { _, _ = Pull(nil) },
+		"PullPlan":     func() { _, _ = PullPlan(nil) },
+		"PullApply":    func() { _, _ = PullApply(nil) },
+	}
+	storeMu.Lock()
+	done := make(chan string, len(calls))
+	for name, call := range calls {
+		go func() { call(); done <- name }()
+	}
+	select {
+	case name := <-done:
+		storeMu.Unlock()
+		t.Fatalf("%s ran while the store lock was held", name)
+	case <-time.After(300 * time.Millisecond):
+	}
+	storeMu.Unlock()
+	for range calls {
+		<-done
+	}
+}
+
+// Disconnect is handed every memory, so a file deleted since it was listed is
+// skipped, and so is one whose frontmatter can't be parsed at all (it never
+// read as shared); the team memory beside them is still kept as personal.
+func TestDisconnectSkipsDeletedAndUnparseableMemories(t *testing.T) {
+	_, _, writeMem := batchStore(t)
+	shared := writeMem("shared.md", "body")
+	if _, err := Promote(shared, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Dir(shared)
+	garbled := filepath.Join(dir, "garbled.md")
+	if err := os.WriteFile(garbled, []byte("---\nname: [unclosed\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before := string(must(os.ReadFile(garbled)))
+	kept, err := Disconnect([]string{filepath.Join(dir, "gone.md"), garbled, shared})
+	if err != nil {
+		t.Fatalf("Disconnect = %v, want the deleted and unparseable files skipped", err)
+	}
+	if kept != 1 || scopeOf(t, shared) != "personal" {
+		t.Errorf("kept = %d, scope = %q; want the team memory kept as personal", kept, scopeOf(t, shared))
+	}
+	if got := string(must(os.ReadFile(garbled))); got != before {
+		t.Errorf("the unparseable memory was rewritten:\n%s", got)
+	}
+}
+
+// FinishConflictResolve runs on the TUI's event loop, so it must not wait on the
+// store lock: a background push holding it would freeze the screen.
+func TestFinishConflictResolveDoesNotWaitForTheStoreLock(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	storeMu.Lock()
+	defer storeMu.Unlock()
+	done := make(chan struct{})
+	go func() { _, _ = FinishConflictResolve("/nonexistent.md", "/nonexistent.tmp"); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("FinishConflictResolve waited for the store lock")
+	}
+}
+
+// A shared memory whose YAML broke somewhere else in its frontmatter can't be
+// read, but its engram line is still there: it may be team, so the disconnect
+// stops and names it rather than leave it claiming a store that is gone.
+func TestDisconnectRefusesAnUnparseableMemoryWithAnEngramLine(t *testing.T) {
+	_, _, writeMem := batchStore(t)
+	shared := writeMem("shared.md", "body")
+	if _, err := Promote(shared, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	damaged := filepath.Join(filepath.Dir(shared), "damaged.md")
+	if err := os.WriteFile(damaged, []byte("---\nname: [unclosed\nengram:\n  id: x\n  scope: team\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Disconnect([]string{shared, damaged}); err == nil || !strings.Contains(err.Error(), "damaged.md") {
+		t.Fatalf("Disconnect = %v, want a refusal naming damaged.md", err)
+	}
+	if !IsInitialized() || scopeOf(t, shared) != "team" {
+		t.Error("a refused disconnect changed something")
+	}
+}
+
+// A path listed twice is one memory: it is demoted once and counted once.
+func TestDisconnectCountsARepeatedPathOnce(t *testing.T) {
+	_, _, writeMem := batchStore(t)
+	shared := writeMem("shared.md", "body")
+	if _, err := Promote(shared, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := Disconnect([]string{shared, shared})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept != 1 {
+		t.Errorf("kept = %d for one memory listed twice, want 1", kept)
 	}
 }

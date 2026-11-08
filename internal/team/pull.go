@@ -38,6 +38,8 @@ type PullResult struct {
 // with the same direction-aware safety as a project memory. Touched MEMORY.md
 // indexes are reconciled. Matching is by engram.id, not filename.
 func Pull(targets []ProjectTarget) (PullResult, error) {
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := storeReady()
 	if err != nil {
 		return PullResult{}, err
@@ -57,6 +59,8 @@ func Pull(targets []ProjectTarget) (PullResult, error) {
 // memory dir. The fetch itself is safe pre-confirm: it only fast-forwards the
 // store's cache repo, never local files.
 func PullPlan(targets []ProjectTarget) (PullResult, error) {
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := storeReady()
 	if err != nil {
 		return PullResult{}, err
@@ -71,6 +75,8 @@ func PullPlan(targets []ProjectTarget) (PullResult, error) {
 // on, against the store state PullPlan already fetched — no second fetch, so
 // the accounting the user confirmed is the accounting that is applied.
 func PullApply(targets []ProjectTarget) (PullResult, error) {
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := storeReady()
 	if err != nil {
 		return PullResult{}, err

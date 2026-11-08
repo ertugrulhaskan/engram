@@ -65,6 +65,22 @@ func EngramPresent(raw string) bool {
 	return doc.Engram.Kind != 0
 }
 
+// HasEngramLine reports whether the frontmatter has a top-level `engram:` line,
+// read as text rather than YAML, so it still answers when the frontmatter fails
+// to parse and EngramPresent can only say false.
+func HasEngramLine(raw string) bool {
+	fmText, _, has := splitFrontmatter(raw)
+	if !has {
+		return false
+	}
+	for _, ln := range strings.Split(fmText, "\n") {
+		if strings.HasPrefix(ln, "engram:") {
+			return true
+		}
+	}
+	return false
+}
+
 // WriteEngram returns raw with the `engram:` frontmatter block set to meta. Every
 // other frontmatter key, the key order, and the body are preserved; a file with no
 // frontmatter gains a block containing only engram's keys. Engram never invents or
