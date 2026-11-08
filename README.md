@@ -369,7 +369,10 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 1.5** — assisted maintenance: `@` handoff to Claude Code / Gemini / Codex / Copilot, read-only `/files` *(core in `v0.1.0`)*
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
-- **Phase 4** — other assistants: local instruction files first (`AGENTS.md`, `GEMINI.md`, Copilot's instructions and Cursor rules are all browsable — per project and, where a vendor has one, globally), then server-side memories (Claude.ai, ChatGPT, …) as access allows
+- **Phase 4** — other assistants: `AGENTS.md`, `GEMINI.md`, Copilot's instructions and Cursor rules are all browsable — per project and, where a vendor has one, globally *(shipped — `v0.4.0`)*
+- **Next release** — finishing pass: disconnect / re-point a team store, `@` handoff fixes from `/files`, team-store git hardening, a narrow-terminal palette fix *(next)*
+- **Phase 5** — a Claude Code plugin and an engram MCP server *(planned)*
+- **Phase 6** — team stores at scale: multiple stores, monorepo sub-keys *(planned)*
 
 ## Contributing
 

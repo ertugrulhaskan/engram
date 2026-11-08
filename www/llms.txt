@@ -24,8 +24,8 @@ auto-learned memories through your own git remote.
   found under `~/.claude/projects/`, and a `scanRoots` config setting points engram at any
   other folder, so a repo never opened in Claude Code appears too. A project can also be
   handed to an assistant: `@` opens an interactive Claude Code, Gemini CLI, Codex or Copilot
-  session, listing only the CLIs you have. No assistant exposes a memory API, so other
-  sources arrive as local files first, export/import later.
+  session, listing only the CLIs you have. No assistant exposes a memory API, so their
+  server-side memories are out of reach.
 
 - Team sharing: promote a memory into a git store your team already has, or several at once,
   marked with `space`, as a single commit and push. A project-scoped memory is keyed to the

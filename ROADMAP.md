@@ -3,9 +3,13 @@
 Several phases, each independently shippable. Earlier phases stay useful even if
 later ones never land.
 
-> **Phases are milestones, not release versions.** "Phase 1 / 1.5 / 2 / 3 / 4" name
-> chunks of work; shipped releases follow [SemVer](https://semver.org), starting
+> **Phases are milestones, not release versions.** "Phase 1 / 1.5 / 2 / 3 / 4 / 5 / 6"
+> name chunks of work; shipped releases follow [SemVer](https://semver.org), starting
 > at `v0.1.0`. (Phase 1 and Phase 1.5 are released together as `v0.1.0`.)
+>
+> After Phase 4, the next release finishes the current feature set, then Phase 5 and
+> Phase 6 are the planned work. Items that can't be built today, or aren't worth
+> building, are listed under [Not planned](#not-planned) with the reason.
 
 ---
 
@@ -114,7 +118,7 @@ Goal: ship engram publicly — flip the repo public and make it installable.
       a snapshot build and `.github/scripts/verify-snapshot.sh` (the rendered cask hook and
       the `engram vX.Y.Z` stamp) on every push and PR, with the GoReleaser version pinned
       once in `.github/goreleaser-version` for both workflows. Before this, `release.yml`
-      was the first thing to run GoReleaser, on a real tag (ENGR-42)
+      was the first thing to run GoReleaser, on a real tag
 - [x] Deploy the landing page to [engram.im](https://engram.im) (Cloudflare Pages — live with SSL)
 - [x] Harden the deployed site: security response headers (`www/_headers` — HSTS,
       `Permissions-Policy`, and a CSP with hashed inline scripts rather than
@@ -122,10 +126,11 @@ Goal: ship engram publicly — flip the repo public and make it installable.
       Pages serves for unknown paths by default
 - [x] Verify install paths end-to-end (`brew install ertugrulhaskan/tap/engram`, `go install …@latest`, release binaries)
 
-## Phase 4 — Other assistants *(tier 1 — local instruction files — shipped in `v0.4.0`; tier 2 open)*
+## Phase 4 — Other assistants *(complete — local instruction files shipped in `v0.4.0`)*
 
-Goal: one place for AI context beyond Claude Code — local files first, server-side
-memories as each product allows.
+Goal: one place for AI context beyond Claude Code, from the files other assistants keep
+on disk. Their server-side memories were a second tier of this phase; no vendor offers a
+way to read them, so that tier is under [Not planned](#not-planned).
 
 - [x] Pluggable "source" abstraction (Claude Code is the first source) — *satisfied
       2026-09-02, by the shape that grew rather than the Go `interface` this item
@@ -141,8 +146,8 @@ memories as each product allows.
       the home dir" and nothing else, and every vendor added so far is a provider
       *within* the files source, not a new collection alongside memories/plans/files.
       Writing the interface now would still be designing against one real and several
-      hypothetical implementations. Tier 2 below is the first thing that wouldn't fit,
-      and it reopens the question if and when a vendor ships a memory API
+      hypothetical implementations. A vendor memory API (see [Not planned](#not-planned))
+      would be the first thing that wouldn't fit, and would reopen the question
 - [x] **`AGENTS.md`** (Codex / cross-tool standard) — read-only in `/files`, with an
       `agents` badge. Found for projects engram already knows about (those with a
       `~/.claude/projects/` folder); a repo never opened in Claude Code doesn't appear
@@ -175,8 +180,6 @@ memories as each product allows.
       up with no `~/.claude` and no scan roots. Copilot is absent because it has no home-dir
       instructions file (VS Code stores user-level instructions in profile settings), and
       Codex's `CODEX_HOME` / `AGENTS.override.md` precedence isn't honoured
-- [ ] Server-side memories — Claude.ai / ChatGPT / Gemini app: export/import,
-      since none of them exposes a memory API today (until/unless that changes)
 - [x] Read-only at first; editing/sharing per source as feasible *(decided and enforced
       2026-08-29)* — memories: everything; plans: view + delete; files: read-only
       (repairs via the `@` assistant handoff). Capability is a `source.Caps` each data package declares
@@ -184,8 +187,76 @@ memories as each product allows.
       through one gate; the zero value grants nothing, so a new source is read-only until
       granted, and the controls row is derived from the same struct so it can only
       advertise a key that runs. The test for granting edit to any source: engram can
-      keep the promise "stay compatible with the tool that owns this file". Tier-2 imports
-      become regular memories once imported (SPEC §8.3)
+      keep the promise "stay compatible with the tool that owns this file"
+
+---
+
+## Next release — finishing the current feature set
+
+The last pass over what engram already does, before new phases start. Small UI changes
+are in scope where a fix needs them.
+
+- [ ] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
+      visible "which store is connected". What happens to already-pulled team memories on
+      disconnect is decided first, since that touches user files
+- [ ] Tighten the `@` handoff from `/files`: a deleted project, a capability line that
+      offers work the session can't reach, one read-only hint for every row, and an
+      editable check that compares path strings and is worked out in two places. Whether
+      the launch directory itself should be narrower is decided, not assumed
+- [ ] Harden two team-store git calls: literal pathspecs for teammate file names, and
+      the rollback after a rebase that drops our commit
+- [ ] Fix the palette placeholder being cut off on terminals narrower than 43 columns
+
+**On hold:** the Charm v2 library upgrade (Bubble Tea, Bubbles, Lip Gloss, Glamour). Glamour
+v2 still drops the blockquote `│` bar when a quote wraps, the bug that took Glamour back to
+0.8 in `v0.6.1`, and a mixed build would ship two Lip Gloss versions. It restarts when a
+Glamour v2 release passes `TestBlockquoteKeepsBarWhenWrapped`. The upgrade itself is then
+more than a version bump: Lip Gloss v2 drops `ColorProfile()`, which the TUI's colour
+painting relies on, and Bubble Tea v2 renames the key message type every test uses.
+
+---
+
+## Phase 5 — Reach engram from inside other tools *(planned)*
+
+Each item starts with a short design, then small tasks.
+
+- [ ] A Claude Code plugin for the plugin marketplace. engram needs a real terminal, so
+      a plugin can offer commands, not the TUI itself; what it surfaces is decided first
+- [ ] An engram MCP server, so an agent can search memories directly (the reverse of the
+      `@` handoff). Read-only vs write tools, how personal and team scope appear, and
+      whether a write path needs the secret scan are decided first
+
+---
+
+## Phase 6 — Team stores at scale *(planned, after Phase 5)*
+
+Both items change a core assumption, so each starts with a written design in SPEC before
+any build, and the work is split into small tasks.
+
+- [ ] Multiple team stores. engram assumes one store; a user's projects can belong to
+      different teams. Promote, pull, withdraw, status and resolve each need to pick the
+      right store, the sync anchor has to work per remote, and single-store users need a
+      migration
+- [ ] Monorepo sub-keys. A team bucket is keyed by the git remote, so every subproject of
+      a monorepo shares one bucket. Per-subproject keys need a rule for what marks a
+      subproject and a key that survives a folder move
+
+---
+
+## Not planned
+
+Each with the reason, so it isn't re-raised without new facts.
+
+- **Server-side memories** (Claude.ai, ChatGPT, the Gemini app, Copilot Memory). None of
+  them offers a way to read memories from outside: re-checked 2026-11-08, Copilot Memory
+  can only be viewed or deleted in the repository's settings
+  ([GitHub Docs](https://docs.github.com/en/copilot/concepts/agents/copilot-memory)), and
+  the others allow manual copy only. Revisit if a vendor ships a memory API.
+- **A shared alias map in the team repo.** Teammates must pick the same `>alias` for a
+  remoteless project to share a bucket. Team projects almost always have a remote, so the
+  case is rare; agreeing on the name is the workaround.
+- **Native Windows.** Decided 2026-09-06: the archives cross-compile and ship labelled
+  untested, but nobody can verify a fix without a Windows machine. WSL works.
 
 ---
 
