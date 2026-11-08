@@ -131,7 +131,7 @@ type Project struct {
 }
 
 // DocFile is a read-only instruction file surfaced in the /files source
-// (Phase 1.5; the non-Claude files added in Phase 4 tier 1). No frontmatter — an
+// (Phase 1.5; the non-Claude files added in Phase 4). No frontmatter — an
 // assistant manages these, engram never hand-edits them.
 type DocFile struct {
     Path, Title, Body string
@@ -143,7 +143,7 @@ type DocFile struct {
 }
 // Kind and Provider are deliberately separate dimensions: every instruction file
 // is the same *kind* (rules) from a different ecosystem. Collapsing them would
-// force a new DocKind per vendor as tier 1 grows.
+// force a new DocKind per vendor as the list of providers grows.
 
 // projectRuleFiles is the single table of per-project instruction files, in
 // display order. DiscoverDocs, DocsSignature and docRank all read it, so adding
@@ -820,7 +820,7 @@ travels on `assistantFinishedMsg` rather than on the `Model`, because the exit c
 fires long after the `Update` that launched the session, so a `Model` field would be state
 kept alive only to bridge those two moments.
 
-### 8.2 `/files` read-only source (Phase 1.5; the non-Claude files in Phase 4 tier 1)
+### 8.2 `/files` read-only source (Phase 1.5; the non-Claude files in Phase 4)
 
 A third source (`srcFiles`, alongside `srcMemories`/`srcPlans`) surfaces the instruction
 files an assistant *manages* rather than the ones you author: the global
@@ -871,7 +871,7 @@ doc still carries its `ProjectDir`/`MemoryDir`, so launching an assistant from `
 the right place. `MEMORY.md` remains auto-maintained by the `R` reconcile / index-sync;
 "read-only" only governs direct hand-editing.
 
-**Discovery is Claude-anchored by default, and tier 1 inherits that.** The walk enumerates
+**Discovery is Claude-anchored by default, and the Phase 4 files inherit that.** The walk enumerates
 `~/.claude/projects/*` and reaches a project's working dir only by decoding that key, so by
 default these files are found only for projects Claude Code already knows about.
 
@@ -893,7 +893,7 @@ Three properties worth stating, because each is a decision rather than an accide
   Both docs scans guard this: `filepath.Join("", "MEMORY.md")` is the *relative* path
   `MEMORY.md`, which would read whatever sits in the process's working directory.
 
-Note that the global files are the one part of tier 1 that is *not* Claude-anchored — they are
+Note that the global files are the one part of Phase 4 that is *not* Claude-anchored — they are
 read straight from the home dir, so they appear even with no `~/.claude` and no `scanRoots`.
 Per-project discovery still is anchored, so public copy must go on not implying standalone
 multi-assistant support out of the box — `scanRoots` is opt-in.
@@ -963,10 +963,7 @@ are about what memories *are* — typed, grouped by project, indexed — not wha
 may do to them.
 
 The governing test for granting `Edit` to any future source is the one above: can
-engram keep the promise "stay compatible with the tool that owns this file"? Tier-2
-imports (server-side memories brought in by export or paste) become regular memories
-once imported — the import is an explicit user action, after which the vendor no longer
-owns the copy, so full capability applies.
+engram keep the promise "stay compatible with the tool that owns this file"?
 
 
 ### 8.4 The resolve inline diff (Phase 2 refinement)
@@ -1089,16 +1086,23 @@ says that instead of rendering an empty diff.
 ## 10. Open questions / future
 
 - Promoting whole *types* at once (e.g. "all feedback") — multi-select promote itself has shipped.
-- Monorepo sub-keys. Subprojects that share one git remote share one bucket under
-  `projects/<key>/`; per-subdirectory keys are a later refinement.
-- Alias coordination for remote-less projects. The alias fallback shipped (`>alias`,
-  keys under `projects/alias/<name>/`), but two teammates must still independently
-  choose the *same* alias for their memories to meet — a shared alias map committed
-  in the team repo is the likely fix.
-- Phase 4: other assistants, in two tiers (source list in ROADMAP Phase 4). Local
-  instruction files first — files on disk, no API needed. Server-side memories
-  (Claude.ai / ChatGPT / Gemini app) stay blocked on those products exposing
-  programmatic access; likely export/import at first.
+- **Phase 6 (planned): multiple team stores and monorepo sub-keys.** engram assumes one
+  store, and a team bucket is keyed by the git remote, so a monorepo's subprojects share
+  one bucket. Both need a written design here before any build: how a memory resolves to
+  its store (and the ambiguous case), where global memories live with several stores,
+  whether `syncedHash` holds per remote, how single-store users migrate, what marks a
+  subproject, and how its key survives a folder move.
+- **Phase 5 (planned): a Claude Code plugin and an MCP server.** Open: what a plugin can
+  surface when the TUI needs a real terminal, and for the MCP server, read-only vs write
+  tools, how personal and team scope appear, and whether a write path needs the secret
+  scan.
+- **Not planned: a shared alias map** for remote-less projects. The alias fallback
+  shipped (`>alias`, keys under `projects/alias/<name>/`); two teammates must pick the
+  *same* alias for their memories to meet. Rare enough that agreeing on the name is the
+  answer.
+- **Not planned: server-side memories** (Claude.ai, ChatGPT, the Gemini app, Copilot
+  Memory). Phase 4 shipped the local instruction files; none of these products offers a
+  way to read memories from outside (re-checked 2026-11-08). Revisit if one ships an API.
 - **Native Windows: out of scope, decided 2026-09-06.** This is no longer an open
   question. Binaries cross-compile and ship, but native Windows has never been run and
   two Unix assumptions are known to break it: `decodeProjectPath` resolves from `/`

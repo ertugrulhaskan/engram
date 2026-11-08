@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   needs no secret.
 
 ### Changed
+- **The roadmap is reshaped around what can actually be built.** Phase 4 is complete:
+  the local instruction files of Codex, the Gemini CLI, Copilot and Cursor shipped in
+  `v0.4.0`. Its second tier, reading server-side memories from Claude.ai, ChatGPT, the
+  Gemini app or Copilot Memory, is now listed as not planned, because none of those
+  products offers a way to read them; the site's roadmap card, its FAQ answer and
+  `llms.txt` no longer promise an export/import path. ROADMAP.md gains a "Next release"
+  section (disconnecting a team store, `@` handoff fixes, team-store git hardening, the
+  palette placeholder on narrow terminals),
+  Phase 5 (a Claude Code plugin and an MCP server), Phase 6 (multiple team stores and
+  monorepo sub-keys) and a "Not planned" section with the reason for each item. The Charm
+  v2 upgrade is on hold until Glamour v2 keeps the blockquote bar on wrapped lines.
 - **The landing page builds with Tailwind 4.3.4.** A patch release with no intended visual
   change: the `group-open:` selectors behind the FAQ cards' rotating `+` and open padding
   are written in a new form, and on all six cards the computed styles match the 4.3.3 build
