@@ -196,7 +196,7 @@ way to read them, so that tier is under [Not planned](#not-planned).
 The last pass over what engram already does, before new phases start. Small UI changes
 are in scope where a fix needs them.
 
-- [ ] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
+- [x] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
       visible "which store is connected". What happens to already-pulled team memories on
       disconnect is decided first, since that touches user files
 - [x] Tighten the `@` handoff from `/files`: a deleted project, a capability line that

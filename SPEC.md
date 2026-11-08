@@ -188,9 +188,22 @@ a managed local clone and shells out to git for all sync.
   the team repo to `~/.config/engram/team/` (alongside the existing config), and
   if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
 - **Day-to-day, the team verbs live under the `>` command palette** (`ctrl+p` → `>`:
-  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>alias <name>`), a third prefix beside
+  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>disconnect`, `>alias <name>`), a third prefix beside
   `/` sources and `@` assistants, so engram stays a no-arg TUI for normal use. `>init` mirrors
   the `engram init-team` subcommand, which remains for first-run/CLI setup.
+- **`>disconnect` is init's inverse** (`team.Disconnect`, ENGR-20). After a confirm that
+  names the store and counts the shared memories, it marks every team-scoped local memory
+  personal (body and `engram.id` kept, so promoting again re-shares it under the same id)
+  and removes the clone. Nothing is deleted from the memories or from the remote: that
+  was decided over removing them or asking each time, because disconnecting is not a
+  request to delete files. It refuses while the clone holds uncommitted changes or
+  commits not on any remote branch (counted against `--remotes`, not `@{u}`, so a clone
+  whose first push failed is still judged), naming the folder to push from, and it checks
+  every memory before writing any. The clone is renamed aside in one step and then
+  deleted, so a delete that fails part way can't leave a half-clone that blocks `>init`.
+  Re-pointing is `>disconnect`, then `>init <new-url>`. The palette's `init` row names
+  the connected store (`team.Remote`, cached with the sync states), with any user-info
+  stripped from the URL, since an https remote can carry a token.
 - **No servers and no engram-level auth.** Access is whatever the git host grants
   on the repo; push/pull use the user's existing git credentials (SSH / credential
   helper). engram surfaces a clear error when credentials or the remote are missing.
@@ -709,6 +722,7 @@ engram/
             status.go        # SyncStates + relationOf: read-only direction-aware sync state (synced/behind/ahead/conflict/unknown/missing)
             storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
             withdraw.go      # Withdraw: owner-only removal of every same-id store copy + .engram-withdrawn tombstone; local reset only once pushed
+            disconnect.go    # Remote (the connected URL) + Disconnect: refuse pending work, team memories → personal, remove the clone
             push.go          # pushStore (rejected push → rebase + retry once; ErrStoreDiverged) / syncStore (pull --rebase --autostash, never pushes) / flushStore (confirmed pull only); ledger three-way merge by id
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve (returns a ResolveSession: the merge file + the two sides) / FinishConflictResolve: git-style $EDITOR merge (>resolve)
@@ -731,6 +745,7 @@ engram/
             confirms.go      # pre-action confirms: pull accounting, resolve inline diff, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
             teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
+            disconnect.go    # >disconnect: confirm modal (store URL, kept count) + background disconnect command
             alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Update, the one write path) + projectKey adapter over team.ResolveKey
             promote.go       # >promote: team scope picker modal + background promote command
             promotebatch.go  # >promote over a marked set: each memory's own project key, one commit

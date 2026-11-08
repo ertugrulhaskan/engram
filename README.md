@@ -146,7 +146,7 @@ them anymore:
   four rather than nothing, and picking one tells you where to get it. Pressing
   `@` on its own opens this list rather than picking for you.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
-  `>withdraw`, `>alias` — covered in [Team sharing](#team-sharing) below.
+  `>withdraw`, `>alias`, `>disconnect` — covered in [Team sharing](#team-sharing) below.
 
 ### `/files` — read-only view of your instruction files
 
@@ -268,6 +268,12 @@ This clones the team repo to `~/.config/engram/team/` and, if the repo is empty,
 scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
 starter layout (a failed push is non-fatal — the local commit is kept, with a
 retry hint).
+
+The palette's `>init` row shows which store is connected. To switch teams, run
+`>disconnect`, then `>init <new-url>`. Disconnecting asks first, then keeps every
+shared memory on your machine as a personal one (nothing is deleted, here or on the
+remote) and removes engram's local copy of the store. It refuses while that copy holds
+changes the remote hasn't received, and names the folder to push them from.
 
 ### The commands
 

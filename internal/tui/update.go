@@ -208,6 +208,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(m.setStatus(summary), reloadCmd())
 
+	case disconnectFinishedMsg:
+		m.driftDir = "" // memories were rewritten (scope flipped)
+		if msg.err != nil {
+			s := "disconnect: " + msg.err.Error()
+			if msg.kept > 0 {
+				s += fmt.Sprintf(" (%d already kept as personal)", msg.kept)
+			}
+			return m, tea.Batch(m.setDanger(s), reloadCmd())
+		}
+		return m, tea.Batch(m.setStatus(disconnectSummary(msg.kept)), reloadCmd())
+
 	case reloadMsg:
 		if msg.err != nil {
 			return m, m.setDanger("reload failed: " + msg.err.Error())
@@ -223,6 +234,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.plans = msg.plans
 		m.docs = msg.docs
 		m.syncStates = msg.sync
+		m.storeURL = msg.store
 		m.fsSig = msg.sig
 		// A mark whose memory left the list is dead weight that still arms the
 		// batch — drop it here, where the list is replaced.
@@ -290,7 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Transient FS error — ignore so the footer doesn't churn.
 		case m.fsSig == "":
 			m.fsSig = msg.sig // first poll: adopt the baseline, don't reload
-		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm && m.mode != modePullConfirm && m.mode != modeResolveConfirm && m.mode != modeReconcileConfirm:
+		case msg.sig != m.fsSig && m.mode != modeNew && m.mode != modeConfirm && m.mode != modePalette && m.mode != modeHelp && m.mode != modePromoteScope && m.mode != modeSecretWarn && m.mode != modeWithdrawConfirm && m.mode != modeDisconnectConfirm && m.mode != modePullConfirm && m.mode != modeResolveConfirm && m.mode != modeReconcileConfirm:
 			// Changed on disk and no modal is open → reload. Don't update fsSig
 			// here; reloadMsg sets it atomically with the new memories.
 			return m, tea.Batch(reloadCmd(), pollCmd(m.settingsGen))
@@ -322,6 +334,8 @@ func (m Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateSecretWarn(msg)
 	case modeWithdrawConfirm:
 		return m.updateWithdrawConfirm(msg)
+	case modeDisconnectConfirm:
+		return m.updateDisconnectConfirm(msg)
 	case modePullConfirm:
 		return m.updatePullConfirm(msg)
 	case modeResolveConfirm:

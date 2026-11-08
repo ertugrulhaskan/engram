@@ -36,6 +36,8 @@ func (m Model) View() string {
 		box = m.secretModal()
 	case modeWithdrawConfirm:
 		box = m.withdrawModal()
+	case modeDisconnectConfirm:
+		box = m.disconnectModal()
 	case modePullConfirm:
 		box = m.pullModal()
 	case modeResolveConfirm:

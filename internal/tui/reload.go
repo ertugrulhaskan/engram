@@ -140,6 +140,7 @@ type reloadMsg struct {
 	plans []plan.Plan
 	docs  []memory.DocFile
 	sync  map[string]team.SyncState
+	store string // team.Remote(): the connected store, "" when none
 	sig   string
 	err   error
 }
@@ -157,9 +158,10 @@ func reloadCmd() tea.Cmd {
 		roots := currentScanRoots()
 		docs, _ := memory.DiscoverDocs("", roots) // best-effort; don't fail the reload over docs
 		syncStates, _ := team.SyncStates(mems)    // best-effort; empty when no team store
+		store := team.Remote()                    // "" when no team store
 		// Capture the signature alongside the data so the reload updates the
 		// poll baseline atomically (no reload -> sig-changed -> reload loop).
 		sig, _ := combinedSig(roots)
-		return reloadMsg{mems: mems, plans: plans, docs: docs, sync: syncStates, sig: sig}
+		return reloadMsg{mems: mems, plans: plans, docs: docs, sync: syncStates, store: store, sig: sig}
 	}
 }
