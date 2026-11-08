@@ -134,9 +134,17 @@ func runGitCapture(dir string, args ...string) (string, error) {
 // GIT_TERMINAL_PROMPT=0 makes it fail instead, which reads as "unreachable" and
 // keeps the commit for later. (runGit, for interactive commands like
 // init-team, keeps prompting on purpose.)
+//
+// GIT_LITERAL_PATHSPECS=1 makes every pathspec one literal path. The paths
+// these helpers stage, restore and log come from the store, where a teammate
+// can commit any file name, and git reads `*`, `?` and `[` in a pathspec as
+// wildcards even after "--": withdrawing a file named `*.md` staged its
+// neighbours' uncommitted edits into the commit it pushed. It also turns off
+// pathspec magic such as `:(exclude)`, so a call that wants a pattern must not
+// go through here. (runGit and gitShow don't, and take no store paths.)
 func quietGit(args ...string) *exec.Cmd {
 	cmd := exec.Command("git", args...)
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_LITERAL_PATHSPECS=1")
 	// Network commands also run with no terminal at all, so ssh can't prompt
 	// either. Only those: a local commit may need the terminal for a gpg
 	// pinentry when the user signs commits.

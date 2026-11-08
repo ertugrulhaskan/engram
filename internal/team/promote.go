@@ -133,13 +133,14 @@ func PromoteBatch(items []PromoteItem) (pushed bool, err error) {
 
 	// Commit only when something changed; then always push, which flushes this
 	// commit and any earlier commit a prior push left behind.
-	committed := false
+	committed, ours := false, ""
 	if _, err := runGitCapture(dir, "diff", "--cached", "--quiet"); err != nil {
 		// non-zero exit ⇒ staged changes present ⇒ commit them
 		if _, err := runGitCapture(dir, "commit", "-m", promoteMessage(prepared)); err != nil {
 			return fail(fmt.Errorf("committing team copy: %v", err))
 		}
 		committed = true
+		ours, _ = commitIdentity(dir) // "": rollbackCommit reports instead of guessing
 	}
 	// A rejected push is rebased and retried once; an unreachable remote keeps the
 	// commit locally (pushed=false) for the next push or pull to flush.
@@ -148,7 +149,7 @@ func PromoteBatch(items []PromoteItem) (pushed bool, err error) {
 		// Refused or diverged: retrying won't help, so don't leave the memory
 		// claiming to be shared. Undo this promote's own commit and restore each
 		// local file as it was; anything else the clone holds is untouched.
-		if rerr := rollbackCommit(dir, committed); rerr != nil {
+		if rerr := rollbackCommit(dir, committed, ours); rerr != nil {
 			// The clone still holds the commit, so keep the local stamps that
 			// match it rather than make the two disagree; say what to fix.
 			return false, fmt.Errorf("%v; %v", err, rerr)

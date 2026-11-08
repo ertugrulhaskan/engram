@@ -203,7 +203,7 @@ are in scope where a fix needs them.
       offers work the session can't reach, one read-only hint for every row, and an
       editable check that compares path strings and is worked out in two places. Whether
       the launch directory itself should be narrower is decided, not assumed
-- [ ] Harden two team-store git calls: literal pathspecs for teammate file names, and
+- [x] Harden two team-store git calls: literal pathspecs for teammate file names, and
       the rollback after a rebase that drops our commit
 - [x] Fix the palette placeholder being cut off on terminals narrower than 43 columns
 

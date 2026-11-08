@@ -530,7 +530,11 @@ filename. The id is assigned once, on the first promote.
   retrying can't help — and, like a diverged rebase, it **rolls back** that promote's or
   withdraw's own commit (`git reset --keep HEAD~1`) and restores the local file, so
   nothing claims to be shared, and no tombstone is left for a later pull to apply,
-  when the team never received the change. Withdraw also syncs first, so copies a teammate added since the
+  when the team never received the change. The reset runs only while HEAD is still that
+  commit, matched by author, author date and message because the rebase rewrites its
+  hash; a rebase that dropped it as already upstream leaves nothing of ours to undo.
+  The git calls that stage, restore or look up store files read pathspecs literally
+  (`GIT_LITERAL_PATHSPECS=1`), since a teammate can commit a file named `*.md`. Withdraw also syncs first, so copies a teammate added since the
   last pull are removed too. Pull rebases too (not `--ff-only`, with `--autostash` so a half-staged
   leftover can't block it), so a commit a failed push left behind can't wedge the store;
   the **plan never pushes** — the commit is flushed only by a confirmed pull. A rebase

@@ -51,6 +51,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the shorter `jump or run…` wherever the full text would be cut, chosen by measuring both
   strings against the input's real width rather than at a fixed column. The width sweep
   test now requires a whole placeholder at every terminal width from 20 to 140 columns.
+- **Undoing a refused promote or withdraw no longer rewinds the wrong commit.** When a
+  push is rejected, engram rebases onto the remote and retries; if the retry is refused it
+  undoes its own commit. If the rebase had dropped that commit because a teammate already
+  pushed the same change, the undo rewound whatever commit sat on top instead, such as an
+  earlier promote an offline push had left for later, so that promote's commit vanished
+  while its memory still read as shared. The undo now checks that HEAD is still its own
+  commit (by author, date and message, which a rebase keeps) and otherwise leaves the
+  clone alone; if it can't tell, it says so and leaves the reset to you.
+
+### Security
+- **A team-store file name with `*`, `?` or `[` is now one path, not a wildcard.** git
+  reads those characters in a pathspec as a pattern even after `--`, so a teammate who
+  committed a file named like `*.md` could make engram's own git calls reach its
+  neighbours: withdrawing that file staged any uncommitted edit to a neighbouring store
+  file into the commit it pushed to the team, and the cleanup after a failed promote or
+  withdraw could unstage or revert a neighbour. The git calls that stage, restore or look
+  up store files now run with `GIT_LITERAL_PATHSPECS=1`. Nothing could reach outside the
+  store.
 
 ## [0.6.1] - 2026-11-07
 
