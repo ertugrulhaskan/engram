@@ -53,12 +53,16 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
-    # READ BEFORE MERGING A BUMP THAT TOUCHES release.yml. ci.yml runs Go and site
-    # checks only, so release.yml is never exercised until a `v*` tag is pushed: a bump
-    # merged here first executes during a real release, and a failure there lands after
-    # GoReleaser has already created the GitHub Release. That is the half-published state
-    # verify-tap-token.sh exists to prevent. Before merging one, run the `goreleaser
-    # check` and snapshot dry-run from CONTRIBUTING's "Releasing".
+    # A BUMP THAT TOUCHES release.yml is rehearsed before merge, but only partly.
+    # release.yml itself never runs until a `v*` tag is pushed. The `snapshot` job in
+    # ci.yml uses the same checkout, setup-go and goreleaser-action SHAs, so a grouped
+    # bump runs the new checkout and setup-go on its own PR, and installs GoReleaser
+    # through the new goreleaser-action. It then runs the `goreleaser` binary from the
+    # shell, so the action's own run path (`args: release --clean`, env passing) is NOT
+    # exercised, and neither is the publish half: the tap-token gate and the real
+    # release. A failure in either still lands after GoReleaser has created the GitHub
+    # Release, the half-published state verify-tap-token.sh exists to prevent, so read
+    # goreleaser-action's release notes before merging a major bump of it.
 
   # Tailwind, used only to build www/css/styles.css. It never reaches a user's machine:
   # the built CSS is committed and Cloudflare Pages runs no build step. Lowest stakes of

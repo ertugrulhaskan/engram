@@ -1,6 +1,9 @@
 # GoReleaser configuration for engram.
 # Validate:   goreleaser check
 # Dry-run:    goreleaser release --snapshot --clean --skip=publish
+# Verify:     .github/scripts/verify-snapshot.sh   (the rendered cask hook + version stamp)
+# CI runs all three on every push and PR (the `snapshot` job in ci.yml), with the
+# GoReleaser version pinned in .github/goreleaser-version.
 # Release:    push a v* tag (handled by .github/workflows/release.yml)
 version: 2
 
@@ -86,11 +89,12 @@ homebrew_casks:
     # and with it cleared the binary runs.
     #
     # `install_steps` emits Homebrew's declarative `postflight_steps` block. It needs
-    # GoReleaser v2.19 or later (goreleaser/goreleaser#6873); release.yml pins the exact
-    # version it was verified on. The raw-Ruby `install:` hook it replaces generated the
-    # `postflight` stanza Homebrew 6.0 deprecated, so every `brew` command touching the
-    # tap printed "Calling `postflight` is deprecated!", and the tap's cask had to be
-    # hand-patched to `postflight_steps` after every release.
+    # GoReleaser v2.19 or later (goreleaser/goreleaser#6873); .github/goreleaser-version
+    # pins the exact version it was verified on, for release.yml and CI alike. The
+    # raw-Ruby `install:` hook it replaces generated the `postflight` stanza Homebrew 6.0
+    # deprecated, so every `brew` command touching the tap printed "Calling `postflight`
+    # is deprecated!", and the tap's cask had to be hand-patched to `postflight_steps`
+    # after every release.
     #
     # Mind the two spellings — they are NOT interchangeable. `.StagedPath` is a
     # GoReleaser template field, valid only here; it renders to Homebrew's own
@@ -99,15 +103,18 @@ homebrew_casks:
     # cannot simply be written literally in this file.) Putting the `.StagedPath` form
     # into a .rb hands xattr a path that does not exist and stops clearing quarantine.
     #
-    # Verify after any change here, or after bumping the GoReleaser version release.yml
-    # pins, on the first real release that follows: `brew reinstall --cask
+    # Verify after any change here, or after bumping the pinned GoReleaser version, on
+    # the first real release that follows: `brew reinstall --cask
     # ertugrulhaskan/tap/engram`, then `xattr -l` the Caskroom binary (only
     # com.apple.provenance should remain), then run `"$(brew --prefix)/bin/engram"
     # --version` — a quarantined binary does not exec at all, so a version print is the
     # real evidence. Name that path: a bare `engram` may resolve to a `go install` copy
-    # that was never quarantined, and pass while the cask's hook is broken. Nothing
-    # else detects a regression: the release still succeeds and the cask still
-    # installs, so the failure surfaces only on other people's machines, never in CI.
+    # that was never quarantined, and pass while the cask's hook is broken. CI's
+    # `snapshot` job checks the *rendered* hook (verify-snapshot.sh: `postflight_steps`
+    # present, `{{staged_path}}/engram` present, no `postflight do`, no `StagedPath`),
+    # which catches the spelling mistakes above before a tag. It cannot check the
+    # effect: whether xattr actually clears the flag on a Mac is still only this manual
+    # check, since the release succeeds and the cask installs either way.
     hooks:
       post:
         install_steps: |

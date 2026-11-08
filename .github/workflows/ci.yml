@@ -102,6 +102,66 @@ jobs:
       - name: Test
         run: go test ./...
 
+  # release.yml runs only on a pushed v* tag, so until this job existed nothing exercised
+  # .goreleaser.yaml before a real release: a broken config, a deprecated property, or a
+  # cask hook that renders wrong was first seen after the GitHub Release already existed.
+  # The worst case is silent. A `postflight_steps` block with the wrong `staged_path`
+  # spelling still installs cleanly and leaves the binary quarantined, so macOS refuses
+  # to run it, and only other people's machines would ever show it. This job rehearses
+  # the release on every push and PR: `goreleaser check` (exit 2 on deprecations, so a
+  # warning fails the build, by design), a full snapshot build, and verify-snapshot.sh
+  # over what it produced.
+  #
+  # The GoReleaser version comes from .github/goreleaser-version, the same file
+  # release.yml reads, so the rehearsal runs exactly the version that will publish. Only
+  # the install step is handed the default token, because goreleaser-action resolves the
+  # version through the GitHub Releases API. The GoReleaser runs get no publishing
+  # credential: HOMEBREW_TAP_TOKEN is not referenced anywhere in this file, and the
+  # default token (read-only under `contents: read`, and persisted by checkout as in
+  # every job here) cannot create a release. So nothing here can publish even if the
+  # config were edited to try.
+  #
+  # fetch-depth: 0 for the same reason release.yml has it: GoReleaser needs the full
+  # history (it derives the version from the latest tag), and the rehearsal should run
+  # in the same conditions as the real thing.
+  #
+  # A separate job, not a matrix leg on `build`, for the reason `floor` documents.
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # The same patch version `build` and release.yml pin; a rehearsal on another
+      # toolchain would prove less. Bump all three together.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.3"
+
+      - name: Read the pinned GoReleaser version
+        id: goreleaser
+        run: .github/scripts/goreleaser-version.sh >> "$GITHUB_OUTPUT"
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: ${{ steps.goreleaser.outputs.version }}
+          install-only: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check the GoReleaser configuration
+        run: goreleaser check
+
+      - name: Build a snapshot release (publishes nothing)
+        run: goreleaser release --snapshot --clean --skip=publish
+
+      - name: Verify the rendered cask hook and the version stamp
+        run: .github/scripts/verify-snapshot.sh
+
   # www/css/styles.css is committed and Cloudflare Pages runs no build step, so a class
   # added to a page without a rebuild ships unstyled, and a Tailwind bump that never
   # regenerates the file leaves production on output from the old compiler. Neither

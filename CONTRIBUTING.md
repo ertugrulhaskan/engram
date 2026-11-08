@@ -249,12 +249,20 @@ Validate config and do a full local dry-run (no publish) before tagging:
 ```sh
 goreleaser check
 goreleaser release --snapshot --clean --skip=publish   # builds into ./dist
+.github/scripts/verify-snapshot.sh                     # the rendered cask hook + version stamp
 ```
 
-`goreleaser check` should report the configuration as validated with no deprecations.
-The cask's `install_steps` needs GoReleaser v2.19 or later; run the version
-`release.yml` pins. CI does not run GoReleaser, so this dry run is the only check
-before a tag.
+`goreleaser check` should report the configuration as validated with no deprecations
+(it exits 2 when it finds one). The cask's `install_steps` needs GoReleaser v2.19 or
+later; the exact version is pinned once, in `.github/goreleaser-version`, and both
+`release.yml` and CI read it from there. CI runs these same three commands on every
+push to `main` and every pull request (the `snapshot` job in `ci.yml`), so a broken
+config, a deprecated property, a cask hook that renders wrong, or a version stamp
+without its `v` fails the PR instead of the release. What CI cannot check is whether
+the rendered hook actually clears quarantine on a Mac; that stays the manual
+`brew reinstall` check described beside the hook in `.goreleaser.yaml`, on the first
+release after any change to it or to the pinned version. Bumping the pin is a
+one-line edit to that file.
 
 **Tap + token (already configured):** the `ertugrulhaskan/homebrew-tap` repo exists
 and the engram repo carries a `HOMEBREW_TAP_TOKEN` Actions secret with write access

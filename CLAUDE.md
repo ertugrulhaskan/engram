@@ -37,9 +37,13 @@ only machine-enforced part:** on every push to `main` and every PR,
 `.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...`, `go test ./...` and
 `govulncheck -scan module` in its `build` job, builds and tests again on the Go version
 `go.mod` declares in its `floor` job (pinned with `GOTOOLCHAIN=local`, or it would
-silently upgrade past the floor it is checking), and in its `site` job rebuilds `www/css/styles.css` to fail on a stale commit
-of it, then runs `.github/scripts/verify-site.py` for the CSP hashes, the Tailwind
-`@source` lines and FAQ/JSON-LD parity. Steps 1–4 have no enforcement at all —
+silently upgrade past the floor it is checking), in its `snapshot` job rehearses the
+release with the GoReleaser version `.github/goreleaser-version` pins (`goreleaser check`,
+a snapshot build, then `.github/scripts/verify-snapshot.sh` over the rendered cask hook
+and the `engram vX.Y.Z` version stamp), and in its `site` job rebuilds
+`www/css/styles.css` to fail on a stale commit of it, then runs
+`.github/scripts/verify-site.py` for the CSP hashes, the Tailwind `@source` lines and
+FAQ/JSON-LD parity. Steps 1–4 have no enforcement at all —
 `.git/hooks/` holds only the stock samples — so the discipline lives here.
 
 ## Keep the docs in sync — before you commit
