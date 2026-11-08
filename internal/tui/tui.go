@@ -24,12 +24,13 @@ const (
 	modeConfirm
 	modePalette
 	modeHelp
-	modePromoteScope     // picking team scope (this project / global) for a promote
-	modeSecretWarn       // a promote was blocked because the memory looks like it holds a secret
-	modeWithdrawConfirm  // confirming a withdraw (removing a shared memory from the team store)
-	modePullConfirm      // showing a pull's full accounting (team.PullPlan) before anything moves
-	modeResolveConfirm   // showing the first conflict hunk before handing the merge file to $EDITOR
-	modeReconcileConfirm // naming the drifted files before rebuilding MEMORY.md
+	modePromoteScope      // picking team scope (this project / global) for a promote
+	modeSecretWarn        // a promote was blocked because the memory looks like it holds a secret
+	modeWithdrawConfirm   // confirming a withdraw (removing a shared memory from the team store)
+	modeDisconnectConfirm // confirming a disconnect of the team store
+	modePullConfirm       // showing a pull's full accounting (team.PullPlan) before anything moves
+	modeResolveConfirm    // showing the first conflict hunk before handing the merge file to $EDITOR
+	modeReconcileConfirm  // naming the drifted files before rebuilding MEMORY.md
 )
 
 // srcKind selects which collection is being browsed.
@@ -120,8 +121,13 @@ var srcCaps = [srcCount]source.Caps{
 // files source names its escape hatch, everywhere else the denial is silent —
 // the key is absent from the controls row too, so there is nothing to explain.
 var readOnlyHint = [srcCount]string{
-	srcFiles: "read-only — edit with an assistant (press @)",
+	srcFiles: "read-only: edit with an assistant (press @)",
 }
+
+// readOnlyOutsideHint replaces the files hint on a row an assistant session
+// couldn't write either (filesHint): the vendor global files sit
+// outside every folder engram opens a session with, on purpose.
+const readOnlyOutsideHint = "read-only: outside what an assistant session can write (@ can still read it)"
 
 // caps returns the current source's capability set.
 func (m Model) caps() source.Caps { return srcCaps[m.srcKind] }

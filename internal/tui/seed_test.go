@@ -235,7 +235,7 @@ func TestBuildSeedPromptProviderNote(t *testing.T) {
 	const claudeFiles = "CLAUDE.md, MEMORY.md, the memory files and plans are Claude Code's, not Gemini's own instructions"
 
 	var m Model // srcMemories
-	if out := m.buildSeedPrompt(gemini, "/home/me/proj", "/home/me/proj", "", false); !strings.Contains(out, ownFile) {
+	if out := m.buildSeedPrompt(gemini, "/home/me/proj", "/home/me/proj", "/home/me/.claude/projects/-home-me-proj/memory", false); !strings.Contains(out, ownFile) {
 		t.Errorf("memories prompt for @Gemini lacks the provider note:\n%s", out)
 	}
 	files := toSource(t, "/files") // a CLAUDE.md is selected: the case the note must still cover

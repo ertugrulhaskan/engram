@@ -135,6 +135,12 @@ type Model struct {
 	promoteState  team.RemoteState
 	promoteCursor int // 0 = this project, 1 = global
 
+	// disconnecting is set from the confirm until the background disconnect
+	// reports back, so a second >disconnect can't race the first.
+	disconnecting bool
+	// storeURL is the connected team store's remote, "" when none: refreshed with
+	// the sync states, so the palette can show it without running git per keystroke.
+	storeURL string
 	// withdraw confirm (modeWithdrawConfirm)
 	withdrawPath  string           // memory being withdrawn
 	withdrawTitle string           // its title, for the modal header
@@ -207,6 +213,7 @@ func New(mems []memory.Memory, plans []plan.Plan, docs []memory.DocFile, cfg con
 	}
 	m.styleInputs()
 	m.syncStates, _ = team.SyncStates(mems) // best-effort; empty when no team store
+	m.storeURL = team.Remote()              // "" when no team store
 	m.rebuildRows()
 	return m
 }

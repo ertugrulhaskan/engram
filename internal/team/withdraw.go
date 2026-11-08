@@ -21,6 +21,8 @@ import (
 //
 // pushed reports whether the removal reached the remote.
 func Withdraw(memPath string) (pushed bool, err error) {
+	storeMu.Lock()
+	defer storeMu.Unlock()
 	dir, err := Dir()
 	if err != nil {
 		return false, err
@@ -104,12 +106,13 @@ func Withdraw(memPath string) (pushed bool, err error) {
 			return fail("staging tombstone: %v", err)
 		}
 	}
-	committed := false
+	committed, ours := false, ""
 	if _, err := runGitCapture(dir, "diff", "--cached", "--quiet"); err != nil {
 		if _, err := runGitCapture(dir, "commit", "-m", "Withdraw "+filepath.Base(memPath)); err != nil {
 			return fail("committing withdrawal: %v", err)
 		}
 		committed = true
+		ours, _ = commitIdentity(dir) // "": rollbackCommit reports instead of guessing
 	}
 
 	// Always push, even with nothing new staged: a retry after a failed push has
@@ -124,7 +127,7 @@ func Withdraw(memPath string) (pushed bool, err error) {
 		// pull demote the owner's copy to personal before the removal reached
 		// the remote — and the retry would then refuse ("isn't shared"). The
 		// local copy is still team-scoped, so running withdraw again redoes it.
-		if rerr := rollbackCommit(dir, committed); rerr != nil {
+		if rerr := rollbackCommit(dir, committed, ours); rerr != nil {
 			if err == nil {
 				return false, rerr
 			}

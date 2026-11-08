@@ -683,3 +683,167 @@ func TestGitSubcommand(t *testing.T) {
 		}
 	}
 }
+
+// A store file whose name holds glob characters (a teammate can commit any name)
+// must be staged and restored as that one path. git reads `*` in a pathspec as
+// a wildcard even after "--", so a withdraw of `*.md` swept a neighbour's change
+// into the commit it pushed, and restorePaths reverted the neighbour.
+func TestWithdrawTreatsGlobCharactersLiterally(t *testing.T) {
+	root, bare, writeMem := batchStore(t)
+	plain := writeMem("plain.md", "plain")
+	// writeMem would write `name: *`, a YAML alias marker, so quote it here.
+	star := filepath.Join(filepath.Dir(plain), "*.md")
+	if err := os.WriteFile(star, []byte("---\nname: \"star\"\nmetadata:\n  type: project\n---\nstar\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(star, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(plain, "github.com/acme/app"); err != nil {
+		t.Fatal(err)
+	}
+	store, _ := Dir()
+	neighbour := filepath.Join(store, "projects", "github.com", "acme", "app", "plain.md")
+	if _, err := os.Stat(neighbour); err != nil {
+		t.Fatalf("store layout changed, fix the test: %v", err)
+	}
+	if err := os.WriteFile(neighbour, []byte("uncommitted edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Withdraw(star); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(must(os.ReadFile(neighbour))); got != "uncommitted edit\n" {
+		t.Errorf("the neighbour's working copy changed: %q", got)
+	}
+	dst := filepath.Join(root, "check")
+	gitT(t, "", "clone", "-q", "file://"+bare, dst)
+	pushed := string(must(os.ReadFile(filepath.Join(dst, "projects", "github.com", "acme", "app", "plain.md"))))
+	if strings.Contains(pushed, "uncommitted edit") {
+		t.Error("withdrawing *.md pushed the neighbour's uncommitted edit to the team")
+	}
+}
+
+func TestRestorePathsTreatsGlobCharactersLiterally(t *testing.T) {
+	_, _, _ = batchStore(t)
+	store, _ := Dir()
+	dir := filepath.Join(store, "g")
+	mustMkdir(t, dir)
+	for name, body := range map[string]string{"*.md": "star\n", "a.md": "a\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gitT(t, store, "add", "-A")
+	gitT(t, store, "commit", "-q", "-m", "fixture")
+	// A staged edit to the neighbour, then a failed operation that removed *.md.
+	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("staged edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, store, "add", "--", "g/a.md")
+	if err := os.Remove(filepath.Join(dir, "*.md")); err != nil {
+		t.Fatal(err)
+	}
+	restorePaths(store, []string{filepath.Join("g", "*.md")})
+	if got := string(must(os.ReadFile(filepath.Join(dir, "*.md")))); got != "star\n" {
+		t.Errorf("*.md was not restored: %q", got)
+	}
+	if got := string(must(os.ReadFile(filepath.Join(dir, "a.md")))); got != "staged edit\n" {
+		t.Errorf("restoring *.md reverted the neighbour a.md: %q", got)
+	}
+	if out, _ := runGitCapture(store, "diff", "--cached", "--name-only"); out != "g/a.md" {
+		t.Errorf("restoring *.md unstaged the neighbour; staged now: %q", out)
+	}
+}
+
+// When the rebase in pushStore drops our commit as empty (a teammate pushed the
+// same change) and the retried push is refused, HEAD is no longer our commit.
+// rollbackCommit's `reset --keep HEAD~1` then rewound whatever sat there: here
+// an earlier commit an offline push left for later, so that promote's commit
+// vanished while its local file still claimed to be shared.
+func TestRollbackAfterARebaseDroppedOurCommit(t *testing.T) {
+	root, bare, _ := batchStore(t)
+	store, _ := Dir()
+	mate := mateClone(t, root, bare)
+
+	writeStore(t, store, "earlier.md", "left by an offline push\n")
+	gitT(t, store, "add", "--", "earlier.md")
+	gitT(t, store, "commit", "-q", "-m", "earlier, not pushed yet")
+
+	writeStore(t, store, "same.md", "same change\n")
+	gitT(t, store, "add", "--", "same.md")
+	gitT(t, store, "commit", "-q", "-m", "ours")
+	ours, err := commitIdentity(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matePush(t, mate, "same.md", "same change\n")
+	if err := os.WriteFile(filepath.Join(bare, "hooks", "pre-receive"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pushStore(store); err == nil {
+		t.Fatal("want the hook to refuse the push")
+	}
+	if err := rollbackCommit(store, true, ours); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runGitCapture(store, "cat-file", "-e", "HEAD:earlier.md"); err != nil {
+		t.Error("the rollback rewound the earlier unpushed commit instead of ours")
+	}
+}
+
+// The other side of the rule above: a rebase that KEEPS our commit rewrites its
+// hash, and a refused retry must still undo it. This pins the assumption the
+// identity match rests on, that a rebase keeps author, author date and message.
+func TestRollbackAfterARebaseKeptOurCommit(t *testing.T) {
+	root, bare, _ := batchStore(t)
+	store, _ := Dir()
+	mate := mateClone(t, root, bare)
+
+	writeStore(t, store, "mine.md", "ours\n")
+	gitT(t, store, "add", "--", "mine.md")
+	gitT(t, store, "commit", "-q", "-m", "ours")
+	ours, err := commitIdentity(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := headSHA(t, store)
+
+	matePush(t, mate, "theirs.md", "a different change\n")
+	if err := os.WriteFile(filepath.Join(bare, "hooks", "pre-receive"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pushStore(store); err == nil {
+		t.Fatal("want the hook to refuse the push")
+	}
+	if headSHA(t, store) == before {
+		t.Fatal("the push path did not rebase; the test no longer covers a rewritten hash")
+	}
+	if err := rollbackCommit(store, true, ours); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runGitCapture(store, "cat-file", "-e", "HEAD:mine.md"); err == nil {
+		t.Error("the rebased commit was not undone")
+	}
+	if _, err := runGitCapture(store, "cat-file", "-e", "HEAD:theirs.md"); err != nil {
+		t.Error("the undo went past our commit into the teammate's")
+	}
+}
+
+// With no identity to match, rollbackCommit must not guess: it resets nothing
+// and reports the commit for the user to undo.
+func TestRollbackWithoutAnIdentityResetsNothing(t *testing.T) {
+	_, _, _ = batchStore(t)
+	store, _ := Dir()
+	writeStore(t, store, "mine.md", "ours\n")
+	gitT(t, store, "add", "--", "mine.md")
+	gitT(t, store, "commit", "-q", "-m", "ours")
+	before := headSHA(t, store)
+	if err := rollbackCommit(store, true, ""); err == nil {
+		t.Error("want an error naming the commit to undo by hand")
+	}
+	if headSHA(t, store) != before {
+		t.Error("rollbackCommit reset HEAD without knowing it was our commit")
+	}
+}

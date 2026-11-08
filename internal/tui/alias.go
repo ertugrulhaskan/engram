@@ -61,7 +61,7 @@ func (m Model) actionAlias(name string) (tea.Model, tea.Cmd) {
 	if name == "-" {
 		return m.clearAlias(it.MemDir)
 	}
-	if cmd := m.gitMissing(); cmd != nil {
+	if cmd := m.teamBlocked(); cmd != nil {
 		return m, cmd // without git, "no remote" can't be told from "no git"
 	}
 	// The home folder is refused below as team.RemoteHome, not by a check of

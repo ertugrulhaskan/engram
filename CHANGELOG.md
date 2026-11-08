@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-08
+
 ### Added
 - **CI rehearses the release on every push and pull request.** A new `snapshot` job in
   `ci.yml` runs `goreleaser check` (a deprecated property now fails the build, since the
@@ -24,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The GoReleaser version is now pinned once, in `.github/goreleaser-version`, and read by
   both workflows, so the rehearsal always runs the version that will publish. The job
   needs no secret.
+- **`>disconnect` disconnects the team store, so you can switch teams.** After a
+  confirm that names the store and counts your shared memories, it keeps each of them on
+  your machine as a personal memory (body and id unchanged, so promoting it again
+  re-shares it) and removes engram's local copy of the store. Nothing is deleted from
+  your memories or from the remote. It refuses while that copy holds changes the remote
+  hasn't received, and names the folder to push them from, and while a promote, withdraw
+  or pull is still running. To re-point to another store, run
+  `>disconnect`, then `>init <new-url>`. The palette's `init` row now names the store
+  you're connected to.
 
 ### Changed
 - **The roadmap is reshaped around what can actually be built.** Phase 4 is complete:
@@ -43,6 +54,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   open and closed. Newer Safari also stops getting the `@property` fallback block it no
   longer needs. `package.json` now asks for `^4.3.4` for both Tailwind packages instead of
   leaving `tailwindcss` at `^4.3.3`.
+
+### Fixed
+- **The palette placeholder is no longer cut off on narrow terminals.** Below 43 columns
+  every dialog sits at its 30-cell minimum width, which left the palette input one cell
+  short of `type to jump or run…`, so it read `type to jump or ru…`. The input now shows
+  the shorter `jump or run…` wherever the full text would be cut, chosen by measuring both
+  strings against the input's real width rather than at a fixed column. The width sweep
+  test now requires a whole placeholder at every terminal width from 20 to 140 columns.
+- **The `@` assistant handoff only promises what the session can reach.** Opened from
+  `/files` or anywhere else, the seed prompt now offers memory work only when there is a
+  memory directory and plans only when `~/.claude/plans` is inside the session, instead of
+  always offering both. A rule file that is a symlink pointing out of the project is no
+  longer promised as editable, because the check now resolves symlinks rather than
+  comparing path strings, and the prompt and the command line read the folders the
+  session may write from one place. A `/files` launch no longer carries the
+  relocate-memories note, which pulled the assistant away from the file it was opened
+  for. A project deleted after engram found it now gets a status line ("no longer
+  exists") instead of a session opened on files that are gone. In `/files`, a row an
+  assistant can't write either, such as `~/.gemini/GEMINI.md`, now says so instead of
+  suggesting `@` will edit it. Both read-only hints use a colon now, not a dash.
+- **Undoing a refused promote or withdraw no longer rewinds the wrong commit.** When a
+  push is rejected, engram rebases onto the remote and retries; if the retry is refused it
+  undoes its own commit. If the rebase had dropped that commit because a teammate already
+  pushed the same change, the undo rewound whatever commit sat on top instead, such as an
+  earlier promote an offline push had left for later, so that promote's commit vanished
+  while its memory still read as shared. The undo now checks that HEAD is still its own
+  commit (by author, date and message, which a rebase keeps) and otherwise leaves the
+  clone alone; if it can't tell, it says so and leaves the reset to you.
+
+### Security
+- **A team-store file name with `*`, `?` or `[` is now one path, not a wildcard.** git
+  reads those characters in a pathspec as a pattern even after `--`, so a teammate who
+  committed a file named like `*.md` could make engram's own git calls reach its
+  neighbours: withdrawing that file staged any uncommitted edit to a neighbouring store
+  file into the commit it pushed to the team, and the cleanup after a failed promote or
+  withdraw could unstage or revert a neighbour. The git calls that stage, restore or look
+  up store files now run with `GIT_LITERAL_PATHSPECS=1`. Nothing could reach outside the
+  store.
 
 ## [0.6.1] - 2026-11-07
 
@@ -1534,7 +1583,8 @@ memory maintenance — `@Claude` and a read-only `/files` source (Phase 1.5).
 ### Known gaps
 - Team sharing over git (promote / pull, sync-status badges) is the next phase.
 
-[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/ertugrulhaskan/engram/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/ertugrulhaskan/engram/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ertugrulhaskan/engram/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ertugrulhaskan/engram/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/ertugrulhaskan/engram/compare/v0.5.1...v0.5.2

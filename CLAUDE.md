@@ -92,10 +92,8 @@ This list exists because docs drift silently otherwise.
 
 ## Release / publishing
 
-Phase 3 (going public) is **done**: the repo is public, tagged releases ship binaries and the
-Homebrew tap, and the site is **live at engram.im on Cloudflare Pages** (SSL).
-**For any future release, don't run the publish steps unprompted** — pushing a `v*` tag
-fires the GoReleaser workflow and cuts a public release (push the *specific* tag, never
-`git push --tags`), so do it only when the maintainer explicitly asks. Mechanics: SPEC §9
-and the "Releasing" section of
-CONTRIBUTING.md.
+The repo is public: a tagged release ships binaries and the Homebrew tap, and the site is
+served at engram.im from Cloudflare Pages. **Don't run the publish steps unprompted.**
+Pushing a `v*` tag fires the GoReleaser workflow and cuts a public release, so do it only
+when the maintainer explicitly asks, and push the *specific* tag, never `git push --tags`.
+Mechanics: SPEC §9 and the "Releasing" section of CONTRIBUTING.md.

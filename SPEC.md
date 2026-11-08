@@ -188,9 +188,30 @@ a managed local clone and shells out to git for all sync.
   the team repo to `~/.config/engram/team/` (alongside the existing config), and
   if the repo is empty, scaffolds `global/`, `projects/`, and `MEMORY.md`.
 - **Day-to-day, the team verbs live under the `>` command palette** (`ctrl+p` → `>`:
-  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>alias <name>`), a third prefix beside
+  `>promote`, `>pull`, `>withdraw`, `>resolve`, `>init <git-url>`, `>disconnect`, `>alias <name>`), a third prefix beside
   `/` sources and `@` assistants, so engram stays a no-arg TUI for normal use. `>init` mirrors
   the `engram init-team` subcommand, which remains for first-run/CLI setup.
+- **`>disconnect` is init's inverse** (`team.Disconnect`, ENGR-20). After a confirm that
+  names the store and counts the shared memories, it marks every team-scoped local memory
+  personal (body and `engram.id` kept, so promoting again re-shares it under the same id)
+  and removes the clone. Nothing is deleted from the memories or from the remote: that
+  was decided over removing them or asking each time, because disconnecting is not a
+  request to delete files. It refuses while the clone holds uncommitted changes or
+  commits not on any remote branch (counted against `--remotes`, not `@{u}`, so a clone
+  whose first push failed is still judged), naming the folder to push from. It also
+  refuses while a promote, withdraw or pull is running: those take a store lock
+  (`storeMu`) in turn, and Disconnect only tries it. (Resolve's finish runs on the event
+  loop, where waiting would freeze the screen, and its editor holds the terminal, so it
+  takes no lock.) The TUI hands it every loaded memory,
+  not just the ones it last saw as team, and it reads each again under the lock, so a
+  memory a promote stamped after the confirm opened is kept as personal too. A file
+  deleted since is skipped, and so is one whose frontmatter fails to parse with no
+  `engram:` line in it; one that fails to parse but has that line may be shared, so it
+  stops the disconnect. It checks every memory before writing any. The clone is renamed aside in one step and then
+  deleted, so a delete that fails part way can't leave a half-clone that blocks `>init`.
+  Re-pointing is `>disconnect`, then `>init <new-url>`. The palette's `init` row names
+  the connected store (`team.Remote`, cached with the sync states), with any user-info
+  stripped from the URL, since an https remote can carry a token.
 - **No servers and no engram-level auth.** Access is whatever the git host grants
   on the repo; push/pull use the user's existing git credentials (SSH / credential
   helper). engram surfaces a clear error when credentials or the remote are missing.
@@ -530,7 +551,11 @@ filename. The id is assigned once, on the first promote.
   retrying can't help — and, like a diverged rebase, it **rolls back** that promote's or
   withdraw's own commit (`git reset --keep HEAD~1`) and restores the local file, so
   nothing claims to be shared, and no tombstone is left for a later pull to apply,
-  when the team never received the change. Withdraw also syncs first, so copies a teammate added since the
+  when the team never received the change. The reset runs only while HEAD is still that
+  commit, matched by author, author date and message because the rebase rewrites its
+  hash; a rebase that dropped it as already upstream leaves nothing of ours to undo.
+  The git calls that stage, restore or look up store files read pathspecs literally
+  (`GIT_LITERAL_PATHSPECS=1`), since a teammate can commit a file named `*.md`. Withdraw also syncs first, so copies a teammate added since the
   last pull are removed too. Pull rebases too (not `--ff-only`, with `--autostash` so a half-staged
   leftover can't block it), so a commit a failed push left behind can't wedge the store;
   the **plan never pushes** — the commit is flushed only by a confirmed pull. A rebase
@@ -685,12 +710,12 @@ engram/
     internal/
         memory/              # NO UI here
             memory.go        # types; Caps — what the TUI may offer on memories (everything)
-            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature; IsDir (the TUI asks instead of stat-ing)
+            discover.go      # the shared projects walk (eachProject/allProjects) + scanRoots; decode paths, fs signature; IsDir and RealPath (the TUI asks instead of stat-ing)
             parse.go         # frontmatter + index parsing, fallbacks
             index.go         # MEMORY.md index upsert / remove / reconcile (bullet = the first `](…)`; only a bare .md target, taken literally, is a memory bullet); atomic temp+rename write that keeps a symlinked index, refuses a read-only one, and writes a hard-linked one in place
             docs.go          # read-only instruction-file + MEMORY.md discovery/signature (the /files source); DocsCaps (zero: read-only)
             edit.go          # create (O_EXCL, never through a symlink) / delete / open-in-$EDITOR
-            frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; ContentDigest / ShareContent
+            frontmatter.go   # engram: block (EngramMeta incl. syncedHash) — lossless round-trip; EngramPresent / HasEngramLine (a block, or its line when the YAML fails); ContentDigest / ShareContent
         plan/                # discover plan-mode plans under ~/.claude/plans; Caps — view + delete only
         config/              # settings under the XDG config dir; Read tells absent from unparseable, Update is the one write path (never over a file that didn't parse) and keeps keys Config has no field for; Exists (for the TUI), Save is atomic (temp file + rename); Dir() base-path helper
         team/                # NO UI here — shared team store over git (Phase 2)
@@ -705,6 +730,8 @@ engram/
             status.go        # SyncStates + relationOf: read-only direction-aware sync state (synced/behind/ahead/conflict/unknown/missing)
             storetime.go     # StoreLastChange: a store memory's last git commit time (the "store advanced" stamp)
             withdraw.go      # Withdraw: owner-only removal of every same-id store copy + .engram-withdrawn tombstone; local reset only once pushed
+            disconnect.go    # Remote (the connected URL) + Disconnect: refuse pending work, team memories → personal, remove the clone
+            storelock.go     # storeMu: promote / withdraw / pull take it in turn; Disconnect refuses while it is held
             push.go          # pushStore (rejected push → rebase + retry once; ErrStoreDiverged) / syncStore (pull --rebase --autostash, never pushes) / flushStore (confirmed pull only); ledger three-way merge by id
             ledger.go        # .engram-withdrawn tombstone ledger: record / look up withdrawn ids
             resolve.go       # BeginConflictResolve (returns a ResolveSession: the merge file + the two sides) / FinishConflictResolve: git-style $EDITOR merge (>resolve)
@@ -726,7 +753,8 @@ engram/
             dialog.go        # shared dialog anatomy: icon+title header, wrapped body, Bg2 footer action band
             confirms.go      # pre-action confirms: pull accounting, resolve inline diff, reconcile naming files
             help.go          # ? help overlay: keybinding cheat-sheet + about footer
-            teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + git-missing guard
+            teamactions.go   # >promote / >pull / >withdraw / >resolve / >init dispatchers + teamBlocked gate (git on PATH, no disconnect in flight)
+            disconnect.go    # >disconnect: confirm modal (store URL, kept count) + background disconnect command
             alias.go         # >alias: actionAlias / clearAlias (persist projectAliases via config.Update, the one write path) + projectKey adapter over team.ResolveKey
             promote.go       # >promote: team scope picker modal + background promote command
             promotebatch.go  # >promote over a marked set: each memory's own project key, one commit
@@ -740,7 +768,7 @@ engram/
             paint.go         # full-surface background painting (paintLine/paintBlock) + the dialog scrim (dimFrame)
             editor.go        # open-in-$EDITOR command plumbing + open-settings-file
             assistant.go     # the @ registry: which assistants exist, how each is invoked, $PATH detection
-            seed.go          # assistant handoff: launch cwd + add-dir choice, seed prompt, orphan detection
+            seed.go          # assistant handoff: launch cwd, sessionDirs (the add-dir grant and the writable set), seed prompt, orphan detection
             status.go        # transient footer status: kinds, flash/auto-dismiss
             layout.go        # resize geometry, glamour renderer build, listRows
             navigation.go    # cursor move/page, selection, source switch, preview sync
@@ -796,13 +824,24 @@ instruction or index file, which the prompt names, because engram keeps those re
 and routes their edits here (§8.2); the provider note then names Claude Code's own files
 (`CLAUDE.md`, `MEMORY.md`, memories, plans), since calling every listed file Claude
 Code's would be false of the assistant's own `GEMINI.md` or `AGENTS.md`. Editing is
-promised only for a file inside the launch dir or memory dir. The global
+promised only for a file that really lies inside a folder the session is opened with:
+the launch dir, plus the memory dir when it sits outside it (`sessionDirs`, the same list
+`assistantCmd` grants, so the prompt and the command line can't disagree), compared with
+symlinks resolved (`memory.RealPath`, which follows a dangling link to its target), so a
+rule file that links out of the project is not promised. The global
 `~/.gemini/GEMINI.md` and `~/.codex/AGENTS.md` sit outside both, and engram adds no
 directory to reach them, since theirs hold each CLI's own config, approval and sandbox
 settings included. For them the prompt says the CLI may ask or refuse, and to hand that
 back to the user. That rule covers what engram adds, not the launch dir: a global or plan
 launch opens in `~/.claude`, Claude Code's own config dir, and a project rooted at
-`$HOME` contains all three. The cwd is the selected memory's **project dir** when it
+`$HOME` contains all three. Narrowing that launch dir was considered and declined
+(ENGR-44, 2026-11-08): the global `CLAUDE.md` and the plans folder both live in
+`~/.claude`, so anything narrower can't reach the file the session was opened for. The
+prompt's closing line offers only what the session reaches: editing the selected file,
+memory work when there is a memory dir, and plans when `~/.claude/plans` is inside the
+session; the scope line is built from the same reach. The memory dir's grant is decided
+on real paths too, so a memory dir that only looks nested under the launch dir is still
+granted. The cwd is the selected memory's **project dir** when it
 resolves and exists (so the assistant reads the right instruction file and, for Claude,
 recalls the right memories); the memory dir lives under `~/.claude`, outside the
 project, so it's passed as the add-dir for edit access. When the project
@@ -812,7 +851,9 @@ the **`~/.claude/projects`** root instead: inside `.claude`, narrow relative to 
 broad enough that relocating memories across project keys needs no extra trust prompt
 (the add-dir is then redundant and omitted). Because that fallback can be a false positive,
 the seed prompt's wording is non-committal — it asks the assistant to relocate files only if
-they are genuinely misfiled. Every assistant CLI is an **optional** runtime dependency:
+they are genuinely misfiled. A `/files` launch leaves that note out, since it was opened for
+one file. A scan-root project deleted after discovery (no folder and no memory dir) is
+refused with a status line rather than launched (`handoffRefusal`). Every assistant CLI is an **optional** runtime dependency:
 absent, the provider is left out of the palette list, and selecting it from the
 none-installed fallback shows a hint naming where to get it. On exit engram reloads (and
 resets the drift cache), and the status line names the assistant that ran — the label
@@ -940,7 +981,10 @@ capability decision goes through one gate, `caps()`: `e`/`n`/`d` check `Edit`/`C
 `Delete`, the four team dispatchers and the batch marks check `Share`, and the controls
 row is *derived* from the same struct, so the bar can only advertise a key the handler
 will honour. A denied `e`/`n`/`d` answers with the source's `readOnlyHint` when it has
-one (files name their escape hatch) and is otherwise silent — the key is absent from the
+one (files name their escape hatch; a files row an assistant session couldn't write
+either, such as `~/.gemini/GEMINI.md`, gets `readOnlyOutsideHint` instead, from the same
+facts the seed prompt and the launch use; a row whose project folder is gone gets the
+launch's own refusal) and is otherwise silent — the key is absent from the
 controls row too, so there is nothing to explain.
 
 The gate decides *whether*; the executors decide *what runs*, and they fail closed too —

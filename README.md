@@ -11,7 +11,7 @@ The name comes from neuroscience: an *engram* is the physical trace a memory
 leaves in the brain. That's exactly what these files are — the traces Claude
 keeps so it can remember things across sessions.
 
-**Latest release: `v0.6.1`** · open source ([MIT](LICENSE)) · website:
+**Latest release: `v0.7.0`** · open source ([MIT](LICENSE)) · website:
 [engram.im](https://engram.im) · what's next: [ROADMAP.md](ROADMAP.md) ·
 design: [SPEC.md](SPEC.md)
 
@@ -146,7 +146,7 @@ them anymore:
   four rather than nothing, and picking one tells you where to get it. Pressing
   `@` on its own opens this list rather than picking for you.
 - **`>` — team commands.** `>init`, `>promote`, `>pull`, `>resolve`,
-  `>withdraw`, `>alias` — covered in [Team sharing](#team-sharing) below.
+  `>withdraw`, `>alias`, `>disconnect` — covered in [Team sharing](#team-sharing) below.
 
 ### `/files` — read-only view of your instruction files
 
@@ -269,6 +269,13 @@ scaffolds `global/`, `projects/`, and `MEMORY.md`, then commits and pushes the
 starter layout (a failed push is non-fatal — the local commit is kept, with a
 retry hint).
 
+The palette's `>init` row shows which store is connected. To switch teams, run
+`>disconnect`, then `>init <new-url>`. Disconnecting asks first, then keeps every
+shared memory on your machine as a personal one (nothing is deleted, here or on the
+remote) and removes engram's local copy of the store. It refuses while that copy holds
+changes the remote hasn't received, and names the folder to push them from, and while
+another team action is still running.
+
 ### The commands
 
 `>promote`, `>resolve`, and `>withdraw` act on the selected memory; `>pull`
@@ -370,7 +377,7 @@ Files are never modified except when you explicitly edit one. See
 - **Phase 2** — team sharing over git: `init-team`, promote / pull / withdraw / resolve, sync badges + secret-scan *(shipped — `v0.2.0`)*
 - **Phase 3** — release / go public: binaries + Homebrew tap, [engram.im](https://engram.im) *(shipped — live)*
 - **Phase 4** — other assistants: `AGENTS.md`, `GEMINI.md`, Copilot's instructions and Cursor rules are all browsable — per project and, where a vendor has one, globally *(shipped — `v0.4.0`)*
-- **Next release** — finishing pass: disconnect / re-point a team store, `@` handoff fixes from `/files`, team-store git hardening, a narrow-terminal palette fix *(next)*
+- **Finishing pass** — disconnect / re-point a team store, `@` handoff fixes from `/files`, team-store git hardening, a narrow-terminal palette fix *(shipped — `v0.7.0`)*
 - **Phase 5** — a Claude Code plugin and an engram MCP server *(planned)*
 - **Phase 6** — team stores at scale: multiple stores, monorepo sub-keys *(planned)*
 

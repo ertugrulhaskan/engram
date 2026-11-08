@@ -251,14 +251,40 @@ func rebaseInProgress(dir string) bool {
 // with --keep so any other uncommitted work in the clone is left alone. Used
 // when a push is refused or diverged — outcomes a retry can't fix — so the
 // clone doesn't keep a commit whose effect never reached the team.
-func rollbackCommit(dir string, committed bool) error {
+//
+// ours is commitIdentity read right after that commit. pushStore's rebase
+// rewrites the commit's hash but keeps its author, author date and message, so
+// the identity still finds it there. When the rebase dropped it as empty (a
+// teammate pushed the same change), HEAD is a different commit, such as an
+// earlier one an offline push left for later, and resetting would rewind that
+// one instead; so nothing is reset. An empty ours (the identity couldn't be
+// read after the commit) can't tell the two apart, so it resets nothing and
+// reports the commit for the user to undo, rather than guess.
+func rollbackCommit(dir string, committed bool, ours string) error {
 	if !committed {
 		return nil
 	}
+	failed := fmt.Errorf("undoing the local commit failed — reset it with git in %s", dir)
+	if ours == "" {
+		return failed
+	}
+	head, err := commitIdentity(dir)
+	if err != nil {
+		return failed
+	}
+	if head != ours {
+		return nil // the rebase dropped our commit; HEAD is not ours to undo
+	}
 	if _, err := runGitCapture(dir, "reset", "--keep", "HEAD~1"); err != nil {
-		return fmt.Errorf("undoing the local commit failed — reset it with git in %s", dir)
+		return failed
 	}
 	return nil
+}
+
+// commitIdentity is HEAD's author, author date and message: what a rebase keeps
+// when it rewrites a commit's hash (rollbackCommit).
+func commitIdentity(dir string) (string, error) {
+	return runGitCapture(dir, "log", "-1", "--date=raw", "--format=%an%x00%ae%x00%ad%x00%B", "HEAD")
 }
 
 // restorePaths puts the given store paths back to HEAD in both the index and the

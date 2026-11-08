@@ -15,16 +15,17 @@ import (
 type palAction int
 
 const (
-	palSwitch    palAction = iota // switch source (src)
-	palJump                       // switch source and select path
-	palSettings                   // open the settings dialog
-	palAssistant                  // launch an AI assistant session (@Claude …)
-	palPromote                    // > promote the selected memory
-	palPull                       // > pull team memories
-	palWithdraw                   // > withdraw the selected memory
-	palResolve                    // > resolve a conflict
-	palInit                       // > init the team store from a git URL (arg)
-	palAlias                      // > alias the selected memory's remote-less project (arg)
+	palSwitch     palAction = iota // switch source (src)
+	palJump                        // switch source and select path
+	palSettings                    // open the settings dialog
+	palAssistant                   // launch an AI assistant session (@Claude …)
+	palPromote                     // > promote the selected memory
+	palPull                        // > pull team memories
+	palWithdraw                    // > withdraw the selected memory
+	palResolve                     // > resolve a conflict
+	palInit                        // > init the team store from a git URL (arg)
+	palAlias                       // > alias the selected memory's remote-less project (arg)
+	palDisconnect                  // > disconnect the team store
 )
 
 // Palette sections, in display order. Rows are grouped section-contiguously and
@@ -128,6 +129,9 @@ func (m Model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case palAlias:
 			m.mode = modeNormal
 			return m.actionAlias(sel.arg)
+		case palDisconnect:
+			m.mode = modeNormal
+			return m.actionDisconnect()
 		}
 		return m, nil
 	}
@@ -180,6 +184,15 @@ type teamVerb struct {
 	argSub func(arg string) string // for a verb that takes an argument: the row's sub text once one is typed
 }
 
+// initSub is the init row's description: where to connect, or, once a store is
+// connected, which one (the one place the TUI names it).
+func (m Model) initSub() string {
+	if m.storeURL != "" {
+		return "connected to " + m.storeURL + "; >disconnect first to switch"
+	}
+	return "set up the team store: >init <git-url>"
+}
+
 func (m Model) teamVerbs() []teamVerb {
 	t := m.theme()
 	sig := func(it palItem) palItem { it.glyph, it.section = ">", palSecTeam; return it }
@@ -188,8 +201,9 @@ func (m Model) teamVerbs() []teamVerb {
 		{"pull", sig(palItem{glyphColor: t.TReference, label: "pull", sub: "bring team memories into their projects", action: palPull}), nil},
 		{"resolve", sig(palItem{glyphColor: t.TFeedback, label: "resolve", sub: "merge a conflicting memory in $EDITOR", action: palResolve}), nil},
 		{"withdraw", sig(palItem{glyphColor: t.TUser, label: "withdraw", sub: "take a promoted memory back", action: palWithdraw}), nil},
-		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: "set up the team store — >init <git-url>", action: palInit}),
+		{"init", sig(palItem{glyphColor: t.Accent, label: "init", sub: m.initSub(), action: palInit}),
 			func(arg string) string { return "set up the team store from " + arg }},
+		{"disconnect", sig(palItem{glyphColor: t.Warn, label: "disconnect", sub: "disconnect the team store; shared memories stay as personal", action: palDisconnect}), nil},
 		{"alias", sig(palItem{glyphColor: t.TReference, label: "alias", sub: "key a project that has no git remote — >alias <name>", action: palAlias}),
 			func(arg string) string {
 				if strings.TrimSpace(arg) == "-" {
@@ -429,9 +443,13 @@ func (m Model) paletteBox() string {
 	// Pad the header with the input's own background (Sel) so the field reads as
 	// a full-width box reaching the border; the right-side hint appears only when
 	// the input keeps room for its whole placeholder (palShowsHint, which resize
-	// also uses to size the input).
+	// also uses to size the input). The placeholder is picked here, from the box
+	// this header is drawn in, so nothing that resets the input can bring back
+	// a cut one.
+	in := m.palette
+	in.Placeholder = palPlaceholderFor(palInputWidth(cw))
 	left := fg(t.Accent).Background(lipgloss.Color(t.Sel)).Bold(true).Render("engram") +
-		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + m.palette.View()
+		fg(t.Dim).Background(lipgloss.Color(t.Sel)).Render(":  ") + in.View()
 	right := ""
 	if palShowsHint(cw) {
 		right = fg(t.Faint).Background(lipgloss.Color(t.Sel)).Render(palHint + " ")
@@ -470,6 +488,9 @@ func (m Model) paletteBox() string {
 const (
 	palHint        = "type anything — prefixes optional"
 	palPlaceholder = "type to jump or run…"
+	// palPlaceholderShort replaces palPlaceholder where the input is too narrow
+	// to show it whole (palPlaceholderFor).
+	palPlaceholderShort = "jump or run…"
 	// palInputChrome is what the header spends besides the input: the
 	// "engram:  " prefix (9), the cursor cell textinput.View adds (1), and 1
 	// cell of slack so the header can never overflow the frame.
@@ -502,6 +523,23 @@ func palInputWidth(cw int) int {
 		w = palHintedWidth(cw)
 	}
 	return max(w, 1)
+}
+
+// palPlaceholderFor is the placeholder for a palette input w cells wide: the
+// longest that textinput shows whole. Its placeholderView keeps the first
+// grapheme in the cursor cell and cuts the rest to w-1 cells with "…", so a
+// placeholder is whole exactly when it is at most w cells wide. Below the short
+// one it returns "": a deliberate trade of a cut placeholder for none, and
+// textinput.View draws a plain empty input with its cursor when Placeholder is
+// "". boxWidth's floor keeps the input at 19 cells today, so that case is a
+// guard, not a state anyone sees.
+func palPlaceholderFor(w int) string {
+	for _, p := range []string{palPlaceholder, palPlaceholderShort} {
+		if lipgloss.Width(p) <= w {
+			return p
+		}
+	}
+	return ""
 }
 
 // openPalette opens the command palette seeded with a query — "" for the plain

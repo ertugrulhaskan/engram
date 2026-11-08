@@ -7,8 +7,8 @@ later ones never land.
 > name chunks of work; shipped releases follow [SemVer](https://semver.org), starting
 > at `v0.1.0`. (Phase 1 and Phase 1.5 are released together as `v0.1.0`.)
 >
-> After Phase 4, the next release finishes the current feature set, then Phase 5 and
-> Phase 6 are the planned work. Items that can't be built today, or aren't worth
+> After Phase 4, a finishing pass (`v0.7.0`) closed out the current feature set; Phase 5
+> and Phase 6 are the planned work. Items that can't be built today, or aren't worth
 > building, are listed under [Not planned](#not-planned) with the reason.
 
 ---
@@ -191,21 +191,21 @@ way to read them, so that tier is under [Not planned](#not-planned).
 
 ---
 
-## Next release — finishing the current feature set
+## Finishing pass *(shipped in `v0.7.0`)*
 
 The last pass over what engram already does, before new phases start. Small UI changes
 are in scope where a fix needs them.
 
-- [ ] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
+- [x] Disconnect and re-point a team store — the missing inverse of `>init`, plus a
       visible "which store is connected". What happens to already-pulled team memories on
       disconnect is decided first, since that touches user files
-- [ ] Tighten the `@` handoff from `/files`: a deleted project, a capability line that
+- [x] Tighten the `@` handoff from `/files`: a deleted project, a capability line that
       offers work the session can't reach, one read-only hint for every row, and an
       editable check that compares path strings and is worked out in two places. Whether
       the launch directory itself should be narrower is decided, not assumed
-- [ ] Harden two team-store git calls: literal pathspecs for teammate file names, and
+- [x] Harden two team-store git calls: literal pathspecs for teammate file names, and
       the rollback after a rebase that drops our commit
-- [ ] Fix the palette placeholder being cut off on terminals narrower than 43 columns
+- [x] Fix the palette placeholder being cut off on terminals narrower than 43 columns
 
 **On hold:** the Charm v2 library upgrade (Bubble Tea, Bubbles, Lip Gloss, Glamour). Glamour
 v2 still drops the blockquote `│` bar when a quote wraps, the bug that took Glamour back to
