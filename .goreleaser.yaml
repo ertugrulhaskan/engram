@@ -119,7 +119,7 @@ homebrew_casks:
       post:
         install_steps: |
           on_macos do
-            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/engram"]
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantin", "{{ .StagedPath }}/engram"]
           end
 
 release:
